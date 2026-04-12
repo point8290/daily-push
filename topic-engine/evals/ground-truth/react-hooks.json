@@ -1,0 +1,28 @@
+{
+  "id": "react-hooks-v1",
+  "topic": "React Hooks",
+  "userInput": "I'm a beginner who just learned React basics. What are hooks and why do I need them?",
+  "expectedIntent": {
+    "level": "beginner",
+    "goal": "understand"
+  },
+  "mustIncludeNodes": [
+    "react-hooks",
+    "state",
+    "component"
+  ],
+  "mustIncludeEdgeTypes": ["hard_prerequisite"],
+  "graphAssertions": {
+    "minNodes": 4,
+    "maxNodes": 25,
+    "mustBeDAG": true,
+    "rootNodeId": "react-hooks",
+    "coreNodesMustHaveInboundEdges": false
+  },
+  "validators": {
+    "noCycles": true,
+    "noOrphans": true,
+    "noDepthInversions": true,
+    "timingsPlausible": true
+  }
+}

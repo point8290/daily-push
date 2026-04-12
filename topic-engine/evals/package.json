@@ -1,0 +1,16 @@
+{
+  "name": "evals",
+  "private": true,
+  "scripts": {
+    "run": "tsx runner.ts",
+    "run:fixture": "tsx runner.ts --fixture",
+    "run:openai": "tsx runner.ts --provider openai --model gpt-4o"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.1",
+    "@types/node": "^22.0.0"
+  }
+}

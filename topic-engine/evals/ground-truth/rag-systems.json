@@ -1,0 +1,30 @@
+{
+  "id": "rag-systems-v1",
+  "topic": "RAG (Retrieval-Augmented Generation)",
+  "userInput": "I'm an advanced engineer who understands LLMs. I want to build production-grade RAG systems and understand all the failure modes.",
+  "expectedIntent": {
+    "level": "advanced",
+    "goal": "deep_dive"
+  },
+  "mustIncludeNodes": [
+    "embeddings",
+    "vector",
+    "chunking",
+    "retrieval",
+    "rag"
+  ],
+  "mustIncludeEdgeTypes": ["hard_prerequisite", "soft_prerequisite", "leads_to"],
+  "graphAssertions": {
+    "minNodes": 6,
+    "maxNodes": 30,
+    "mustBeDAG": true,
+    "rootNodeId": "rag",
+    "coreNodesMustHaveInboundEdges": false
+  },
+  "validators": {
+    "noCycles": true,
+    "noOrphans": true,
+    "noDepthInversions": true,
+    "timingsPlausible": true
+  }
+}

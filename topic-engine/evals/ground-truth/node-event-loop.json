@@ -1,0 +1,29 @@
+{
+  "id": "node-event-loop-v1",
+  "topic": "Node.js Event Loop",
+  "userInput": "I use Node.js daily but I can never explain the event loop clearly. I want to understand the internals.",
+  "expectedIntent": {
+    "level": "intermediate",
+    "goal": "deep_dive"
+  },
+  "mustIncludeNodes": [
+    "event-loop",
+    "call-stack",
+    "microtask",
+    "libuv"
+  ],
+  "mustIncludeEdgeTypes": ["hard_prerequisite", "leads_to"],
+  "graphAssertions": {
+    "minNodes": 5,
+    "maxNodes": 30,
+    "mustBeDAG": true,
+    "rootNodeId": "event-loop",
+    "coreNodesMustHaveInboundEdges": false
+  },
+  "validators": {
+    "noCycles": true,
+    "noOrphans": true,
+    "noDepthInversions": true,
+    "timingsPlausible": true
+  }
+}

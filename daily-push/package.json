@@ -1,0 +1,15 @@
+{
+  "name": "daily-push",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/backend",
+    "packages/frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=packages/backend",
+    "dev:frontend": "npm run dev --workspace=packages/frontend",
+    "migrate": "npm run migrate --workspace=packages/backend",
+    "build": "npm run build --workspace=packages/backend && npm run build --workspace=packages/frontend"
+  }
+}
