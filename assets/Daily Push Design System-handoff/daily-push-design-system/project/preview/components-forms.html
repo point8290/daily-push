@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html, body { margin:0; padding:0; background:var(--bg-app); font-family: var(--font-body); }
+  .wrap { padding: 20px; display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
+  .card { background: #fff; border: 1px solid var(--border-base); border-radius: var(--radius-xl); padding: 16px; box-shadow: var(--shadow-xs); }
+  .label { font-size: 12px; font-weight:600; color: var(--fg-2); margin-bottom:6px; }
+  input, textarea, select { width:100%; box-sizing:border-box; font-family: inherit; font-size: 14px; border: 1px solid var(--border-base); border-radius: var(--radius-md); padding: 9px 12px; color: var(--fg-1); background: #fff; outline: none; transition: all var(--dur-base); }
+  input:focus { border-color: var(--sky-400); box-shadow: var(--shadow-focus); }
+  input::placeholder { color: var(--fg-3); }
+  .group { display:flex; gap: 6px; }
+  .chip { flex:1; padding: 9px; border: 1px solid var(--border-base); border-radius: var(--radius-md); text-align:center; font-size: 14px; font-weight:600; color: var(--fg-2); background: #fff; cursor:pointer; }
+  .chip.active { background: var(--sky-600); color:#fff; border-color: var(--sky-600); }
+  .toggle { width:44px; height:24px; border-radius:999px; background: var(--sky-500); position:relative; }
+  .toggle::after { content:''; position:absolute; top:2px; left:22px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow: var(--shadow-sm); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="label">Email</div>
+    <input placeholder="you@example.com" value="amit@dailypush.app">
+  </div>
+  <div class="card">
+    <div class="label">Days per week</div>
+    <div class="group">
+      <div class="chip">3</div><div class="chip">4</div><div class="chip active">5</div><div class="chip">6</div><div class="chip">7</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="label">Weekly summary email</div>
+    <div style="display:flex; align-items:center; gap:10px;"><div class="toggle"></div><span style="font-size:14px; color:var(--fg-1)">Enabled</span></div>
+  </div>
+  <div class="card">
+    <div class="label">Goal</div>
+    <textarea rows="2" placeholder="Tell us what you're working toward..." style="resize:none">Become an AI/LLM engineer at a product company.</textarea>
+  </div>
+</div>
+</body>
+</html>

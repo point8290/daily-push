@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html, body { margin:0; padding:0; background:#fff; font-family: var(--font-body); }
+  .wrap { padding: 20px; display:flex; align-items:center; gap: 18px; flex-wrap:wrap; }
+  .node { width: 180px; border-radius: 12px; padding: 10px 12px; border: 2px solid; font-size: 12px; }
+  .node .title { font-weight: 700; font-size: 13px; line-height: 1.25; }
+  .node .meta { font-size: 10px; opacity: .7; margin-top: 5px; display:flex; gap:6px; }
+  .locked { background: var(--slate-50); border-color: var(--slate-300); color: var(--slate-400); }
+  .avail  { background: var(--sky-50); border-color: var(--sky-400); color: var(--sky-800); }
+  .done   { background: var(--emerald-100); border-color: var(--emerald-400); color: var(--emerald-700); }
+  .review { background: var(--orange-50); border-color: var(--orange-400); color: var(--orange-700); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="node done">
+    <div class="title">Token embeddings</div>
+    <div class="meta">Foundational · 20m · ✓</div>
+  </div>
+  <div class="node avail">
+    <div class="title">Attention mechanism</div>
+    <div class="meta">Intermediate · 30m · Next up</div>
+  </div>
+  <div class="node review">
+    <div class="title">Transformer architecture</div>
+    <div class="meta">Review due</div>
+  </div>
+  <div class="node locked">
+    <div class="title">Fine-tuning with LoRA</div>
+    <div class="meta">Advanced · Locked</div>
+  </div>
+</div>
+</body>
+</html>

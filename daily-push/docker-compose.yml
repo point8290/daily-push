@@ -1,23 +1,40 @@
 version: '3.8'
 
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: daily-push-mysql
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: daily-push-postgres
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: daily_push
-      MYSQL_USER: daily_push_user
-      MYSQL_PASSWORD: daily_push_pass
+      POSTGRES_DB: daily_push_v2
+      POSTGRES_USER: daily_push_user
+      POSTGRES_PASSWORD: daily_push_pass
     ports:
-      - '3306:3306'
+      - '5434:5432'
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      test: ['CMD-SHELL', 'pg_isready -U daily_push_user -d daily_push_v2']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:7
+    container_name: daily-push-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: daily_push_v2
+    ports:
+      - '27018:27017'
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 5s
       timeout: 5s
       retries: 10
 
 volumes:
-  mysql_data:
+  postgres_data:
+  mongo_data:

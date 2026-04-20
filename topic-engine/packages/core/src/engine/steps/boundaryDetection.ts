@@ -9,7 +9,7 @@ const BoundaryPatchSchema = z.array(
   z.object({
     id: z.string(),
     boundaryType: BoundaryTypeSchema,
-    reason: z.string().max(120),
+    reason: z.string().max(300),
   })
 );
 

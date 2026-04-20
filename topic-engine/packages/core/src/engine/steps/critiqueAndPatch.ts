@@ -25,7 +25,7 @@ const CritiqueIssueSchema = z.object({
   ]),
   description: z.string().max(200),
   affectedIds: z.array(z.string()),
-  suggestedFix: z.string().max(150),
+  suggestedFix: z.string().max(400),
 });
 
 const CritiqueSchema = z.object({

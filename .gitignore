@@ -2,3 +2,7 @@
 node_modules
 *.txt
 .claude
+.env.dev
+.env.prod
+.env.qa
+.md

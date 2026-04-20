@@ -1,10 +1,16 @@
 {
   "name": "topic-engine",
   "private": true,
-  "workspaces": ["packages/*", "evals"],
+  "workspaces": [
+    "packages/*",
+    "evals"
+  ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "eval": "ts-node -P evals/tsconfig.json evals/runner.ts"
+  },
+  "devDependencies": {
+    "tsconfig-paths": "^4.2.0"
   }
 }

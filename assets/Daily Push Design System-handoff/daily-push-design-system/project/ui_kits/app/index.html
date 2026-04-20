@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Daily Push — UI Kit</title>
+<link rel="stylesheet" href="../../colors_and_type.css">
+<style>
+  html, body { margin: 0; padding: 0; min-height: 100vh; background: var(--bg-app); }
+  #root { min-height: 100vh; display: flex; flex-direction: column; }
+  .screen-switcher { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: #fff; border: 1px solid var(--border-base); border-radius: 999px; padding: 4px; box-shadow: var(--shadow-lg); display: flex; gap: 2px; z-index: 100; }
+  .screen-switcher button { border: none; background: transparent; padding: 6px 14px; border-radius: 999px; font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--fg-2); cursor: pointer; transition: all 120ms; }
+  .screen-switcher button.active { background: var(--slate-900); color: #fff; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="TopNav.jsx"></script>
+<script type="text/babel" src="Login.jsx"></script>
+<script type="text/babel" src="TodayDashboard.jsx"></script>
+<script type="text/babel" src="SessionTimer.jsx"></script>
+<script type="text/babel" src="GoalSetup.jsx"></script>
+<script type="text/babel" src="HistoryView.jsx"></script>
+<script type="text/babel" src="MapPreview.jsx"></script>
+
+<script type="text/babel" data-presets="react">
+function App() {
+  const [screen, setScreen] = React.useState('today');
+  const [signedIn, setSignedIn] = React.useState(true);
+  const [timebox, setTimebox] = React.useState(30);
+
+  if (!signedIn || screen === 'login') {
+    return (
+      <>
+        <Login onSignIn={() => { setSignedIn(true); setScreen('today'); }} />
+        <Switcher screen={screen} setScreen={setScreen} />
+      </>
+    );
+  }
+
+  const content = (() => {
+    switch (screen) {
+      case 'today':    return <TodayDashboard onStartSession={t => { setTimebox(t); setScreen('session'); }} />;
+      case 'session':  return <SessionTimer timebox={timebox} onComplete={() => setScreen('today')} />;
+      case 'goals':    return <GoalSetup onSubmit={() => setScreen('today')} />;
+      case 'map':      return <MapPreview />;
+      case 'history':  return <HistoryView />;
+      default:         return <TodayDashboard onStartSession={t => { setTimebox(t); setScreen('session'); }} />;
+    }
+  })();
+
+  const isMap = screen === 'map';
+
+  return (
+    <>
+      <TopNav current={screen} onNav={setScreen} />
+      <main style={{ flex: 1, background: isMap ? '#fff' : 'var(--bg-app)', minHeight: 0 }}>
+        {content}
+      </main>
+      <Switcher screen={screen} setScreen={setScreen} />
+    </>
+  );
+}
+
+function Switcher({ screen, setScreen }) {
+  const items = [
+    { id: 'login', label: 'Login' },
+    { id: 'goals', label: 'Goal intake' },
+    { id: 'today', label: 'Today' },
+    { id: 'session', label: 'Session' },
+    { id: 'map', label: 'Map' },
+    { id: 'history', label: 'History' },
+  ];
+  return (
+    <div className="screen-switcher">
+      {items.map(i => (
+        <button key={i.id} className={screen === i.id ? 'active' : ''} onClick={() => setScreen(i.id)}>
+          {i.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

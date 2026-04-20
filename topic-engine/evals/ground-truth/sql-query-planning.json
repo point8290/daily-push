@@ -1,0 +1,30 @@
+{
+  "id": "sql-query-planning-v1",
+  "topic": "SQL Query Planning",
+  "userInput": "I write SQL daily but my queries are slow and I don't understand why. I want to understand how the database actually executes queries and how to optimise them.",
+  "expectedIntent": {
+    "level": "intermediate",
+    "goal": "deep_dive"
+  },
+  "mustIncludeNodes": [
+    "query-planner",
+    "index",
+    "execution-plan",
+    "join",
+    "statistics"
+  ],
+  "mustIncludeEdgeTypes": ["hard_prerequisite", "leads_to"],
+  "graphAssertions": {
+    "minNodes": 6,
+    "maxNodes": 28,
+    "mustBeDAG": true,
+    "rootNodeId": "query-planner",
+    "coreNodesMustHaveInboundEdges": false
+  },
+  "validators": {
+    "noCycles": true,
+    "noOrphans": true,
+    "noDepthInversions": true,
+    "timingsPlausible": true
+  }
+}

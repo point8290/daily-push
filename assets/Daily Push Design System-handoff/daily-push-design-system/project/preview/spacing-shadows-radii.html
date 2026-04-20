@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html, body { margin:0; padding:0; background:#fff; }
+  .wrap { padding: 22px; display:flex; flex-direction:column; gap: 16px; }
+  .row { display:flex; align-items:center; gap: 14px; }
+  .box { border: 1px solid var(--border-base); border-radius: var(--radius-xl); height: 56px; background:#fff; flex:1; }
+  .box.sh-sm { box-shadow: var(--shadow-sm); }
+  .box.sh-md { box-shadow: var(--shadow-md); }
+  .box.sh-lg { box-shadow: var(--shadow-lg); }
+  .box.focus { box-shadow: var(--shadow-focus); border-color: var(--sky-400); }
+  .tag { font-family: var(--font-mono); font-size: 11px; color: var(--fg-3); width: 110px; flex-shrink:0; }
+  .radii { display:flex; gap:10px; }
+  .r { width: 54px; height: 54px; background: var(--sky-100); border: 1px solid var(--sky-200); display:flex; align-items:flex-end; justify-content:center; font-family: var(--font-mono); font-size:10px; color: var(--sky-700); padding-bottom:4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="row"><span class="tag">shadow/xs</span><div class="box" style="box-shadow: var(--shadow-xs)"></div></div>
+  <div class="row"><span class="tag">shadow/sm</span><div class="box sh-sm"></div></div>
+  <div class="row"><span class="tag">shadow/md</span><div class="box sh-md"></div></div>
+  <div class="row"><span class="tag">shadow/lg</span><div class="box sh-lg"></div></div>
+  <div class="row"><span class="tag">focus ring</span><div class="box focus"></div></div>
+  <div class="row">
+    <span class="tag">radii</span>
+    <div class="radii">
+      <div class="r" style="border-radius:6px">6</div>
+      <div class="r" style="border-radius:8px">8</div>
+      <div class="r" style="border-radius:12px">12</div>
+      <div class="r" style="border-radius:16px">16</div>
+      <div class="r" style="border-radius:20px">20</div>
+      <div class="r" style="border-radius:999px">pill</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

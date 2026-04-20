@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { pool } from '../db/connection';
 import { generateStudyItems, saveGeneratedItems, enrichStudyItems, saveEnrichedSessions } from '../services/roadmap';
+import { decomposeWithTopicEngine, saveDecomposedItems } from '../services/topicEngine';
 
 const router = Router();
 
@@ -80,6 +81,28 @@ router.post('/:id/generate', async (req: Request, res: Response, next: NextFunct
     const items = await generateStudyItems(topic);
     await saveGeneratedItems(topic.id, items);
     res.json({ generated: items.length, items });
+  } catch (err) { next(err); }
+});
+
+router.post('/:id/decompose', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const conn = await pool.getConnection();
+    const [rows] = await conn.query<any[]>('SELECT * FROM topics WHERE id = ?', [req.params.id]);
+    conn.release();
+
+    if (rows.length === 0) { res.status(404).json({ error: 'Topic not found' }); return; }
+
+    const topic = rows[0];
+    const level = req.body.level ?? 'intermediate';
+
+    const engineResponse = await decomposeWithTopicEngine(topic.title, topic.description, level);
+    const count = await saveDecomposedItems(topic.id, engineResponse);
+
+    res.json({
+      generated: count,
+      topicEngineId: engineResponse.topicId,
+      topic: engineResponse.graph.topic,
+    });
   } catch (err) { next(err); }
 });
 

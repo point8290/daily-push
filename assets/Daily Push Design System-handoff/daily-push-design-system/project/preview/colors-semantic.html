@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html, body { margin:0; padding:0; background:#fff; font-family: var(--font-body); }
+  .wrap { padding: 18px; display:grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .swatch { border-radius: 10px; padding: 14px; min-height: 120px; display:flex; flex-direction:column; justify-content:space-between; border: 1px solid rgba(15,23,42,.06); }
+  .tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; opacity: .7; }
+  .name { font-family: var(--font-display); font-size: 14px; font-weight: 700; }
+  .use { font-size: 11px; line-height: 1.4; opacity: .75; }
+  .dot { width: 14px; height:14px; border-radius: 50%; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="swatch" style="background:var(--emerald-50); color:var(--emerald-700); border-color:var(--emerald-200)">
+    <div style="display:flex; justify-content:space-between; align-items:center;"><span class="tag">Done</span><span class="dot" style="background:var(--emerald-500)"></span></div>
+    <div><div class="name">Emerald</div><div class="use">Done, high-confidence, success</div></div>
+  </div>
+  <div class="swatch" style="background:var(--sky-50); color:var(--sky-700); border-color:var(--sky-200)">
+    <div style="display:flex; justify-content:space-between; align-items:center;"><span class="tag">Available</span><span class="dot" style="background:var(--sky-500)"></span></div>
+    <div><div class="name">Sky</div><div class="use">Available, in-focus, primary</div></div>
+  </div>
+  <div class="swatch" style="background:var(--amber-50); color:var(--amber-700); border-color:var(--amber-200)">
+    <div style="display:flex; justify-content:space-between; align-items:center;"><span class="tag">In progress</span><span class="dot" style="background:var(--amber-500)"></span></div>
+    <div><div class="name">Amber</div><div class="use">Active session, streak, warmth</div></div>
+  </div>
+  <div class="swatch" style="background:var(--orange-50); color:var(--orange-600); border-color:var(--orange-200)">
+    <div style="display:flex; justify-content:space-between; align-items:center;"><span class="tag">Review due</span><span class="dot" style="background:var(--orange-500)"></span></div>
+    <div><div class="name">Orange</div><div class="use">Spaced-repetition review</div></div>
+  </div>
+  <div class="swatch" style="background:var(--indigo-50); color:var(--indigo-600); border-color:#c7d2fe">
+    <div style="display:flex; justify-content:space-between; align-items:center;"><span class="tag">Planning</span><span class="dot" style="background:var(--indigo-500)"></span></div>
+    <div><div class="name">Indigo</div><div class="use">Decomposing, building plan</div></div>
+  </div>
+  <div class="swatch" style="background:var(--red-50); color:var(--red-600); border-color:var(--red-200)">
+    <div style="display:flex; justify-content:space-between; align-items:center;"><span class="tag">Low conf.</span><span class="dot" style="background:var(--red-500)"></span></div>
+    <div><div class="name">Red</div><div class="use">Errors, barely-recall rating</div></div>
+  </div>
+  <div class="swatch" style="background:var(--slate-100); color:var(--slate-500); border-color:var(--slate-200)">
+    <div style="display:flex; justify-content:space-between; align-items:center;"><span class="tag">Locked</span><span class="dot" style="background:var(--slate-400)"></span></div>
+    <div><div class="name">Slate</div><div class="use">Locked, disabled, muted</div></div>
+  </div>
+  <div class="swatch" style="background:#fff; color:var(--slate-900); border-color:var(--slate-900)">
+    <div style="display:flex; justify-content:space-between; align-items:center;"><span class="tag">Ink</span><span class="dot" style="background:var(--slate-900)"></span></div>
+    <div><div class="name">Ink</div><div class="use">Nav, body text, strong contrast</div></div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "id": "transformer-architecture-v1",
+  "topic": "Transformer Architecture",
+  "userInput": "I'm an ML engineer who has used pre-trained transformers but wants to understand the architecture from scratch — attention, positional encoding, everything.",
+  "expectedIntent": {
+    "level": "advanced",
+    "goal": "deep_dive"
+  },
+  "mustIncludeNodes": [
+    "attention",
+    "transformer",
+    "embeddings",
+    "encoder",
+    "positional"
+  ],
+  "mustIncludeEdgeTypes": ["hard_prerequisite", "soft_prerequisite", "leads_to"],
+  "graphAssertions": {
+    "minNodes": 7,
+    "maxNodes": 35,
+    "mustBeDAG": true,
+    "rootNodeId": "transformer",
+    "coreNodesMustHaveInboundEdges": false
+  },
+  "validators": {
+    "noCycles": true,
+    "noOrphans": true,
+    "noDepthInversions": true,
+    "timingsPlausible": true
+  }
+}

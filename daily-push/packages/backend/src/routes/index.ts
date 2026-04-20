@@ -1,22 +1,21 @@
 import { Router } from 'express';
-import topicsRouter from './topics';
-import studyItemsRouter from './studyItems';
+import authRouter from './auth';
+import intakeRouter from './intake';
+import goalsRouter from './goals';
+import todayRouter from './today';
 import sessionsRouter from './sessions';
-import newsRouter from './news';
-import digestRouter from './digest';
 import settingsRouter from './settings';
-import categoriesRouter from './categories';
-import subcategoriesRouter from './subcategories';
+
+import newsRouter from './news';
 
 const router = Router();
 
-router.use('/categories', categoriesRouter);
-router.use('/subcategories', subcategoriesRouter);
-router.use('/topics', topicsRouter);
-router.use('/study-items', studyItemsRouter);
+router.use('/auth', authRouter);
+router.use('/intake', intakeRouter);
+router.use('/goals', goalsRouter);
+router.use('/today', todayRouter);
 router.use('/sessions', sessionsRouter);
-router.use('/news', newsRouter);
-router.use('/digest', digestRouter);
 router.use('/settings', settingsRouter);
+router.use('/news', newsRouter);
 
 export default router;

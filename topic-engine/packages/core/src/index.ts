@@ -31,12 +31,22 @@ export type {
   GraphAnalytics,
   LearningPath,
   Community,
+  NodeConfidence,
+  EdgeConfidence,
+  DisagreementRecord,
+  ConfidenceResult,
+  LibraryHint,
+  Violation,
+  StructuralValidationResult,
 } from './engine/types';
 
-export type { RunOptions, RunResult } from './engine/pipeline';
+export type { RunOptions, RunResult, StageEvent } from './engine/pipeline';
 export type { CritiqueRound } from './engine/steps/critiqueAndPatch';
 export type { LLMProvider, PipelineRole, RouterConfig } from './llm/types';
+export type { CacheStore } from './llm/cachedProvider';
+export { CachedLLMProvider, CACHEABLE_ROLES, LLM_CACHE_TTL_SECONDS } from './llm/cachedProvider';
 export { computeTopology } from './engine/topology';
 export { computeBetweenness } from './engine/topology';
 export { detectCommunities } from './engine/topology';
 export { topologicalSort, criticalPath, buildLearningPaths } from './engine/topology';
+export { generateStructured } from './llm/structured';

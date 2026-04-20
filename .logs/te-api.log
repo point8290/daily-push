@@ -1,0 +1,11 @@
+
+> @topic-engine/api@0.1.0 dev
+> ts-node -r tsconfig-paths/register -P tsconfig.json src/server.ts
+
+[workers] All 5 workers started and listening for jobs.
+  resource:discovery  — concurrency=5
+  outcome:observer    — concurrency=10 (48h delayed jobs)
+  library:update      — concurrency=1  (serialised upserts)
+  graph:recompute     — concurrency=3
+  behavior:analyze    — concurrency=10 (immediate pattern analysis)
+{"level":30,"time":1776693037519,"pid":40012,"hostname":"LAPTOP-CIM0O436","msg":"Server listening at http://0.0.0.0:3000"}

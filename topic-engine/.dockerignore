@@ -1,0 +1,23 @@
+# Dependencies — reinstalled inside the container
+node_modules
+packages/*/node_modules
+
+# Build output
+packages/*/dist
+evals/dist
+
+# Test / eval artifacts
+evals/ground-truth
+
+# Environment files — injected via docker-compose environment: section
+.env
+.env.*
+
+# Git
+.git
+.gitignore
+
+# Editor
+.vscode
+*.md
+PLAN.md

@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html, body { margin:0; padding:0; background:var(--bg-app); font-family: var(--font-body); }
+  .wrap { padding: 20px; display:grid; grid-template-columns: 1fr 1fr; gap:14px; }
+  .card { background:#fff; border: 1px solid var(--border-base); border-radius: var(--radius-xl); padding: 16px; }
+  .eyebrow { font-size: 10px; font-weight:700; color: var(--fg-3); text-transform:uppercase; letter-spacing: .12em; margin-bottom: 8px; }
+  .title { font-family: var(--font-display); font-size: 16px; font-weight:700; color: var(--fg-1); }
+  .row { display:flex; align-items:center; gap:10px; }
+  .bar { flex:1; height: 6px; background: var(--slate-100); border-radius: 999px; overflow:hidden; }
+  .fill { height:100%; background: var(--sky-500); border-radius:999px; }
+  .num { font-size: 11px; color: var(--fg-2); font-variant-numeric: tabular-nums; }
+  .meta { margin-top: 8px; display:flex; gap:8px; font-size: 11px; color: var(--fg-3); }
+  .pill { font-size: 10px; background: var(--slate-100); padding: 2px 8px; border-radius:999px; color: var(--fg-2); font-weight:600; }
+  .flame { font-size:26px; font-weight:800; color: var(--amber-500); font-family: var(--font-display); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="eyebrow">Today</div>
+    <div class="title">State management in React</div>
+    <div class="meta"><span class="pill">Foundational</span><span>~25 min</span></div>
+  </div>
+  <div class="card">
+    <div class="eyebrow" style="color: var(--orange-600)">Review due</div>
+    <div class="title">useEffect lifecycle</div>
+    <div class="meta"><span class="pill" style="background:var(--orange-50); color:var(--orange-600)">Revisit</span><span>~15 min</span></div>
+  </div>
+  <div class="card" style="grid-column: span 2;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <div class="eyebrow" style="margin:0">Become an AI/LLM engineer</div>
+      <span class="num">~8w left</span>
+    </div>
+    <div class="row">
+      <div class="bar"><div class="fill" style="width:48%"></div></div>
+      <span class="num">12/25</span>
+    </div>
+  </div>
+  <div class="card" style="grid-column: span 2; display:flex; align-items:center; justify-content:space-between;">
+    <div>
+      <div class="title" style="font-size:14px">Day streak</div>
+      <div class="eyebrow" style="margin:4px 0 0">Keep it going</div>
+    </div>
+    <div class="flame">12 <span style="opacity:.7">🔥</span></div>
+  </div>
+</div>
+</body>
+</html>

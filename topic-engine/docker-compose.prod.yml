@@ -1,0 +1,113 @@
+# ─── prod overlay ─────────────────────────────────────────────────────────────
+# Full stack: infra + API + workers, production-hardened.
+# - Postgres and Redis are NOT exposed externally (internal network only)
+# - restart: unless-stopped on all services
+# - CPU and memory limits enforced
+# - Log level: warn (reduce noise in prod)
+# - API replicas: 2 (scale with `--scale api=N` or adjust `replicas` in deploy)
+#
+# Usage: make prod-up
+#   (internally: docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d --build)
+#
+# ⚠  .env.prod must be populated with real secrets before running.
+#    Never commit .env.prod with real values.
+
+services:
+  postgres:
+    container_name: te-postgres-prod
+    # No external port exposure — accessible only within the Docker network
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata-prod:/var/lib/postgresql/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
+  redis:
+    container_name: te-redis-prod
+    # No external port exposure
+    volumes:
+      - redisdata-prod:/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  api:
+    container_name: te-api-prod
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV:              production
+      PORT:                  3000
+      LOG_LEVEL:             ${LOG_LEVEL:-warn}
+      CORS_ORIGIN:           ${CORS_ORIGIN}
+      DATABASE_URL:          postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL:             redis://redis:6379
+      ANTHROPIC_API_KEY:     ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY:        ${OPENAI_API_KEY}
+      GOOGLE_API_KEY:        ${GOOGLE_API_KEY:-}
+      GOOGLE_SEARCH_API_KEY: ${GOOGLE_SEARCH_API_KEY:-}
+      GOOGLE_SEARCH_CX:      ${GOOGLE_SEARCH_CX:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - topic-engine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+  workers:
+    container_name: te-workers-prod
+    build:
+      context: .
+      dockerfile: packages/workers/Dockerfile
+    environment:
+      NODE_ENV:              production
+      DATABASE_URL:          postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL:             redis://redis:6379
+      ANTHROPIC_API_KEY:     ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY:        ${OPENAI_API_KEY}
+      GOOGLE_API_KEY:        ${GOOGLE_API_KEY:-}
+      GOOGLE_SEARCH_API_KEY: ${GOOGLE_SEARCH_API_KEY:-}
+      GOOGLE_SEARCH_CX:      ${GOOGLE_SEARCH_CX:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - topic-engine
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+
+volumes:
+  pgdata-prod:
+  redisdata-prod:

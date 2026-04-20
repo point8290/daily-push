@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Type — Display (Cagliostro)</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html, body { margin:0; padding:0; background:#fff; color: var(--fg-1); }
+  .wrap { padding: 28px; max-width: 960px; }
+
+  .card { border: 1px solid var(--border-base); border-radius: 16px; padding: 20px 22px; margin-bottom: 16px; background: #fff; }
+  .card .eyebrow-row { display:flex; align-items:center; gap:10px; margin-bottom: 12px; color: var(--fg-3); }
+  .tag { display:inline-flex; align-items:center; gap:6px; padding: 3px 9px; border-radius: 999px; background: var(--slate-100); color: var(--fg-2); font-size: 11px; font-weight: 500; font-family: var(--font-body); }
+  .tag.brand { background: #fef3c7; color: #92400e; }
+
+  .row { display:flex; align-items:baseline; gap: 20px; padding: 8px 0; }
+  .row + .row { border-top: 1px dashed var(--border-subtle); }
+  .spec { width: 140px; flex-shrink: 0; font-family: var(--font-mono); font-size: 11px; color: var(--fg-3); line-height: 1.45; }
+
+  .glyph-grid {
+    display: grid;
+    grid-template-columns: repeat(13, 1fr);
+    gap: 2px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--slate-100);
+  }
+  .glyph { background: #fff; font-family: var(--font-display); font-size: 22px; text-align: center; padding: 10px 0; color: var(--fg-1); }
+
+  .context-note { font-family: var(--font-body); font-size: 12px; color: var(--fg-2); margin-top: 6px; line-height: 1.55; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card">
+    <div class="eyebrow-row">
+      <span class="tag brand">Brand font</span>
+      <span class="tag">Cagliostro · 400 only</span>
+      <span class="tag">Display use only</span>
+    </div>
+    <div style="font-family: var(--font-display); font-size: 72px; line-height: 1; letter-spacing: -0.01em; color: var(--fg-1); margin: 6px 0 2px;">Daily Push</div>
+    <p class="context-note">Cagliostro is a humanist sans with open apertures and gentle curves. Warm, a little editorial, good for moments of voice — page headers, section leads, big numbers. Single weight (Regular), no italic. Do not fake-bold.</p>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow-row"><span class="tag">Headings</span></div>
+
+    <div class="row"><div class="spec">Display<br>56 / 400</div><div style="font-family:var(--font-display); font-size:56px; line-height:1.05; letter-spacing:-0.02em; color:var(--fg-1);">Build the habit.</div></div>
+    <div class="row"><div class="spec">h1 / 32 / 400</div><div class="h1">Your learning path, mapped</div></div>
+    <div class="row"><div class="spec">h2 / 24 / 400</div><div class="h2">A few quick questions</div></div>
+    <div class="row"><div class="spec">h3 / 20 / 400</div><div class="h3">Rate your understanding</div></div>
+    <div class="row"><div class="spec">h4 / 18 / 400</div><div class="h4">Study schedule</div></div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow-row"><span class="tag">Numerals · tabular</span></div>
+    <div style="display:flex; gap: 28px; align-items:baseline; flex-wrap: wrap;">
+      <div style="font-family: var(--font-display); font-size: 64px; color: var(--sky-600); font-variant-numeric: tabular-nums; letter-spacing:-0.01em;">12</div>
+      <div style="font-family: var(--font-display); font-size: 48px; color: var(--amber-500); font-variant-numeric: tabular-nums;">27:04</div>
+      <div style="font-family: var(--font-display); font-size: 40px; color: var(--emerald-600); font-variant-numeric: tabular-nums;">+18 XP</div>
+      <div style="font-family: var(--font-display); font-size: 32px; color: var(--fg-1); font-variant-numeric: tabular-nums;">0123456789</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow-row"><span class="tag">Glyph set</span></div>
+    <div class="glyph-grid">
+      <!-- A-Z -->
+      <div class="glyph">A</div><div class="glyph">B</div><div class="glyph">C</div><div class="glyph">D</div><div class="glyph">E</div><div class="glyph">F</div><div class="glyph">G</div><div class="glyph">H</div><div class="glyph">I</div><div class="glyph">J</div><div class="glyph">K</div><div class="glyph">L</div><div class="glyph">M</div>
+      <div class="glyph">N</div><div class="glyph">O</div><div class="glyph">P</div><div class="glyph">Q</div><div class="glyph">R</div><div class="glyph">S</div><div class="glyph">T</div><div class="glyph">U</div><div class="glyph">V</div><div class="glyph">W</div><div class="glyph">X</div><div class="glyph">Y</div><div class="glyph">Z</div>
+      <!-- a-z -->
+      <div class="glyph">a</div><div class="glyph">b</div><div class="glyph">c</div><div class="glyph">d</div><div class="glyph">e</div><div class="glyph">f</div><div class="glyph">g</div><div class="glyph">h</div><div class="glyph">i</div><div class="glyph">j</div><div class="glyph">k</div><div class="glyph">l</div><div class="glyph">m</div>
+      <div class="glyph">n</div><div class="glyph">o</div><div class="glyph">p</div><div class="glyph">q</div><div class="glyph">r</div><div class="glyph">s</div><div class="glyph">t</div><div class="glyph">u</div><div class="glyph">v</div><div class="glyph">w</div><div class="glyph">x</div><div class="glyph">y</div><div class="glyph">z</div>
+      <!-- punct -->
+      <div class="glyph">&amp;</div><div class="glyph">?</div><div class="glyph">!</div><div class="glyph">.</div><div class="glyph">,</div><div class="glyph">:</div><div class="glyph">;</div><div class="glyph">—</div><div class="glyph">'</div><div class="glyph">"</div><div class="glyph">(</div><div class="glyph">)</div><div class="glyph">#</div>
+    </div>
+  </div>
+
+  <div class="card" style="background: var(--slate-50);">
+    <div class="eyebrow-row"><span class="tag">Rules</span></div>
+    <ul style="font-family: var(--font-body); font-size: 13px; color: var(--fg-2); line-height: 1.6; margin: 0; padding-left: 18px;">
+      <li>Display only — headings, numerals, short UI labels. Never body text.</li>
+      <li>Never fake-bold. The font ships 400 only; synthetic weights distort the design.</li>
+      <li>Never italicize. No italic cut exists; synthetic italic looks sheared.</li>
+      <li>Pair with Inter for body, sub-labels, form input text, and any paragraph ≥ 2 lines.</li>
+      <li>Works best 18px+. Below that, switch to Inter for legibility.</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

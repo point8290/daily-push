@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" width="200" height="40" fill="none">
+  <rect width="40" height="40" rx="10" fill="#ffffff"></rect>
+  <path d="M11 22.5 L20 14 L29 22.5" stroke="#0284c7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path>
+  <path d="M11 29 L20 20.5 L29 29" stroke="#0284c7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"></path>
+  <text x="52" y="27" font-family="&#39;Plus Jakarta Sans&#39;, sans-serif" font-weight="800" font-size="20" fill="#ffffff" letter-spacing="-0.5">Daily Push</text>
+</svg>

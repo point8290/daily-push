@@ -1,0 +1,30 @@
+{
+  "id": "git-internals-v1",
+  "topic": "Git Internals",
+  "userInput": "I use Git every day but I only know the surface commands. I want to understand how Git actually stores data — objects, refs, the DAG — so I can debug complex situations.",
+  "expectedIntent": {
+    "level": "intermediate",
+    "goal": "deep_dive"
+  },
+  "mustIncludeNodes": [
+    "commit",
+    "blob",
+    "tree",
+    "ref",
+    "dag"
+  ],
+  "mustIncludeEdgeTypes": ["hard_prerequisite", "leads_to"],
+  "graphAssertions": {
+    "minNodes": 6,
+    "maxNodes": 28,
+    "mustBeDAG": true,
+    "rootNodeId": "commit",
+    "coreNodesMustHaveInboundEdges": false
+  },
+  "validators": {
+    "noCycles": true,
+    "noOrphans": true,
+    "noDepthInversions": true,
+    "timingsPlausible": true
+  }
+}

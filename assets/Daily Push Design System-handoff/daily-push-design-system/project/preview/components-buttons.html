@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html, body { margin:0; padding:0; background:#fff; }
+  .wrap { padding: 20px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .btn { display:inline-flex; align-items:center; gap:8px; font-family: var(--font-body); font-weight:600; font-size:14px; border-radius: 12px; padding: 10px 16px; border: 1px solid transparent; cursor:pointer; transition: all var(--dur-base) var(--ease-out); }
+  .btn-primary { background: var(--brand-primary); color:#fff; }
+  .btn-primary:hover { background: var(--brand-primary-hov); }
+  .btn-ink { background: var(--slate-900); color:#fff; }
+  .btn-ink:hover { background: var(--slate-800); }
+  .btn-success { background: var(--emerald-600); color:#fff; }
+  .btn-secondary { background: #fff; color: var(--fg-1); border-color: var(--border-base); }
+  .btn-secondary:hover { border-color: var(--sky-300); background: var(--sky-50); }
+  .btn-ghost { background: transparent; color: var(--fg-2); }
+  .btn-ghost:hover { color: var(--fg-1); background: var(--slate-100); }
+  .btn-pill { border-radius: 999px; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 999px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <button class="btn btn-primary">Start 30min session →</button>
+  <button class="btn btn-ink">Mark complete →</button>
+  <button class="btn btn-success">Submit →</button>
+  <button class="btn btn-secondary">Skip</button>
+  <button class="btn btn-ghost">Cancel</button>
+  <button class="btn btn-primary btn-sm">+ New Goal</button>
+  <button class="btn btn-secondary btn-sm">All</button>
+</div>
+</body>
+</html>

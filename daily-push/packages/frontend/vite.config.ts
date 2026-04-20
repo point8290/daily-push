@@ -9,4 +9,10 @@ export default defineConfig({
       '/api': { target: 'http://localhost:3001', changeOrigin: true },
     },
   },
+  optimizeDeps: {
+    include: ['@chakra-ui/react', '@emotion/react', '@emotion/styled', 'framer-motion'],
+    esbuildOptions: {
+      mainFields: ['module', 'main'],
+    },
+  },
 });

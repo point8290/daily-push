@@ -1,0 +1,88 @@
+# ─── qa overlay ───────────────────────────────────────────────────────────────
+# Full stack: infra + API + workers, all containerised.
+# Postgres and Redis exposed on non-default ports (5433/6380) so QA can run
+# alongside a local dev stack without port conflicts.
+# API available at http://localhost:3001
+#
+# Usage: make qa-up
+#   (internally: docker compose -f docker-compose.yml -f docker-compose.qa.yml --env-file .env.qa up -d --build)
+
+services:
+  postgres:
+    container_name: te-postgres-qa
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata-qa:/var/lib/postgresql/data
+
+  redis:
+    container_name: te-redis-qa
+    ports:
+      - "6380:6379"
+    volumes:
+      - redisdata-qa:/data
+
+  api:
+    container_name: te-api-qa
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    ports:
+      - "3001:3000"
+    environment:
+      NODE_ENV:              qa
+      PORT:                  3000
+      LOG_LEVEL:             ${LOG_LEVEL:-debug}
+      CORS_ORIGIN:           ${CORS_ORIGIN:-*}
+      DATABASE_URL:          postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL:             redis://redis:6379
+      ANTHROPIC_API_KEY:     ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY:        ${OPENAI_API_KEY}
+      GOOGLE_API_KEY:        ${GOOGLE_API_KEY:-}
+      GOOGLE_SEARCH_API_KEY: ${GOOGLE_SEARCH_API_KEY:-}
+      GOOGLE_SEARCH_CX:      ${GOOGLE_SEARCH_CX:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - topic-engine
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  workers:
+    container_name: te-workers-qa
+    build:
+      context: .
+      dockerfile: packages/workers/Dockerfile
+    environment:
+      NODE_ENV:              qa
+      DATABASE_URL:          postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL:             redis://redis:6379
+      ANTHROPIC_API_KEY:     ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY:        ${OPENAI_API_KEY}
+      GOOGLE_API_KEY:        ${GOOGLE_API_KEY:-}
+      GOOGLE_SEARCH_API_KEY: ${GOOGLE_SEARCH_API_KEY:-}
+      GOOGLE_SEARCH_CX:      ${GOOGLE_SEARCH_CX:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - topic-engine
+    restart: on-failure
+
+volumes:
+  pgdata-qa:
+  redisdata-qa:

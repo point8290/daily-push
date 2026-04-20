@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html, body { margin:0; padding:0; background:#fff; font-family: var(--font-body); }
+  .wrap { padding: 20px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  .pill { display:inline-flex; align-items:center; gap:6px; font-size: 12px; font-weight:600; padding: 4px 10px; border-radius: 999px; border: 1px solid transparent; }
+  .dot { width:6px; height:6px; border-radius: 50%; }
+  .pill.locked { background: var(--slate-100); color: var(--slate-500); border-color: var(--slate-200); }
+  .pill.avail  { background: var(--sky-50); color: var(--sky-700); border-color: var(--sky-200); }
+  .pill.prog   { background: var(--amber-100); color: var(--amber-700); border-color: var(--amber-200); }
+  .pill.done   { background: var(--emerald-100); color: var(--emerald-700); border-color: var(--emerald-200); }
+  .pill.review { background: var(--orange-50); color: var(--orange-600); border-color: var(--orange-200); }
+  .pill.low    { background: var(--red-50); color: var(--red-600); border-color: var(--red-200); }
+  .pill.soft   { background: var(--slate-100); color: var(--slate-600); border-color: transparent; padding: 2px 8px; font-size: 11px; }
+  .pill.primary{ background: var(--sky-100); color: var(--sky-700); border-color: transparent; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="pill locked"><span class="dot" style="background:var(--slate-400)"></span>Locked</span>
+  <span class="pill avail"><span class="dot" style="background:var(--sky-500)"></span>Available</span>
+  <span class="pill prog"><span class="dot" style="background:var(--amber-500)"></span>In progress</span>
+  <span class="pill done"><span class="dot" style="background:var(--emerald-500)"></span>Done</span>
+  <span class="pill review"><span class="dot" style="background:var(--orange-500)"></span>Review due</span>
+  <span class="pill low"><span class="dot" style="background:var(--red-500)"></span>Low confidence</span>
+  <span class="pill primary">Primary</span>
+  <span class="pill soft">Foundational</span>
+  <span class="pill soft">~25 min</span>
+</div>
+</body>
+</html>

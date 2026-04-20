@@ -1,32 +1,34 @@
-import { z } from 'zod';
-import { generateStructured } from '../../llm/structured';
-import type { LLMProvider } from '../../llm/types';
-import {
-  DepthLevelSchema,
-  BoundaryTypeSchema,
-  EdgeTypeSchema,
-} from '../types';
-import type { PipelineContext, ConceptGraph, ConceptEdge } from '../types';
-import { nanoid } from '../../utils/nanoid';
+import { z } from "zod";
+import { generateStructured } from "../../llm/structured";
+import type { LLMProvider } from "../../llm/types";
+import { DepthLevelSchema, BoundaryTypeSchema, EdgeTypeSchema } from "../types";
+import type { PipelineContext, ConceptGraph, ConceptEdge } from "../types";
+import { nanoid } from "../../utils/nanoid";
 
 // Raw schema the LLM must return (IDs as slugs, no metadata yet)
 const RawGraphSchema = z.object({
-  nodes: z.array(
-    z.object({
-      id: z.string().regex(/^[a-z0-9-]+$/, 'ID must be lowercase-kebab'),
-      title: z.string().min(2),
-      description: z.string().min(10),
-      depthLevel: DepthLevelSchema,
-      boundaryType: BoundaryTypeSchema,
-      estimatedMins: z.number().int().min(5).max(180),
-    })
-  ).min(3),
+  nodes: z
+    .array(
+      z.object({
+        id: z.string().regex(/^[a-z0-9-]+$/, "ID must be lowercase-kebab"),
+        title: z.string().min(2),
+        description: z.string().min(10),
+        depthLevel: DepthLevelSchema,
+        boundaryType: BoundaryTypeSchema,
+        estimatedMins: z
+          .number()
+          .int()
+          .min(1)
+          .transform((v) => Math.max(5, Math.min(180, v))),
+      }),
+    )
+    .min(3),
   edges: z.array(
     z.object({
       fromId: z.string(),
       toId: z.string(),
       type: EdgeTypeSchema,
-    })
+    }),
   ),
 });
 
@@ -74,51 +76,67 @@ Graph rules:
  */
 export async function inferPrerequisites(
   ctx: PipelineContext,
-  provider: LLMProvider
+  provider: LLMProvider,
 ): Promise<PipelineContext> {
   const { topic, userContext } = ctx;
 
   const levelContext = userContext.level
     ? `Target learner: ${userContext.level} level`
-    : 'Target learner: level unknown — build the complete graph';
+    : "Target learner: level unknown — build the complete graph";
 
   const goalContext = userContext.goal
     ? `Learning goal: ${userContext.goal}`
-    : '';
+    : "";
 
   const gapContext = userContext.specificGap
     ? `Specific gap reported: "${userContext.specificGap}"`
-    : '';
+    : "";
 
   const useThinking = provider.supportsThinking();
+
+  // Build library hints section if pre-populated by L2 lookup
+  const libraryHintsSection =
+    ctx.libraryHints && ctx.libraryHints.length > 0
+      ? [
+          "",
+          "LIBRARY HINTS — concepts already confirmed in the knowledge library.",
+          "Prefer reusing these exact titles (as node titles) when they appear in your graph.",
+          "Match the IDs to their kebab-case slugs when reusing them.",
+          ...ctx.libraryHints.map(
+            (h) =>
+              `  • "${h.canonicalTitle}" (${h.depthLevel}) — ${h.description.slice(0, 80)}`,
+          ),
+        ]
+      : [];
 
   const raw = await generateStructured(provider, RawGraphSchema, {
     system: DECOMP_SYSTEM,
     schemaDescription:
-      '{ nodes: [{ id, title, description, depthLevel, boundaryType, estimatedMins }], edges: [{ fromId, toId, type }] }',
+      "{ nodes: [{ id, title, description, depthLevel, boundaryType, estimatedMins }], edges: [{ fromId, toId, type }] }",
     messages: [
       {
-        role: 'user',
+        role: "user",
         content: [
           `Build a prerequisite graph for: "${topic}"`,
           levelContext,
           goalContext,
           gapContext,
-          '',
-          'Requirements:',
-          '- Include the target topic as the root node (it should have the most inbound edges)',
-          '- Include all hard prerequisites a learner needs before reaching the root',
-          '- Mark concepts that are optional depth enrichment',
-          '- Mark concepts that are out of scope but commonly confused',
-          '- Use confusable edges between concepts learners routinely mix up',
-          '- Aim for 8–15 nodes total',
-          '',
-          'FINAL CHECK before outputting: scan every edge pair. If you have both (A→B) and (B→A)',
-          'for hard_prerequisite or soft_prerequisite, remove the weaker one or change it to confusable.',
-          'The output must be a valid DAG — any cycle will cause a hard failure.',
+          ...libraryHintsSection,
+          "",
+          "Requirements:",
+          "- Include the target topic as the root node (it should have the most inbound edges)",
+          "- Include all hard prerequisites a learner needs before reaching the root",
+          "- Mark concepts that are optional depth enrichment",
+          "- Mark concepts that are out of scope but commonly confused",
+          "- Use confusable edges between concepts learners routinely mix up",
+          "- Aim for 8–15 nodes total",
+          "",
+          "FINAL CHECK before outputting: scan every edge pair. If you have both (A→B) and (B→A)",
+          "for hard_prerequisite or soft_prerequisite, remove the weaker one or change it to confusable.",
+          "The output must be a valid DAG — any cycle will cause a hard failure.",
         ]
           .filter(Boolean)
-          .join('\n'),
+          .join("\n"),
       },
     ],
     thinking: useThinking,
@@ -129,7 +147,7 @@ export async function inferPrerequisites(
   // Assign stable IDs to edges, validate all edge references exist
   const nodeIds = new Set(raw.nodes.map((n) => n.id));
   const validEdges = raw.edges.filter(
-    (e) => nodeIds.has(e.fromId) && nodeIds.has(e.toId) && e.fromId !== e.toId
+    (e) => nodeIds.has(e.fromId) && nodeIds.has(e.toId) && e.fromId !== e.toId,
   );
 
   const edgesWithIds = validEdges.map((e) => ({ ...e, id: nanoid() }));
@@ -142,7 +160,7 @@ export async function inferPrerequisites(
   const cleanedEdges = await runCycleSelfCheck(
     raw.nodes.map((n) => ({ id: n.id, title: n.title })),
     edgesWithIds,
-    provider
+    provider,
   );
 
   const graph: ConceptGraph = {
@@ -173,7 +191,7 @@ const SelfCheckSchema = z.object({
 async function runCycleSelfCheck(
   nodes: Array<{ id: string; title: string }>,
   edges: ConceptEdge[],
-  provider: LLMProvider
+  provider: LLMProvider,
 ): Promise<ConceptEdge[]> {
   if (edges.length < 2) return edges;
 
@@ -184,21 +202,24 @@ async function runCycleSelfCheck(
 
   const nodeIndex = new Map(nodes.map((n) => [n.id, n.title]));
   const edgeLines = edges
-    .map((e) => `  [${e.id}] "${nodeIndex.get(e.fromId) ?? e.fromId}" --${e.type}--> "${nodeIndex.get(e.toId) ?? e.toId}"`)
-    .join('\n');
+    .map(
+      (e) =>
+        `  [${e.id}] "${nodeIndex.get(e.fromId) ?? e.fromId}" --${e.type}--> "${nodeIndex.get(e.toId) ?? e.toId}"`,
+    )
+    .join("\n");
 
   try {
     const result = await generateStructured(provider, SelfCheckSchema, {
       system:
-        'You verify that a prerequisite graph is a valid DAG (no cycles). ' +
-        'Return the IDs of edges that create cycles and should be removed. ' +
-        'For each A↔B pair (both directions present), return the ID of the WEAKER edge ' +
-        '(prefer removing leads_to over soft_prerequisite, soft_prerequisite over hard_prerequisite, confusable last). ' +
-        'If no cycles exist, return an empty array.',
-      schemaDescription: '{ cyclicEdgeIds: string[] }',
+        "You verify that a prerequisite graph is a valid DAG (no cycles). " +
+        "Return the IDs of edges that create cycles and should be removed. " +
+        "For each A↔B pair (both directions present), return the ID of the WEAKER edge " +
+        "(prefer removing leads_to over soft_prerequisite, soft_prerequisite over hard_prerequisite, confusable last). " +
+        "If no cycles exist, return an empty array.",
+      schemaDescription: "{ cyclicEdgeIds: string[] }",
       messages: [
         {
-          role: 'user',
+          role: "user",
           content:
             `Scan these edges for cycles (A→B and B→A both present):\n${edgeLines}\n\n` +
             `Return the IDs of edges to remove. If none, return { cyclicEdgeIds: [] }.`,

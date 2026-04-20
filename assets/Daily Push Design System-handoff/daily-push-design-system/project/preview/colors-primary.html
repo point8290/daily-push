@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html, body { margin:0; padding:0; background:#fff; font-family: var(--font-body); }
+  .wrap { padding: 18px; display:grid; grid-template-columns: repeat(5, 1fr); gap: 0; border-radius: 10px; overflow: hidden; }
+  .sw { aspect-ratio: 1.2 / 1; padding: 10px 12px; display:flex; flex-direction:column; justify-content:space-between; }
+  .name { font-size: 11px; font-weight: 600; font-family: var(--font-mono); }
+  .hex  { font-size: 11px; font-family: var(--font-mono); opacity: .8; }
+  .dark-fg { color: var(--slate-800); }
+  .light-fg { color: #fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="sw dark-fg" style="background:var(--sky-50)"><span class="name">sky/50</span><span class="hex">#f0f9ff</span></div>
+  <div class="sw dark-fg" style="background:var(--sky-100)"><span class="name">sky/100</span><span class="hex">#e0f2fe</span></div>
+  <div class="sw dark-fg" style="background:var(--sky-200)"><span class="name">sky/200</span><span class="hex">#bae6fd</span></div>
+  <div class="sw dark-fg" style="background:var(--sky-400)"><span class="name">sky/400</span><span class="hex">#38bdf8</span></div>
+  <div class="sw light-fg" style="background:var(--sky-500)"><span class="name">sky/500</span><span class="hex">#0ea5e9</span></div>
+  <div class="sw light-fg" style="background:var(--sky-600)"><span class="name">sky/600 ★</span><span class="hex">#0284c7</span></div>
+  <div class="sw light-fg" style="background:var(--sky-700)"><span class="name">sky/700</span><span class="hex">#0369a1</span></div>
+  <div class="sw light-fg" style="background:var(--sky-800)"><span class="name">sky/800</span><span class="hex">#075985</span></div>
+  <div class="sw light-fg" style="background:var(--sky-900)"><span class="name">sky/900</span><span class="hex">#0c4a6e</span></div>
+  <div class="sw light-fg" style="background:var(--slate-900)"><span class="name">ink</span><span class="hex">#0f172a</span></div>
+</div>
+</body>
+</html>

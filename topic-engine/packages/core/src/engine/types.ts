@@ -94,7 +94,11 @@ export const ConceptGraphSchema = z.object({
   nodes: z.array(ConceptNodeSchema).min(1),
   edges: z.array(ConceptEdgeSchema),
 });
-export type ConceptGraph = z.infer<typeof ConceptGraphSchema> & {
+// NOTE: nodes/edges are explicitly typed as ConceptNode[]/ConceptEdge[] (not the raw Zod
+// inferred type) so that the optional `confidence` field is accessible after L4 enrichment.
+export type ConceptGraph = {
+  nodes: ConceptNode[];
+  edges: ConceptEdge[];
   topic: string;
   createdAt?: Date;
 };
@@ -122,12 +126,28 @@ export const UserContextSchema = z.object({
 });
 export type UserContext = z.infer<typeof UserContextSchema>;
 
+// ─── L2 Semantic Memory types ─────────────────────────────────────────────────
+
+/**
+ * A concept retrieved from the cross-topic library before decomposition.
+ * Passed into the pipeline as hints so the LLM reuses canonical titles/IDs.
+ */
+export interface LibraryHint {
+  canonicalTitle: string;
+  depthLevel: DepthLevel;
+  description: string;
+  /** Cosine similarity score (0–1) from the pgvector lookup */
+  similarity: number;
+}
+
 // ─── Pipeline context (passed through each step) ──────────────────────────────
 
 export interface PipelineContext {
   topic: string;
   userContext: UserContext;
   graph?: ConceptGraph;
+  /** Pre-decomp library hints — injected by caller before running the pipeline */
+  libraryHints?: LibraryHint[];
   // Populated by later layers
   analytics?: GraphAnalytics;
 }

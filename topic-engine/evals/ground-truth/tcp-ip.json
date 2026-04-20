@@ -1,0 +1,30 @@
+{
+  "id": "tcp-ip-v1",
+  "topic": "TCP/IP Networking",
+  "userInput": "I'm a backend developer who can write HTTP APIs but I don't really understand what happens at the network layer. I want to understand TCP/IP properly.",
+  "expectedIntent": {
+    "level": "intermediate",
+    "goal": "understand"
+  },
+  "mustIncludeNodes": [
+    "tcp",
+    "ip",
+    "packet",
+    "handshake",
+    "socket"
+  ],
+  "mustIncludeEdgeTypes": ["hard_prerequisite", "leads_to"],
+  "graphAssertions": {
+    "minNodes": 6,
+    "maxNodes": 30,
+    "mustBeDAG": true,
+    "rootNodeId": "tcp",
+    "coreNodesMustHaveInboundEdges": false
+  },
+  "validators": {
+    "noCycles": true,
+    "noOrphans": true,
+    "noDepthInversions": true,
+    "timingsPlausible": true
+  }
+}

@@ -1,0 +1,41 @@
+# ─── Base service definitions ─────────────────────────────────────────────────
+# This file defines shared structure only: images, healthchecks, network refs.
+# Do NOT add ports, volumes, or env vars here — those live in the env overlays:
+#   docker-compose.dev.yml   (dev:  infra only, local ports)
+#   docker-compose.qa.yml    (qa:   full stack, debug ports)
+#   docker-compose.prod.yml  (prod: full stack, resource limits)
+#
+# Usage (always pass base + overlay):
+#   docker compose -f docker-compose.yml -f docker-compose.qa.yml --env-file .env.qa up -d
+#
+# Or use the Makefile targets:
+#   make dev-infra-up
+#   make qa-up
+#   make prod-up
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - topic-engine
+
+  redis:
+    image: redis:7-alpine
+    # appendonly yes ensures persistence across container restarts
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - topic-engine
+
+networks:
+  topic-engine:
+    driver: bridge

@@ -70,6 +70,7 @@ export type PipelineRole =
 export interface ProviderConfig {
   provider: 'anthropic' | 'openai' | 'google' | 'ollama';
   model: string;
+  baseUrl?: string;  // used by ollama to override OLLAMA_BASE_URL
 }
 
 export type RouterConfig = Record<PipelineRole, ProviderConfig>;

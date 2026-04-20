@@ -1,5 +1,5 @@
 import type { LLMRouter } from '../llm/router';
-import type { PipelineContext, ConceptGraph, GraphAnalytics, UserContext, Violation, ConfidenceResult } from './types';
+import type { PipelineContext, ConceptGraph, GraphAnalytics, UserContext, Violation, ConfidenceResult, LibraryHint } from './types';
 import { captureIntent } from './steps/intentCapture';
 import { inferPrerequisites } from './steps/prerequisiteInference';
 import { detectBoundaries } from './steps/boundaryDetection';
@@ -7,6 +7,13 @@ import { critiqueAndPatch, type CritiqueRound } from './steps/critiqueAndPatch';
 import { validateGraph } from './validators';
 import { computeTopology } from './topology';
 import { computeConfidence } from './confidence';
+
+/** Emitted after each pipeline stage completes — used by the SSE streaming endpoint. */
+export interface StageEvent {
+  stage: string;
+  durationMs: number;
+  [key: string]: unknown;
+}
 
 export interface RunOptions {
   topic: string;
@@ -20,6 +27,19 @@ export interface RunOptions {
   skipTopology?: boolean;
   /** Skip confidence scoring (faster for tests/evals) */
   skipConfidence?: boolean;
+  /**
+   * Library hints from L2 semantic memory lookup.
+   * Pre-populate by calling lookupConceptsForTopic() before running the pipeline.
+   * When provided, these are injected into the decomposition prompt so the LLM
+   * can reuse canonical concept titles instead of inventing new ones.
+   */
+  libraryHints?: LibraryHint[];
+  /**
+   * Called after each pipeline stage completes.
+   * Used by the SSE streaming endpoint to emit progress events.
+   * Must not throw — errors are silently swallowed.
+   */
+  onStage?: (event: StageEvent) => void;
 }
 
 export interface RunResult {
@@ -72,12 +92,18 @@ export async function runPipeline(
       specificGap: options.userContext?.specificGap,
       needsQuiz: options.userContext?.needsQuiz,
     },
+    libraryHints: options.libraryHints,
+  };
+
+  const emit = (event: StageEvent) => {
+    try { options.onStage?.(event); } catch { /* never block pipeline on observer errors */ }
   };
 
   // ── Step 1: Intent capture ─────────────────────────────────────────────────
   let t = Date.now();
   ctx = await captureIntent(ctx, router.get('classification'));
   timings.intentCapture = Date.now() - t;
+  emit({ stage: 'intentCapture', durationMs: timings.intentCapture });
 
   // ── Step 2: Prerequisite inference ────────────────────────────────────────
   t = Date.now();
@@ -87,11 +113,13 @@ export async function runPipeline(
   if (!ctx.graph) {
     throw new Error('Pipeline error: prerequisiteInference produced no graph');
   }
+  emit({ stage: 'prerequisiteInference', durationMs: timings.prerequisiteInference, nodeCount: ctx.graph.nodes.length, edgeCount: ctx.graph.edges.length });
 
   // ── Step 3: Boundary detection ────────────────────────────────────────────
   t = Date.now();
   ctx = await detectBoundaries(ctx, router.get('classification'));
   timings.boundaryDetection = Date.now() - t;
+  emit({ stage: 'boundaryDetection', durationMs: timings.boundaryDetection });
 
   // ── Step 4: Critique-refine loop ──────────────────────────────────────────
   if (!options.skipCritique) {
@@ -104,6 +132,7 @@ export async function runPipeline(
     ctx = critCtx;
     critiqueRounds = critiqueResult.rounds;
     timings.critiqueRefine = Date.now() - t;
+    emit({ stage: 'critiqueRefine', durationMs: timings.critiqueRefine, rounds: critiqueRounds.length });
   }
 
   // ── Step 5: Structural validation ─────────────────────────────────────────
@@ -117,6 +146,7 @@ export async function runPipeline(
   violations = validationResult.violations ?? [];
   requiresLLM = validationResult.requiresLLM ?? false;
   ctx = { ...ctx, graph: validationResult.repairedGraph };
+  emit({ stage: 'structuralValidation', durationMs: timings.structuralValidation, violations: violations.length });
 
   // ── Step 5b: Confidence scoring ───────────────────────────────────────────
   if (!options.skipConfidence) {
@@ -130,6 +160,7 @@ export async function runPipeline(
     ctx = { ...ctx, graph: confResult.graph };
     confidenceResult = confResult.meta;
     timings.confidenceScoring = Date.now() - t;
+    emit({ stage: 'confidenceScoring', durationMs: timings.confidenceScoring, discarded: confidenceResult.discardedNodeIds.length });
   }
 
   // ── Step 6: Topology computation ──────────────────────────────────────────
@@ -139,6 +170,7 @@ export async function runPipeline(
     analytics = computeTopology(ctx.graph!);
     ctx = { ...ctx, analytics };
     timings.topology = Date.now() - t;
+    emit({ stage: 'topology', durationMs: timings.topology });
   }
 
   return {

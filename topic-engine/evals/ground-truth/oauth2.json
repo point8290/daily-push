@@ -1,0 +1,30 @@
+{
+  "id": "oauth2-v1",
+  "topic": "OAuth 2.0",
+  "userInput": "I'm a backend developer who needs to implement OAuth 2.0 login for my app. I keep getting confused by the flows — authorization code, PKCE, tokens. I want to understand it properly.",
+  "expectedIntent": {
+    "level": "intermediate",
+    "goal": "understand"
+  },
+  "mustIncludeNodes": [
+    "authorization-code",
+    "access-token",
+    "refresh-token",
+    "client",
+    "scope"
+  ],
+  "mustIncludeEdgeTypes": ["hard_prerequisite", "leads_to"],
+  "graphAssertions": {
+    "minNodes": 6,
+    "maxNodes": 28,
+    "mustBeDAG": true,
+    "rootNodeId": "oauth",
+    "coreNodesMustHaveInboundEdges": false
+  },
+  "validators": {
+    "noCycles": true,
+    "noOrphans": true,
+    "noDepthInversions": true,
+    "timingsPlausible": true
+  }
+}
