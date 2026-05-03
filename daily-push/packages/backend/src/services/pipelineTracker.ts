@@ -43,11 +43,11 @@ export function buildIntakeSteps(): PipelineStep[] {
 }
 
 export function buildDecomposeSteps(topics: Array<{ title: string }>): PipelineStep[] {
-  const steps: PipelineStep[] = [];
-  topics.forEach((t, i) => {
-    steps.push({ id: `topic_decompose_${i}`,     label: `Breaking down: ${t.title}`,    status: 'pending' });
-    steps.push({ id: `resource_enrichment_${i}`, label: `Finding resources: ${t.title}`, status: 'pending' });
-  });
+  const steps: PipelineStep[] = topics.map((t, i) => ({
+    id: `topic_decompose_${i}`,
+    label: `Breaking down: ${t.title}`,
+    status: 'pending' as const,
+  }));
   steps.push({ id: 'unlock_logic', label: 'Unlocking your first nodes', status: 'pending' });
   return steps;
 }

@@ -12,6 +12,7 @@ export interface ResourceDiscoveryJobData {
   nodeTitle:       string;
   nodeDescription: string;
   depthLevel:      string;
+  relaxFilters?:   boolean;  // second-pass gap-fill: skip Tier 1 quality gates, widen YouTube search
 }
 
 /**

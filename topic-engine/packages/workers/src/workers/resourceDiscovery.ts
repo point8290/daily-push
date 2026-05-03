@@ -18,13 +18,43 @@ import { QUEUE_NAMES } from '../queues';
 import type { ResourceDiscoveryJobData } from '../queues/types';
 import { searchResources } from '../resourceSignals/search';
 import { extractContent } from '../resourceSignals/extractor';
-import { scoreResource } from '../resourceSignals/scorer';
+import { scoreResource, type ResourceScore } from '../resourceSignals/scorer';
 import { aggregateSignals, applySignals } from '../resourceSignals/aggregate';
 import type { DepthLevel } from '@topic-engine/core';
 
 const MAX_RESOURCES_PER_NODE = 5;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Cheap keyword relevance gate — runs before LLM scoring to discard resources
+ * that don't mention the concept at all.
+ *
+ * Extracts meaningful tokens from nodeTitle (strips stop words and short words),
+ * then checks how many appear in the resource content.
+ * Requires at least 1 hit to pass — the LLM scorer handles quality from there.
+ *
+ * Fail-open: if nodeTitle yields no tokens (unlikely), every resource passes.
+ */
+function isConceptRelevant(nodeTitle: string, content: string): boolean {
+  const STOP = new Set([
+    'a','an','the','and','or','of','in','to','for','with','on','at','by','from',
+    'is','are','was','were','be','been','being','it','its','this','that','these',
+    'those','as','into','about','how','what','when','where','why','which',
+  ]);
+
+  const terms = nodeTitle
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 3 && !STOP.has(w));
+
+  if (terms.length === 0) return true;
+
+  const haystack = content.toLowerCase();
+  const hits = terms.filter((t) => haystack.includes(t)).length;
+  return hits >= 1;
+}
 
 async function resolveNodeId(topicId: string, nodeSlug: string): Promise<string | null> {
   const rows = await query<{ id: string }>(
@@ -40,7 +70,7 @@ export function createResourceDiscoveryWorker() {
   const worker = new Worker<ResourceDiscoveryJobData>(
     QUEUE_NAMES.RESOURCE_DISCOVERY,
     async (job) => {
-      const { topicId, nodeSlug, nodeTitle, nodeDescription, depthLevel } = job.data;
+      const { topicId, nodeSlug, nodeTitle, nodeDescription, depthLevel, relaxFilters } = job.data;
       let { nodeId } = job.data;
 
       // Resolve UUID if the scheduler dispatched an empty nodeId
@@ -60,7 +90,7 @@ export function createResourceDiscoveryWorker() {
       );
 
       // ── 1. Discover URLs ──────────────────────────────────────────────────
-      const discovered = await searchResources(nodeTitle, nodeDescription);
+      const discovered = await searchResources(nodeTitle, nodeDescription, depthLevel, relaxFilters);
       if (discovered.length === 0) {
         console.log(`[resource:discovery] No resources found for "${nodeTitle}"`);
         return { resourcesFound: 0, resourcesScored: 0, signalsGenerated: 0 };
@@ -74,9 +104,20 @@ export function createResourceDiscoveryWorker() {
         })),
       );
 
-      // ── 3. Score via LLM (parallel, fail-open per resource) ──────────────
-      const scored = await Promise.all(
-        extracted.map(async (r) => ({
+      // ── 3. Keyword relevance gate — drop resources with no concept overlap ─
+      const relevant = extracted.filter((r) => {
+        const passes = isConceptRelevant(nodeTitle, r.content);
+        if (!passes) {
+          console.log(
+            `[resource:discovery] "${nodeTitle}": skipping ${r.url} (no concept keyword match)`,
+          );
+        }
+        return passes;
+      });
+
+      // ── 4. Score via LLM (parallel, fail-open per resource) ──────────────
+      const scored: Array<(typeof relevant)[number] & { score: ResourceScore }> = await Promise.all(
+        relevant.map(async (r) => ({
           ...r,
           score: await scoreResource(
             nodeTitle,

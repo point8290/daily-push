@@ -1,7 +1,8 @@
-import { getDb } from '../db/mongo';
-import { GOAL_PROFILES, GoalProfileDoc } from '../db/seed/goalProfiles';
-import { SKILL_BANK } from '../db/seed/skillBank';
-import { SkillGap, LearningTopic } from './intake';
+import { getDb } from "../db/mongo";
+import { GOAL_PROFILES, GoalProfileDoc } from "../db/seed/goalProfiles";
+import { SKILL_BANK } from "../db/seed/skillBank";
+import { config } from "../config";
+import { SkillGap, LearningTopic } from "./intake";
 
 // ─────────────────────────────────────────────
 // Types
@@ -9,13 +10,13 @@ import { SkillGap, LearningTopic } from './intake';
 
 export interface ProfileMatch {
   profile: GoalProfileDoc | null;
-  confidence: number;         // 0.0 – 1.0
+  confidence: number; // 0.0 – 1.0
   matchedSignals: string[];
-  source: 'knowledge_layer' | 'llm';
+  source: "knowledge_layer" | "llm";
 }
 
 export interface DecisionRoute {
-  action: 'direct' | 'confirm' | 'clarify' | 'llm';
+  action: "direct" | "confirm" | "clarify" | "llm";
   confidence: number;
   profile: GoalProfileDoc | null;
   matchedSignals: string[];
@@ -25,7 +26,9 @@ export interface DecisionRoute {
 // Goal profile matching
 // ─────────────────────────────────────────────
 
-export async function matchGoalProfile(rawInput: string): Promise<ProfileMatch> {
+export async function matchGoalProfile(
+  rawInput: string,
+): Promise<ProfileMatch> {
   const db = getDb();
   const normalized = rawInput.toLowerCase();
 
@@ -34,10 +37,13 @@ export async function matchGoalProfile(rawInput: string): Promise<ProfileMatch> 
   let bestMatched: string[] = [];
 
   // Check MongoDB first (learned profiles from prior LLM calls)
-  const learnedProfiles = await db.collection('goal_profiles').find({}).toArray();
+  const learnedProfiles = await db
+    .collection("goal_profiles")
+    .find({})
+    .toArray();
   const allProfiles: GoalProfileDoc[] = [
     ...GOAL_PROFILES,
-    ...learnedProfiles.map(p => p as unknown as GoalProfileDoc),
+    ...learnedProfiles.map((p) => p as unknown as GoalProfileDoc),
   ];
 
   for (const profile of allProfiles) {
@@ -64,7 +70,7 @@ export async function matchGoalProfile(rawInput: string): Promise<ProfileMatch> 
     profile: bestScore > 0 ? bestProfile : null,
     confidence: bestScore,
     matchedSignals: bestMatched,
-    source: 'knowledge_layer',
+    source: "knowledge_layer",
   };
 }
 
@@ -75,16 +81,10 @@ export async function matchGoalProfile(rawInput: string): Promise<ProfileMatch> 
 export function routeDecision(match: ProfileMatch): DecisionRoute {
   const { confidence, profile, matchedSignals } = match;
 
-  if (confidence > 0.85) {
-    return { action: 'direct', confidence, profile, matchedSignals };
+  if (confidence > config.decisionLayer.directThreshold) {
+    return { action: "direct", confidence, profile, matchedSignals };
   }
-  if (confidence >= 0.65) {
-    return { action: 'confirm', confidence, profile, matchedSignals };
-  }
-  if (confidence >= 0.40) {
-    return { action: 'clarify', confidence, profile, matchedSignals };
-  }
-  return { action: 'llm', confidence: 0, profile: null, matchedSignals: [] };
+  return { action: "llm", confidence: 0, profile: null, matchedSignals: [] };
 }
 
 // ─────────────────────────────────────────────
@@ -93,11 +93,16 @@ export function routeDecision(match: ProfileMatch): DecisionRoute {
 
 export function inferSkillGaps(
   profile: GoalProfileDoc,
-  knownSkillAreas: string[] = []
+  knownSkillAreas: string[] = [],
 ): SkillGap[] {
   return profile.typicalSkillGaps
-    .filter(gap => !knownSkillAreas.some(k => k.toLowerCase() === gap.skillArea.toLowerCase()))
-    .map(gap => ({ ...gap, identifiedBy: 'system_inferred' as const }));
+    .filter(
+      (gap) =>
+        !knownSkillAreas.some(
+          (k) => k.toLowerCase() === gap.skillArea.toLowerCase(),
+        ),
+    )
+    .map((gap) => ({ ...gap, identifiedBy: "system_inferred" as const }));
 }
 
 // ─────────────────────────────────────────────
@@ -106,11 +111,11 @@ export function inferSkillGaps(
 
 export function inferLearningTopics(
   profile: GoalProfileDoc,
-  skillGaps: SkillGap[]
+  skillGaps: SkillGap[],
 ): LearningTopic[] {
-  const gapAreas = new Set(skillGaps.map(g => g.skillArea.toLowerCase()));
-  return profile.typicalTopics.filter(t =>
-    gapAreas.has(t.skillGapArea.toLowerCase())
+  const gapAreas = new Set(skillGaps.map((g) => g.skillArea.toLowerCase()));
+  return profile.typicalTopics.filter((t) =>
+    gapAreas.has(t.skillGapArea.toLowerCase()),
   );
 }
 
@@ -120,7 +125,7 @@ export function inferLearningTopics(
 
 export function estimateTimelineFromProfile(
   profile: GoalProfileDoc,
-  minsPerDay: number
+  minsPerDay: number,
 ): number {
   const data = profile.timelineData;
   if (data.length === 0) return 16;
@@ -129,7 +134,8 @@ export function estimateTimelineFromProfile(
   const sorted = [...data].sort((a, b) => a.minsPerDay - b.minsPerDay);
 
   if (minsPerDay <= sorted[0].minsPerDay) return sorted[0].weeks;
-  if (minsPerDay >= sorted[sorted.length - 1].minsPerDay) return sorted[sorted.length - 1].weeks;
+  if (minsPerDay >= sorted[sorted.length - 1].minsPerDay)
+    return sorted[sorted.length - 1].weeks;
 
   for (let i = 0; i < sorted.length - 1; i++) {
     const lo = sorted[i];
@@ -149,27 +155,35 @@ export function estimateTimelineFromProfile(
 
 export function buildAssessmentQuestions(
   skillAreas: string[],
-  alreadyAnsweredIds: string[] = []
+  alreadyAnsweredIds: string[] = [],
 ): Array<{ id: string; question: string; skillArea: string; purpose: string }> {
-  const questions: Array<{ id: string; question: string; skillArea: string; purpose: string }> = [];
+  const questions: Array<{
+    id: string;
+    question: string;
+    skillArea: string;
+    purpose: string;
+  }> = [];
 
   for (const area of skillAreas) {
-    const entry = SKILL_BANK.find(s =>
-      s.skillArea.toLowerCase() === area.toLowerCase() ||
-      s.aliases.some(a => a.toLowerCase() === area.toLowerCase())
+    const entry = SKILL_BANK.find(
+      (s) =>
+        s.skillArea.toLowerCase() === area.toLowerCase() ||
+        s.aliases.some((a) => a.toLowerCase() === area.toLowerCase()),
     );
     if (!entry) continue;
 
     const unanswered = entry.assessmentQuestions
-      .filter(q => !alreadyAnsweredIds.includes(q.id))
+      .filter((q) => !alreadyAnsweredIds.includes(q.id))
       .slice(0, 1); // one question per skill area per intake turn
 
-    questions.push(...unanswered.map(q => ({
-      id: q.id,
-      question: q.question,
-      skillArea: q.skillArea,
-      purpose: q.purpose,
-    })));
+    questions.push(
+      ...unanswered.map((q) => ({
+        id: q.id,
+        question: q.question,
+        skillArea: q.skillArea,
+        purpose: q.purpose,
+      })),
+    );
   }
 
   return questions.slice(0, 5); // never more than 5 total
@@ -186,36 +200,37 @@ export async function learnFromLLMResult(
   learningTopics: LearningTopic[],
   goalType: string,
   minsPerDay: number,
-  estimatedWeeks: number
+  estimatedWeeks: number,
 ): Promise<void> {
   const db = getDb();
 
   // Don't create duplicate learned profiles for very similar inputs
-  const existing = await db.collection('goal_profiles').findOne({
+  const existing = await db.collection("goal_profiles").findOne({
     signals: { $elemMatch: { $in: matchedSignals.slice(0, 3) } },
   });
   if (existing) return;
 
   // Extract signals from the raw input (simple word extraction)
-  const words = rawInput.toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
+  const words = rawInput
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
-    .filter(w => w.length > 3);
+    .filter((w) => w.length > 3);
 
   // Deduplicate and take up to 10 new signals
   const newSignals = [...new Set([...matchedSignals, ...words.slice(0, 10)])];
 
-  await db.collection('goal_profiles').insertOne({
+  await db.collection("goal_profiles").insertOne({
     profileId: `learned_${Date.now()}`,
     title: `Learned: ${rawInput.slice(0, 60)}`,
     goalType,
-    archetype: 'learned',
+    archetype: "learned",
     signals: newSignals,
-    requiredSkillAreas: skillGaps.map(g => g.skillArea),
+    requiredSkillAreas: skillGaps.map((g) => g.skillArea),
     typicalSkillGaps: skillGaps,
     typicalTopics: learningTopics,
     timelineData: [{ minsPerDay, weeks: estimatedWeeks }],
     learnedAt: new Date(),
-    source: 'llm_result',
+    source: "llm_result",
   });
 }

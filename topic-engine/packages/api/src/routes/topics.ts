@@ -113,6 +113,120 @@ export async function topicsRoutes(app: FastifyInstance): Promise<void> {
   });
 
   /**
+   * GET /topics/:id/resources/coverage
+   * Returns per-node coverage status: covered (quality≥0.3), weak (quality<0.3), uncovered (0 resources).
+   */
+  app.get<{ Params: { id: string } }>('/topics/:id/resources/coverage', async (req, reply) => {
+    const topicId = req.params.id;
+
+    const rows = await query<{
+      node_slug:      string;
+      canonical_title: string;
+      depth_level:    string;
+      resource_count: string;
+      max_quality:    number | null;
+      status:         'covered' | 'weak' | 'uncovered';
+    }>(
+      `SELECT
+         cn.node_slug,
+         cn.canonical_title,
+         cn.depth_level,
+         COUNT(nr.id)::text          AS resource_count,
+         MAX(nr.quality_score)       AS max_quality,
+         CASE
+           WHEN COUNT(nr.id) = 0           THEN 'uncovered'
+           WHEN MAX(nr.quality_score) < 0.3 THEN 'weak'
+           ELSE                                  'covered'
+         END AS status
+       FROM concept_nodes cn
+       LEFT JOIN node_resources nr ON nr.node_id = cn.id
+       WHERE cn.topic_id = $1 AND cn.boundary_type != 'out_of_scope'
+       GROUP BY cn.node_slug, cn.canonical_title, cn.depth_level
+       ORDER BY status, cn.depth_level`,
+      [topicId],
+    );
+
+    if (!rows.length) {
+      return reply.status(404).send({ error: 'Topic not found or has no nodes' });
+    }
+
+    const total        = rows.length;
+    const coveredCount = rows.filter((r) => r.status === 'covered').length;
+    const weakCount    = rows.filter((r) => r.status === 'weak').length;
+    const uncoveredCount = total - coveredCount - weakCount;
+
+    reply.send({
+      total,
+      coveredCount,
+      weakCount,
+      uncoveredCount,
+      coveragePct: total > 0 ? Math.round((coveredCount / total) * 100) : 0,
+      nodes: rows.map((r) => ({
+        nodeSlug:       r.node_slug,
+        canonicalTitle: r.canonical_title,
+        depthLevel:     r.depth_level,
+        resourceCount:  parseInt(r.resource_count, 10),
+        maxQuality:     r.max_quality,
+        status:         r.status,
+      })),
+    });
+  });
+
+  /**
+   * POST /topics/:id/resources/fill-gaps
+   * Re-enqueues resource:discovery only for uncovered/weak nodes, with relaxed search filters.
+   */
+  app.post<{ Params: { id: string } }>('/topics/:id/resources/fill-gaps', async (req, reply) => {
+    const topicId = req.params.id;
+
+    const rows = await query<{
+      id:              string;
+      node_slug:       string;
+      canonical_title: string;
+      description:     string;
+      depth_level:     string;
+      resource_count:  string;
+      max_quality:     number | null;
+    }>(
+      `SELECT
+         cn.id, cn.node_slug, cn.canonical_title, cn.description, cn.depth_level,
+         COUNT(nr.id)::text    AS resource_count,
+         MAX(nr.quality_score) AS max_quality
+       FROM concept_nodes cn
+       LEFT JOIN node_resources nr ON nr.node_id = cn.id
+       WHERE cn.topic_id = $1 AND cn.boundary_type != 'out_of_scope'
+       GROUP BY cn.id, cn.node_slug, cn.canonical_title, cn.description, cn.depth_level
+       HAVING COUNT(nr.id) = 0 OR MAX(nr.quality_score) < 0.3`,
+      [topicId],
+    );
+
+    if (!rows.length) {
+      return reply.send({ enqueued: 0, gaps: [] });
+    }
+
+    await resourceDiscoveryQueue.addBulk(
+      rows.map((n) => ({
+        name: 'discover',
+        data: {
+          topicId,
+          nodeId:          n.id,
+          nodeSlug:        n.node_slug,
+          nodeTitle:       n.canonical_title,
+          nodeDescription: n.description ?? '',
+          depthLevel:      n.depth_level,
+          relaxFilters:    true,
+        },
+        opts: { attempts: 3, backoff: { type: 'exponential' as const, delay: 5_000 } },
+      })),
+    );
+
+    reply.status(202).send({
+      enqueued: rows.length,
+      gaps:     rows.map((n) => n.node_slug),
+    });
+  });
+
+  /**
    * POST /topics/:id/resources/enqueue
    * Re-enqueues resource:discovery jobs for all non-out_of_scope nodes in a topic.
    * Idempotent — the worker upserts on (node_id, url) so re-running is safe.

@@ -52,88 +52,6 @@ function buildTrackerHooks(goalId: string): DecomposeTrackerHooks {
   };
 }
 
-interface TopicEngineMapping {
-  stepId: string;
-  topicEngineId: string;
-}
-
-async function buildTopicEngineMappings(
-  goalId: string,
-  userId: string,
-  nonCompletedTitles: string[],
-): Promise<TopicEngineMapping[]> {
-  const db = getDb();
-  const goal = await db
-    .collection("goals")
-    .findOne(
-      { _id: new ObjectId(goalId), userId },
-      { projection: { learningTopics: 1 } },
-    );
-  if (!goal) return [];
-
-  const mappings: TopicEngineMapping[] = [];
-  let stepIndex = 0;
-  for (const title of nonCompletedTitles) {
-    const topicDoc = (goal.learningTopics as any[]).find(
-      (t: any) =>
-        t.structured?.title === title &&
-        t.structured?.decompositionStatus === "completed",
-    );
-    if (topicDoc) {
-      mappings.push({
-        stepId: `resource_enrichment_${stepIndex}`,
-        topicEngineId: topicDoc.structured.topicEngineId,
-      });
-    }
-    stepIndex++;
-  }
-  return mappings;
-}
-
-async function pollResourceEnrichment(
-  goalId: string,
-  mappings: TopicEngineMapping[],
-): Promise<void> {
-  if (mappings.length === 0) return;
-
-  await Promise.all(
-    mappings.map(({ stepId }) => setStepStatus(goalId, stepId, "running")),
-  );
-
-  const pending = new Set(mappings.map((m) => m.stepId));
-  const TIMEOUT_MS = 5 * 60 * 1000;
-  const POLL_MS = 5_000;
-  const startedAt = Date.now();
-
-  while (pending.size > 0 && Date.now() - startedAt < TIMEOUT_MS) {
-    await new Promise((r) => setTimeout(r, POLL_MS));
-
-    await Promise.all(
-      mappings
-        .filter((m) => pending.has(m.stepId))
-        .map(async ({ stepId, topicEngineId }) => {
-          try {
-            const res = await axios.get(
-              `${config.app.topicEngineUrl}/topics/${topicEngineId}/resources/status`,
-              { timeout: 10_000 },
-            );
-            if (res.data.complete) {
-              await setStepStatus(goalId, stepId, "done");
-              pending.delete(stepId);
-            }
-          } catch {
-            // keep polling — TE may be briefly unavailable
-          }
-        }),
-    );
-  }
-
-  // Graceful timeout — mark remaining as done so they don't block finalization
-  await Promise.all(
-    [...pending].map((stepId) => setStepStatus(goalId, stepId, "done")),
-  );
-}
-
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 // GET /api/goals — list user's goals (newest first)
@@ -340,24 +258,18 @@ router.post(
       );
       const seniorityLevel = profileRows[0]?.seniority_level ?? null;
 
-      const result = await decomposeGoal(
-        userId,
-        goalId,
-        seniorityLevel,
-        buildTrackerHooks(goalId),
-      );
+      // Respond immediately — client polls GET /:id/pipeline for live step progress
+      res.json({ accepted: true, pipelineStatus: "running" });
 
-      // Send response immediately — resource enrichment continues in background
-      res.json({ ...result, pipelineStatus: "running" });
-
-      // Background: poll resource enrichment → finalize → email
-      const nonCompletedTitles = nonCompleted.map((t) => t.title);
-      buildTopicEngineMappings(goalId, userId, nonCompletedTitles)
-        .then((mappings) => pollResourceEnrichment(goalId, mappings))
-        .then(() => finalizePipelineRun(goalId))
-        .then(() => sendPipelineCompleteEmail(userId, goalId, result))
+      // Background: decompose → finalize → email (resource enrichment runs via BullMQ automatically)
+      decomposeGoal(userId, goalId, seniorityLevel, buildTrackerHooks(goalId))
+        .then((result) =>
+          finalizePipelineRun(goalId).then(() =>
+            sendPipelineCompleteEmail(userId, goalId, result),
+          ),
+        )
         .catch((err) =>
-          console.error("[decompose] background enrichment error:", err),
+          console.error("[decompose] background pipeline error:", err),
         );
     } catch (err) {
       next(err);
@@ -463,22 +375,18 @@ router.post(
       );
       const seniorityLevel = profileRows[0]?.seniority_level ?? null;
 
-      const result = await decomposeGoal(
-        userId,
-        goalId,
-        seniorityLevel,
-        buildTrackerHooks(goalId),
-      );
+      // Respond immediately — client polls GET /:id/pipeline for live step progress
+      res.json({ accepted: true, pipelineStatus: "running" });
 
-      res.json({ ...result, pipelineStatus: "running" });
-
-      const failedTitleStrings = failedTitles.map((t) => t.title);
-      buildTopicEngineMappings(goalId, userId, failedTitleStrings)
-        .then((mappings) => pollResourceEnrichment(goalId, mappings))
-        .then(() => finalizePipelineRun(goalId))
-        .then(() => sendPipelineCompleteEmail(userId, goalId, result))
+      // Background: decompose → finalize → email (resource enrichment runs via BullMQ automatically)
+      decomposeGoal(userId, goalId, seniorityLevel, buildTrackerHooks(goalId))
+        .then((result) =>
+          finalizePipelineRun(goalId).then(() =>
+            sendPipelineCompleteEmail(userId, goalId, result),
+          ),
+        )
         .catch((err) =>
-          console.error("[decompose/retry] background enrichment error:", err),
+          console.error("[decompose/retry] background pipeline error:", err),
         );
     } catch (err) {
       next(err);
@@ -834,6 +742,10 @@ router.post(
         for (let i = 0; i < completedTopics.length; i++) {
           const topicDoc = completedTopics[i];
           const teId: string = topicDoc.structured.topicEngineId;
+          if (!teId || teId === 'null') {
+            console.warn(`[resources/retry] Topic ${i} has no topicEngineId — skipping`);
+            continue;
+          }
 
           try {
             await axios.post(
@@ -859,21 +771,117 @@ router.post(
           );
           return;
         }
-
-        await Promise.all(
-          enrichableTopics.map(({ stepId }) =>
-            setStepStatus(goalId, stepId, "pending"),
-          ),
-        );
-
-        await pollResourceEnrichment(goalId, enrichableTopics);
-        await finalizePipelineRun(goalId);
+        // BullMQ workers handle the actual discovery — nothing more to do here
       })().catch((err) =>
         console.error("[resources/retry] background error:", err),
       );
     } catch (err) {
       next(err);
     }
+  },
+);
+
+// GET /api/goals/:id/resources/coverage — per-node coverage status across all decomposed topics
+router.get(
+  "/:id/resources/coverage",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const goalId = String(req.params.id);
+
+      const db = getDb();
+      const goal = await db
+        .collection("goals")
+        .findOne(
+          { _id: new ObjectId(goalId), userId },
+          { projection: { learningTopics: 1 } },
+        );
+      if (!goal) { res.status(404).json({ error: "Goal not found" }); return; }
+
+      const completedTopics: string[] = (goal.learningTopics ?? [])
+        .filter((t: any) => t.structured?.decompositionStatus === "completed" && t.structured?.topicEngineId)
+        .map((t: any) => t.structured.topicEngineId as string);
+
+      if (completedTopics.length === 0) {
+        res.json({ total: 0, coveredCount: 0, weakCount: 0, uncoveredCount: 0, coveragePct: 0, nodes: [] });
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        completedTopics.map((teId) =>
+          axios.get(`${config.app.topicEngineUrl}/topics/${teId}/resources/coverage`, { timeout: 10_000 })
+            .then((r) => r.data),
+        ),
+      );
+
+      // Aggregate across all topics
+      let total = 0, coveredCount = 0, weakCount = 0, uncoveredCount = 0;
+      const nodes: any[] = [];
+      for (const result of results) {
+        if (result.status !== "fulfilled") continue;
+        const d = result.value;
+        total        += d.total;
+        coveredCount += d.coveredCount;
+        weakCount    += d.weakCount;
+        uncoveredCount += d.uncoveredCount;
+        nodes.push(...(d.nodes ?? []));
+      }
+
+      res.json({
+        total,
+        coveredCount,
+        weakCount,
+        uncoveredCount,
+        coveragePct: total > 0 ? Math.round((coveredCount / total) * 100) : 0,
+        nodes,
+      });
+    } catch (err) { next(err); }
+  },
+);
+
+// POST /api/goals/:id/resources/fill-gaps — trigger gap-fill for all decomposed topics
+router.post(
+  "/:id/resources/fill-gaps",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const goalId = String(req.params.id);
+
+      const db = getDb();
+      const goal = await db
+        .collection("goals")
+        .findOne(
+          { _id: new ObjectId(goalId), userId },
+          { projection: { learningTopics: 1 } },
+        );
+      if (!goal) { res.status(404).json({ error: "Goal not found" }); return; }
+
+      const completedTopics: string[] = (goal.learningTopics ?? [])
+        .filter((t: any) => t.structured?.decompositionStatus === "completed" && t.structured?.topicEngineId)
+        .map((t: any) => t.structured.topicEngineId as string);
+
+      if (completedTopics.length === 0) {
+        res.status(400).json({ error: "No decomposed topics found" });
+        return;
+      }
+
+      // Respond immediately — gap-fill runs in the background via BullMQ
+      res.status(202).json({ started: true, topics: completedTopics.length });
+
+      Promise.allSettled(
+        completedTopics.map((teId) =>
+          axios.post(
+            `${config.app.topicEngineUrl}/topics/${teId}/resources/fill-gaps`,
+            {},
+            { timeout: 10_000 },
+          ),
+        ),
+      ).catch((err: Error) =>
+        console.error("[fill-gaps] background error:", err.message),
+      );
+    } catch (err) { next(err); }
   },
 );
 

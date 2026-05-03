@@ -160,8 +160,8 @@ async function mergeExistingConcept(
            updated_at   = NOW()
        WHERE id = $7`,
       [
-        JSON.stringify(newAltTitles),
-        JSON.stringify(newTopicsSeen),
+        newAltTitles,
+        newTopicsSeen,
         newDecompsSeen,
         newConfirmations,
         newStatus,
@@ -200,7 +200,7 @@ async function insertNewConcept(
       node.depthLevel,
       vectorLiteral,
       status,
-      JSON.stringify([topicTitle]),
+      [topicTitle],
       confirmations,
     ]
   );

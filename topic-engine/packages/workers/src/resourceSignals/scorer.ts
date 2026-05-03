@@ -15,7 +15,7 @@ const ResourceScoreSchema = z.object({
   coverage_score: z.number().min(0).max(1),
   depth_match:    z.number().min(0).max(1),
   quality_score:  z.number().min(0).max(1),
-  reasoning:      z.string().max(300),
+  reasoning:      z.string().transform(s => s.slice(0, 300)),
 });
 export type ResourceScore = z.infer<typeof ResourceScoreSchema>;
 
@@ -61,10 +61,17 @@ export async function scoreResource(
 
   const provider = getRouter().get('resource_scoring');
 
+  const isVideo      = resourceContent.startsWith('Video:');
+  const contentLabel = isVideo
+    ? 'Video metadata + description + transcript excerpt (first 3000 chars):'
+    : 'Resource content (first 3000 chars):';
+
   return generateStructured(provider, ResourceScoreSchema, {
     system: [
       'You are an educational resource evaluator.',
       'Score the provided resource content for a specific learning concept.',
+      'For video resources, use engagement metrics (views, likes, comments, engagement%),',
+      'duration fit, caption/chapter availability, and transcript excerpt as quality signals.',
       'Be calibrated: a Wikipedia stub warrants low scores; a thorough tutorial warrants high scores.',
     ].join('\n'),
     messages: [{
@@ -75,7 +82,7 @@ export async function scoreResource(
         `Expected depth level: ${depthLevel} — ${DEPTH_DESCRIPTIONS[depthLevel]}`,
         `Resource URL: ${resourceUrl}`,
         '',
-        'Resource content (first 3000 chars):',
+        contentLabel,
         resourceContent,
         '',
         'Score on three dimensions (0.0 to 1.0):',

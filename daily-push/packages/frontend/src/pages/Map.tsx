@@ -294,15 +294,25 @@ function MapInner({
   const [selectedNode, setSelectedNode] = useState<ConceptNode | null>(null);
   const { fitView } = useReactFlow();
 
-  const { nodes: newNodes, edges: newEdges } = buildGraph(rawNodes, depthFilter, setSelectedNode);
-  const [nodes, , onNodesChange] = useNodesState(newNodes);
-  const [edges, , onEdgesChange] = useEdgesState(newEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+
+  // Rebuild graph whenever raw data or filter changes
+  useEffect(() => {
+    const { nodes: n, edges: e } = buildGraph(rawNodes, depthFilter, setSelectedNode);
+    setNodes(n);
+    setEdges(e);
+  }, [rawNodes, depthFilter, setNodes, setEdges]);
+
+  // Fit view after nodes are committed to DOM
+  useEffect(() => {
+    if (nodes.length > 0) fitView({ padding: 0.15, duration: 400 });
+  }, [nodes.length, fitView]);
 
   const onFilterChange = useCallback((depth: string | null) => {
     setDepthFilter(depth);
     setSelectedNode(null);
-    setTimeout(() => fitView({ padding: 0.15, duration: 400 }), 50);
-  }, [fitView]);
+  }, []);
 
   // Reset filter + panel when goal changes
   useEffect(() => {
@@ -386,8 +396,8 @@ function MapInner({
           </div>
         ) : (
           <ReactFlow
-            nodes={newNodes}
-            edges={newEdges}
+            nodes={nodes}
+            edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             nodeTypes={nodeTypes}

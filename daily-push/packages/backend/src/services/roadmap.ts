@@ -1,11 +1,15 @@
 import { pool } from '../db/connection';
 import { callClaude, parseJSON, SYSTEM_PROMPT_EDUCATOR } from './claude';
 import { GeneratedStudyItem, Topic } from '../types';
+import { buildUserContext } from './userContext';
 
-export async function generateStudyItems(topic: Topic): Promise<GeneratedStudyItem[]> {
+export async function generateStudyItems(topic: Topic, userId?: string): Promise<GeneratedStudyItem[]> {
+  const contextStr = userId
+    ? (await buildUserContext(userId)).toPromptString()
+    : 'Learner background: software developer.';
   const userMessage = `Topic: "${topic.title}"
 Description: "${topic.description || 'No description provided'}"
-Learner background: Senior full-stack developer (Node.js, React, TypeScript, MySQL, AWS). Comfortable with REST APIs, microservices, Docker, and CI/CD. New to AI/ML engineering.
+${contextStr}
 
 Generate a structured study queue as JSON with this exact shape:
 {
@@ -47,8 +51,11 @@ export interface EnrichedSession {
   resources: { label: string; url: string; type: 'docs' | 'article' | 'video' | 'repo' }[];
 }
 
-export async function enrichStudyItems(topic: Topic): Promise<EnrichedSession[]> {
-  const userMessage = `You are writing study sessions for a senior software engineer (5+ yrs, Node.js/React/TypeScript/MySQL/AWS) who wants to deepen expertise and pass senior/staff-level interviews.
+export async function enrichStudyItems(topic: Topic, userId?: string): Promise<EnrichedSession[]> {
+  const contextStr = userId
+    ? (await buildUserContext(userId)).toPromptString()
+    : 'Learner: software developer.';
+  const userMessage = `${contextStr}
 
 Topic: "${topic.title}"
 Context: "${topic.description || ''}"

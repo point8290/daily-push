@@ -66,7 +66,7 @@ async function callTopicEngine(
       userInput,
       userContext: { level, goal: 'gap_fill' },
     },
-    { timeout: 120_000 }
+    { timeout: 300_000 }
   );
   return resp.data as TEResponse;
 }
@@ -124,6 +124,108 @@ export interface DecomposeTrackerHooks {
 // Main: decompose one goal's learning topics
 // ─────────────────────────────────────────────
 
+async function processOneTopic(
+  topicDoc: any,
+  topicIndex: number,
+  userId: string,
+  goalId: string,
+  level: 'beginner' | 'intermediate' | 'advanced',
+  goalTitle: string,
+  skillGaps: any[],
+  tracker?: DecomposeTrackerHooks
+): Promise<{ nodesCreated: number; succeeded: boolean }> {
+  const db = getDb();
+  const topic = topicDoc.structured;
+  const stepId = `topic_decompose_${topicIndex}`;
+
+  await tracker?.onTopicStart(stepId);
+
+  const gap = skillGaps.find((g) => g._id?.toString() === topicDoc.skillGapId?.toString());
+  const longevity = gap?.structured?.longevity ?? 'medium';
+  const aiRelationship = gap?.structured?.aiRelationship ?? 'unaffected';
+
+  await db.collection('goals').updateOne(
+    { _id: new ObjectId(goalId), 'learningTopics._id': topicDoc._id },
+    { $set: { 'learningTopics.$.structured.decompositionStatus': 'in_progress' } }
+  );
+
+  let nodes: TENode[];
+  let edges: TEEdge[];
+  let topicEngineId: string;
+
+  try {
+    const userInput = `${goalTitle} — ${topic.rationale ?? topic.title}`;
+    const result = await callTopicEngine(topic.title, userInput, level);
+    topicEngineId = result.topicId;
+    nodes = result.graph.nodes.filter((n) => n.boundaryType !== 'out_of_scope');
+    edges = result.graph.edges;
+  } catch (err) {
+    console.warn(`[decompose] Topic Engine unreachable for "${topic.title}":`, (err as Error).message);
+    await db.collection('goals').updateOne(
+      { _id: new ObjectId(goalId), 'learningTopics._id': topicDoc._id },
+      { $set: { 'learningTopics.$.structured.decompositionStatus': 'failed' } }
+    );
+    await tracker?.onTopicFail(stepId, `Topic Engine unreachable: ${(err as Error).message}`);
+    return { nodesCreated: 0, succeeded: false };
+  }
+
+  try {
+    const slugToUUID = new Map<string, string>();
+    let position = 1;
+    const ALLOWED_BOUNDARY = new Set(['core', 'optional_depth', 'out_of_scope']);
+
+    for (const node of nodes) {
+      const safeBoundary = ALLOWED_BOUNDARY.has(node.boundaryType) ? node.boundaryType : 'core';
+      const { rows } = await pool.query<{ id: string }>(
+        `INSERT INTO concept_nodes
+           (user_id, goal_id, learning_topic_id,
+            title, description, depth_level, boundary_type,
+            node_type, estimated_mins, longevity, ai_relationship,
+            status, position, te_node_slug)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'concept',$8,$9,$10,'locked',$11,$12)
+         RETURNING id`,
+        [
+          userId, goalId, topicDoc._id.toString(),
+          node.title, node.description, mapDepth(node.depthLevel), safeBoundary,
+          node.estimatedMins, longevity, aiRelationship, position++, node.id,
+        ]
+      );
+      slugToUUID.set(node.id, rows[0].id);
+    }
+
+    for (const edge of edges) {
+      const fromId = slugToUUID.get(edge.fromId);
+      const toId = slugToUUID.get(edge.toId);
+      if (!fromId || !toId) continue;
+      await pool.query(
+        `INSERT INTO concept_edges (goal_id, learning_topic_id, from_node_id, to_node_id, edge_type)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [goalId, topicDoc._id.toString(), fromId, toId, mapEdgeType(edge.type)]
+      );
+    }
+
+    await db.collection('goals').updateOne(
+      { _id: new ObjectId(goalId), 'learningTopics._id': topicDoc._id },
+      {
+        $set: {
+          'learningTopics.$.structured.decompositionStatus': 'completed',
+          'learningTopics.$.structured.topicEngineId': topicEngineId,
+        },
+      }
+    );
+    await tracker?.onTopicDone(stepId);
+    return { nodesCreated: nodes.length, succeeded: true };
+  } catch (insertErr) {
+    console.error(`[decompose] Node insert failed for "${topic.title}":`, (insertErr as Error).message);
+    await db.collection('goals').updateOne(
+      { _id: new ObjectId(goalId), 'learningTopics._id': topicDoc._id },
+      { $set: { 'learningTopics.$.structured.decompositionStatus': 'failed' } }
+    );
+    await tracker?.onTopicFail(stepId, (insertErr as Error).message);
+    return { nodesCreated: 0, succeeded: false };
+  }
+}
+
 export async function decomposeGoal(
   userId: string,
   goalId: string,
@@ -138,127 +240,37 @@ export async function decomposeGoal(
 
   const learningTopics: any[] = goal.learningTopics ?? [];
   const skillGaps: any[] = goal.skillGaps ?? [];
+  const goalTitle: string = goal.structured?.title ?? '';
+
+  // Filter to topics that still need decomposition, preserving original index for step IDs
+  const pending = learningTopics
+    .map((topicDoc, idx) => ({ topicDoc, idx }))
+    .filter(({ topicDoc }) => {
+      const s = topicDoc.structured;
+      return s && s.decompositionStatus !== 'completed';
+    });
+
+  // Run all topics in parallel — each is independent
+  const results = await Promise.allSettled(
+    pending.map(({ topicDoc, idx }) =>
+      processOneTopic(topicDoc, idx, userId, goalId, level, goalTitle, skillGaps, tracker)
+    )
+  );
 
   let nodesCreated = 0;
   let topicsDecomposed = 0;
   let topicsFailed = 0;
-  let topicIndex = 0;
 
-  for (const topicDoc of learningTopics) {
-    const topic = topicDoc.structured;
-    if (!topic || topic.decompositionStatus === 'completed') continue;
-
-    const stepId = `topic_decompose_${topicIndex}`;
-    await tracker?.onTopicStart(stepId);
-
-    // Inherit longevity + AI relationship from the linked skill gap
-    const gap = skillGaps.find(
-      (g) => g._id?.toString() === topicDoc.skillGapId?.toString()
-    );
-    const longevity = gap?.structured?.longevity ?? 'medium';
-    const aiRelationship = gap?.structured?.aiRelationship ?? 'unaffected';
-
-    // Mark in_progress in MongoDB
-    await db.collection('goals').updateOne(
-      { _id: new ObjectId(goalId), 'learningTopics._id': topicDoc._id },
-      { $set: { 'learningTopics.$.structured.decompositionStatus': 'in_progress' } }
-    );
-
-    let nodes: TENode[];
-    let edges: TEEdge[];
-    let topicEngineId: string;
-
-    try {
-      const userInput = `${goal.structured.title} — ${topic.rationale ?? topic.title}`;
-      const result = await callTopicEngine(topic.title, userInput, level);
-      topicEngineId = result.topicId;
-      nodes = result.graph.nodes.filter((n) => n.boundaryType !== 'out_of_scope');
-      edges = result.graph.edges;
-    } catch (err) {
-      console.warn(`[decompose] Topic Engine unreachable for "${topic.title}":`, (err as Error).message);
-      await db.collection('goals').updateOne(
-        { _id: new ObjectId(goalId), 'learningTopics._id': topicDoc._id },
-        { $set: { 'learningTopics.$.structured.decompositionStatus': 'failed' } }
-      );
-      await tracker?.onTopicFail(stepId, `Topic Engine unreachable: ${(err as Error).message}`);
-      topicsFailed++;
-      topicIndex++;
-      continue;
-    }
-
-    try {
-      // Insert nodes into PostgreSQL — collect slug → UUID mapping
-      const slugToUUID = new Map<string, string>();
-      let position = 1;
-
-      const ALLOWED_BOUNDARY = new Set(['core', 'optional_depth', 'out_of_scope']);
-      for (const node of nodes) {
-        const safeBoundary = ALLOWED_BOUNDARY.has(node.boundaryType) ? node.boundaryType : 'core';
-        const { rows } = await pool.query<{ id: string }>(
-          `INSERT INTO concept_nodes
-             (user_id, goal_id, learning_topic_id,
-              title, description, depth_level, boundary_type,
-              node_type, estimated_mins, longevity, ai_relationship,
-              status, position, te_node_slug)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,'concept',$8,$9,$10,'locked',$11,$12)
-           RETURNING id`,
-          [
-            userId,
-            goalId,
-            topicDoc._id.toString(),
-            node.title,
-            node.description,
-            mapDepth(node.depthLevel),
-            safeBoundary,
-            node.estimatedMins,
-            longevity,
-            aiRelationship,
-            position++,
-            node.id,
-          ]
-        );
-        slugToUUID.set(node.id, rows[0].id);
-        nodesCreated++;
-      }
-
-      // Insert edges
-      for (const edge of edges) {
-        const fromId = slugToUUID.get(edge.fromId);
-        const toId = slugToUUID.get(edge.toId);
-        if (!fromId || !toId) continue;
-
-        await pool.query(
-          `INSERT INTO concept_edges (goal_id, learning_topic_id, from_node_id, to_node_id, edge_type)
-           VALUES ($1,$2,$3,$4,$5)`,
-          [goalId, topicDoc._id.toString(), fromId, toId, mapEdgeType(edge.type)]
-        );
-      }
-
-      // Mark completed in MongoDB, store topicEngineId
-      await db.collection('goals').updateOne(
-        { _id: new ObjectId(goalId), 'learningTopics._id': topicDoc._id },
-        {
-          $set: {
-            'learningTopics.$.structured.decompositionStatus': 'completed',
-            'learningTopics.$.structured.topicEngineId': topicEngineId,
-          },
-        }
-      );
-      await tracker?.onTopicDone(stepId);
-      topicsDecomposed++;
-    } catch (insertErr) {
-      console.error(`[decompose] Node insert failed for "${topic.title}":`, (insertErr as Error).message);
-      await db.collection('goals').updateOne(
-        { _id: new ObjectId(goalId), 'learningTopics._id': topicDoc._id },
-        { $set: { 'learningTopics.$.structured.decompositionStatus': 'failed' } }
-      );
-      await tracker?.onTopicFail(stepId, (insertErr as Error).message);
+  for (const r of results) {
+    if (r.status === 'fulfilled') {
+      nodesCreated += r.value.nodesCreated;
+      r.value.succeeded ? topicsDecomposed++ : topicsFailed++;
+    } else {
       topicsFailed++;
     }
-    topicIndex++;
   }
 
-  // Run unlock logic across all nodes for this goal
+  // Run unlock logic after all topics have settled
   await tracker?.onUnlockStart();
   await runUnlockLogic(userId, goalId);
   await tracker?.onUnlockDone();

@@ -61,13 +61,14 @@ router.get('/streak', requireAuth, async (req: Request, res: Response, next: Nex
 // POST /api/sessions/:id/check — score free-text understanding answer
 router.post('/:id/check', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const { userId } = req as AuthRequest;
     const sessionId = String(req.params.id);
     const { answer } = req.body;
     if (!answer?.trim()) {
       res.status(400).json({ error: 'answer is required' });
       return;
     }
-    const result = await scoreUnderstandingAnswer(sessionId, answer.trim());
+    const result = await scoreUnderstandingAnswer(sessionId, answer.trim(), userId);
     res.json(result);
   } catch (err) { next(err); }
 });

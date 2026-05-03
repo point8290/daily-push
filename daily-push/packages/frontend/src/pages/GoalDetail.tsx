@@ -4,7 +4,7 @@ import {
   AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter,
   AlertDialogHeader, AlertDialogOverlay, Button, useToast,
 } from '@chakra-ui/react';
-import { getGoal, confirmGoal, correctGoal, decomposeGoal, getGoalNodes, getGoalResources, retryResourceEnrichment, makePrimary, archiveGoal, deleteGoal, PipelineRun, NodeResource } from '../api/client';
+import { getGoal, confirmGoal, correctGoal, decomposeGoal, getGoalNodes, getGoalResources, retryResourceEnrichment, getResourceCoverage, fillResourceGaps, makePrimary, archiveGoal, deleteGoal, PipelineRun, NodeResource, ResourceCoverage } from '../api/client';
 import PipelineStatus from '../components/PipelineStatus';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -141,6 +141,9 @@ export default function GoalDetail() {
   const [resourcesLoading, setResourcesLoading] = useState(false);
   const [enrichmentRetrying, setEnrichmentRetrying] = useState(false);
   const [enrichmentRetryError, setEnrichmentRetryError] = useState<string | null>(null);
+  const [coverage, setCoverage] = useState<ResourceCoverage | null>(null);
+  const [resourcesError, setResourcesError] = useState<string | null>(null);
+  const [fillingGaps, setFillingGaps] = useState(false);
   const [makingPrimary, setMakingPrimary] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -154,7 +157,11 @@ export default function GoalDetail() {
       getGoal(id),
       getGoalNodes(id).catch(() => []),
     ])
-      .then(([g, n]) => { setGoal(g); setNodes(n); })
+      .then(([g, n]) => {
+        setGoal(g);
+        setNodes(n);
+        if (g?.pipelineRun?.status === 'running') setDecomposing(true);
+      })
       .catch(() => setError('Goal not found'))
       .finally(() => setLoading(false));
   }, [id]);
@@ -163,9 +170,19 @@ export default function GoalDetail() {
   useEffect(() => {
     if (activeTab !== 'resources' || resourcesLoaded || !id || nodes.length === 0) return;
     setResourcesLoading(true);
-    getGoalResources(id)
-      .then(data => { setResourceMap(data); setResourcesLoaded(true); })
-      .catch(() => setResourcesLoaded(true))
+    setResourcesError(null);
+    Promise.all([
+      getGoalResources(id),
+      getResourceCoverage(id).catch(() => null),
+    ])
+      .then(([data, cov]) => {
+        setResourceMap(data);
+        setCoverage(cov);
+        setResourcesLoaded(true);
+      })
+      .catch(() => {
+        setResourcesError('Failed to load resources. Switch tabs and try again.');
+      })
       .finally(() => setResourcesLoading(false));
   }, [activeTab, resourcesLoaded, id, nodes.length]);
 
@@ -254,6 +271,20 @@ export default function GoalDetail() {
     }
   };
 
+  const handleFillGaps = async () => {
+    if (!id) return;
+    setFillingGaps(true);
+    try {
+      await fillResourceGaps(id);
+      // Re-fetch coverage after 30s to reflect gap-fill progress
+      setTimeout(() => {
+        getResourceCoverage(id).then(setCoverage).catch(() => null);
+      }, 30_000);
+    } finally {
+      setFillingGaps(false);
+    }
+  };
+
   const handleResourceRetry = async () => {
     if (!id) return;
     setEnrichmentRetrying(true);
@@ -262,6 +293,7 @@ export default function GoalDetail() {
       await retryResourceEnrichment(id);
       setResourcesLoaded(false);
       setResourceMap({});
+      setCoverage(null);
     } catch (err: any) {
       setEnrichmentRetryError(err?.response?.data?.error ?? 'Failed to start enrichment');
     } finally {
@@ -446,7 +478,9 @@ export default function GoalDetail() {
 
           {/* Static partial/failed pipeline */}
           {id && !decomposing && goal?.pipelineRun &&
-            (goal.pipelineRun.status === 'partial' || goal.pipelineRun.status === 'failed') && (
+            (goal.pipelineRun.status === 'running' ||
+             goal.pipelineRun.status === 'partial' ||
+             goal.pipelineRun.status === 'failed') && (
             <div className="bg-white border border-amber-200 rounded-xl p-5">
               <p className="text-xs font-semibold text-amber-600 uppercase tracking-widest mb-4">
                 Pipeline — needs attention
@@ -704,6 +738,10 @@ export default function GoalDetail() {
             </div>
           )}
 
+          {!resourcesLoading && resourcesError && (
+            <p className="text-center py-6 text-sm text-red-500">{resourcesError}</p>
+          )}
+
           {!resourcesLoading && nodes.length === 0 && (
             <div className="text-center py-12 text-slate-400 text-sm">
               Build your study nodes first, then resources will appear here.
@@ -712,6 +750,59 @@ export default function GoalDetail() {
 
           {!resourcesLoading && nodes.length > 0 && (
             <>
+              {/* Coverage summary bar */}
+              {coverage && coverage.total > 0 && (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-slate-600">
+                        {coverage.coveredCount} / {coverage.total} nodes covered
+                      </span>
+                      <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${
+                        coverage.coveragePct >= 90
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : coverage.coveragePct >= 70
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-red-100 text-red-600'
+                      }`}>
+                        {coverage.coveragePct}%
+                      </span>
+                    </div>
+                    {(coverage.uncoveredCount + coverage.weakCount) > 0 && (
+                      <button
+                        onClick={handleFillGaps}
+                        disabled={fillingGaps}
+                        className="text-xs font-medium text-white bg-sky-600 hover:bg-sky-700
+                                   px-2.5 py-1 rounded-lg transition-colors disabled:opacity-50 shrink-0"
+                      >
+                        {fillingGaps ? 'Filling…' : `Fill ${coverage.uncoveredCount + coverage.weakCount} gaps ↺`}
+                      </button>
+                    )}
+                  </div>
+                  {(coverage.uncoveredCount + coverage.weakCount) > 0 && (
+                    <details className="text-xs text-slate-500">
+                      <summary className="cursor-pointer hover:text-slate-700">
+                        {coverage.uncoveredCount} uncovered · {coverage.weakCount} weak quality
+                      </summary>
+                      <ul className="mt-1.5 space-y-0.5 pl-2">
+                        {coverage.nodes
+                          .filter(n => n.status !== 'covered')
+                          .map(n => (
+                            <li key={n.nodeSlug} className="flex items-center gap-1.5">
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                n.status === 'uncovered' ? 'bg-red-400' : 'bg-amber-400'
+                              }`} />
+                              <span className="truncate">{n.canonicalTitle}</span>
+                              <span className="text-slate-400 shrink-0">({n.depthLevel})</span>
+                            </li>
+                          ))
+                        }
+                      </ul>
+                    </details>
+                  )}
+                </div>
+              )}
+
               {/* Re-fetch button */}
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs text-slate-400">

@@ -35,4 +35,9 @@ export const config = {
     nodeEnv: process.env.NODE_ENV || 'development',
     topicEngineUrl: process.env.TOPIC_ENGINE_URL || 'http://localhost:3000',
   },
+  decisionLayer: {
+    // Confidence threshold above which intake skips LLM and uses a matched profile directly.
+    // Default 1.1 = bypass disabled (LLM always runs). Set to 0.85 to re-enable once profiles are mature.
+    directThreshold: parseFloat(process.env.DECISION_LAYER_DIRECT_THRESHOLD || '1.1'),
+  },
 };

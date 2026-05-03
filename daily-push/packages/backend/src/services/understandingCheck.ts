@@ -1,5 +1,6 @@
 import { pool } from '../db/postgres';
 import { callClaude, parseJSON } from './claude';
+import { buildUserContext } from './userContext';
 
 export interface CheckResult {
   score: number;        // 1–5 (same scale as confidence)
@@ -7,14 +8,13 @@ export interface CheckResult {
   correct: boolean;     // whether the answer demonstrates understanding
 }
 
-// Score a free-text understanding answer against a concept node
 export async function scoreUnderstandingAnswer(
   sessionId: string,
-  answer: string
+  answer: string,
+  userId?: string
 ): Promise<CheckResult> {
-  // Fetch node info for this session
-  const { rows } = await pool.query<{ title: string; description: string; depth_level: string }>(
-    `SELECT cn.title, cn.description, cn.depth_level
+  const { rows } = await pool.query<{ title: string; description: string; depth_level: string; goal_id: string | null }>(
+    `SELECT cn.title, cn.description, cn.depth_level, cn.goal_id
      FROM study_sessions ss
      JOIN concept_nodes cn ON cn.id = ss.node_id
      WHERE ss.id = $1`,
@@ -25,18 +25,22 @@ export async function scoreUnderstandingAnswer(
     return { score: 3, feedback: 'Could not find session context.', correct: false };
   }
 
-  const { title, description, depth_level } = rows[0];
+  const { title, description, depth_level, goal_id } = rows[0];
+
+  // Pass goal_id so context is scoped to the goal being studied, not the primary goal
+  const contextStr = userId ? (await buildUserContext(userId, goal_id ?? undefined)).toPromptString() : null;
 
   const text = await callClaude({
     system: `You assess whether a developer's explanation of a concept demonstrates real understanding.
 Output JSON only. No prose, no markdown, no code fences.`,
-    userMessage: `Concept: "${title}" (${depth_level} level)
+    userMessage: `${contextStr ? contextStr + '\n\n' : ''}Concept: "${title}" (${depth_level} level)
 Description: ${description ?? 'No description provided'}
 
 The learner's explanation:
 "${answer}"
 
-Score their understanding on a 1–5 scale:
+Score their understanding on a 1–5 scale, calibrated to the learner's seniority and experience level shown above.
+A senior engineer should be held to a higher standard than a junior for the same concept.
 1 = completely wrong or no understanding shown
 2 = vague or mostly wrong, missing the core idea
 3 = partially correct, gets the gist but misses key details

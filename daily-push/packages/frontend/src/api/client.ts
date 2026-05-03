@@ -112,6 +112,27 @@ export const retryResourceEnrichment = (goalId: string) =>
     .post(`/goals/${goalId}/resources/retry`)
     .then((r) => r.data as { enqueued: number });
 
+export interface ResourceCoverageNode {
+  nodeSlug:       string;
+  canonicalTitle: string;
+  depthLevel:     string;
+  resourceCount:  number;
+  maxQuality:     number | null;
+  status:         'covered' | 'weak' | 'uncovered';
+}
+export interface ResourceCoverage {
+  total:          number;
+  coveredCount:   number;
+  weakCount:      number;
+  uncoveredCount: number;
+  coveragePct:    number;
+  nodes:          ResourceCoverageNode[];
+}
+export const getResourceCoverage = (goalId: string) =>
+  api.get(`/goals/${goalId}/resources/coverage`).then((r) => r.data as ResourceCoverage);
+export const fillResourceGaps = (goalId: string) =>
+  api.post(`/goals/${goalId}/resources/fill-gaps`).then((r) => r.data);
+
 // Today
 export const getToday = () => api.get("/today").then((r) => r.data);
 
