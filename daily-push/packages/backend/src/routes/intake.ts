@@ -6,6 +6,7 @@ import {
   getGoalCorrections,
   generateClarifyingQuestions,
   extractProfile,
+  extractProfileHeuristically,
   classifyGoal,
   saveProfile,
   analyzeSkillGaps,
@@ -28,6 +29,19 @@ import {
   finalizePipelineRun,
 } from "../services/pipelineTracker";
 import { getDb } from "../db/mongo";
+import { trackProductEvent } from "../services/productEvents";
+import {
+  assertBelowStateLimit,
+  assertEntitlementEnabled,
+} from "../services/entitlements";
+import {
+  buildSprintContextBlocks,
+  deriveAvailableMinsDayOverride,
+  isPremiumSprintType,
+  normalizeGoalSprintInput,
+  rebaselineGoalSprint,
+  saveGoalSprintDefinition,
+} from "../services/sprintPlanner";
 
 const router = Router();
 
@@ -39,6 +53,12 @@ router.post(
     try {
       const { userId } = req as AuthRequest;
       const db = getDb();
+      const activeGoalCount = await db.collection("goals").countDocuments({
+        userId,
+        status: { $in: ["intake_in_progress", "active", "drafting", "assessing", "planning", "paused"] },
+      });
+
+      await assertBelowStateLimit(userId, "goals.active.max", activeGoalCount);
 
       const now = new Date();
       const doc = {
@@ -54,6 +74,7 @@ router.post(
         milestones: [],
         adjustments: [],
         reflections: [],
+        sprint: null,
         status: "intake_in_progress",
         stage: "intake",
         isPrimary: true,
@@ -74,6 +95,16 @@ router.post(
 
       const result = await db.collection("goals").insertOne(doc);
       const goalId = result.insertedId.toString();
+
+      void trackProductEvent({
+        userId,
+        goalId,
+        eventKey: "goal_started",
+        properties: {
+          stage: "intake",
+          source: "goal_intake",
+        },
+      });
 
       res.status(201).json({ goalId });
     } catch (err) {
@@ -169,18 +200,33 @@ router.post(
 
     try {
       const { userId } = req as AuthRequest;
-      const { goalId: providedGoalId } = req.body;
+      const {
+        goalId: providedGoalId,
+        sprintConfig: rawSprintConfig,
+      } = req.body;
 
       if (!providedGoalId?.trim()) {
         res.status(400).json({ error: "goalId is required" });
         return;
       }
 
-      goalId = providedGoalId;
+      const resolvedGoalId = providedGoalId;
+      goalId = resolvedGoalId;
+      const sprintConfig = rawSprintConfig
+        ? normalizeGoalSprintInput(rawSprintConfig)
+        : null;
+
+      if (sprintConfig && isPremiumSprintType(sprintConfig.sprintType)) {
+        await assertEntitlementEnabled(userId, "premium_sprints.enabled");
+      }
+
+      if (sprintConfig) {
+        await saveGoalSprintDefinition(userId, resolvedGoalId, sprintConfig);
+      }
 
       // Fetch goal-scoped inputs and corrections
-      const inputs = await getGoalInputs(goalId, userId);
-      const corrections = await getGoalCorrections(goalId, userId);
+      const inputs = await getGoalInputs(resolvedGoalId, userId);
+      const corrections = await getGoalCorrections(resolvedGoalId, userId);
 
       if (inputs.length === 0) {
         res
@@ -202,6 +248,17 @@ router.post(
           capturedAt: new Date(),
         });
       }
+      if (sprintConfig) {
+        const sprintContextBlocks = buildSprintContextBlocks(sprintConfig);
+        if (sprintContextBlocks.length > 0) {
+          allInputsForContext.push({
+            type: "form_answer" as const,
+            source: "clarification" as const,
+            content: sprintContextBlocks.join("\n"),
+            capturedAt: new Date(),
+          });
+        }
+      }
 
       const rawGoalText = inputs
         .filter((i) => i.source === "goal_intake")
@@ -220,7 +277,30 @@ router.post(
       // profile_extraction
       setInMemory("profile_extraction", "running");
       currentStepId = "profile_extraction";
-      const profile = await extractProfile(allInputsForContext);
+      const extractedProfile =
+        route.action !== "llm"
+          ? extractProfileHeuristically(allInputsForContext)
+          : await extractProfile(allInputsForContext);
+      const availableMinsDayOverride = sprintConfig
+        ? deriveAvailableMinsDayOverride(
+            sprintConfig,
+            extractedProfile.availableDaysWeek,
+          )
+        : null;
+      const profile =
+        availableMinsDayOverride === null
+          ? extractedProfile
+          : {
+              ...extractedProfile,
+              availableMinsDay: availableMinsDayOverride,
+              derivationConfidence: Math.max(
+                extractedProfile.derivationConfidence,
+                0.8,
+              ),
+              uncertainFields: extractedProfile.uncertainFields.filter(
+                (field) => field !== "availableMinsDay",
+              ),
+            };
       await saveProfile(userId, profile, []);
       setInMemory("profile_extraction", "done");
 
@@ -246,16 +326,23 @@ router.post(
       } else {
         goalClassification = await classifyGoal(allInputsForContext, profile);
       }
+      if (sprintConfig?.targetDate) {
+        goalClassification = {
+          ...goalClassification,
+          targetDate: sprintConfig.targetDate,
+          targetDateFlexibility: "fixed" as const,
+        };
+      }
       setInMemory("goal_classification", "done");
 
       // Update goalId in MongoDB with initial classification (if not already done)
-      await initPipelineRun(goalId, "intake", steps); // Phase B begins
+      await initPipelineRun(resolvedGoalId, "intake", steps); // Phase B begins
 
       // ── Phase B: all remaining updates go directly to MongoDB ─────────────────
 
       // skill_gap_analysis
       currentStepId = "skill_gap_analysis";
-      await setStepStatus(goalId, "skill_gap_analysis", "running");
+      await setStepStatus(resolvedGoalId, "skill_gap_analysis", "running");
       let skillGaps;
       let learningTopics;
 
@@ -281,11 +368,11 @@ router.post(
           goalClassification,
         );
       }
-      await setStepStatus(goalId, "skill_gap_analysis", "done");
+      await setStepStatus(resolvedGoalId, "skill_gap_analysis", "done");
 
       // topic_mapping
       currentStepId = "topic_mapping";
-      await setStepStatus(goalId, "topic_mapping", "running");
+      await setStepStatus(resolvedGoalId, "topic_mapping", "running");
       if (route.action === "direct" && match.profile) {
         learningTopics = inferLearningTopics(match.profile, skillGaps);
       } else {
@@ -295,11 +382,11 @@ router.post(
           goalClassification,
         );
       }
-      await setStepStatus(goalId, "topic_mapping", "done");
+      await setStepStatus(resolvedGoalId, "topic_mapping", "done");
 
       // timeline_estimation
       currentStepId = "timeline_estimation";
-      await setStepStatus(goalId, "timeline_estimation", "running");
+      await setStepStatus(resolvedGoalId, "timeline_estimation", "running");
       const minsPerDay = profile.availableMinsDay ?? 45;
       let timeline;
       if (route.action === "direct" && match.profile) {
@@ -313,14 +400,15 @@ router.post(
         timeline = calculateTimeline(learningTopics, profile.availableMinsDay);
       }
       await updateGoalWithPlan(
-        goalId,
+        resolvedGoalId,
         skillGaps,
         learningTopics,
         timeline,
         goalClassification,
       );
-      await setStepStatus(goalId, "timeline_estimation", "done");
-      await finalizePipelineRun(goalId);
+      await rebaselineGoalSprint(userId, resolvedGoalId);
+      await setStepStatus(resolvedGoalId, "timeline_estimation", "done");
+      await finalizePipelineRun(resolvedGoalId);
 
       // Write LLM results back to knowledge layer (non-blocking)
       if (route.action === "llm") {
@@ -336,12 +424,25 @@ router.post(
       }
 
       res.status(201).json({
-        goalId,
+        goalId: resolvedGoalId,
         profile,
         skillGaps,
         learningTopics,
         timeline,
         _meta: { decisionRoute: route.action, confidence: match.confidence },
+      });
+
+      void trackProductEvent({
+        userId,
+        goalId: resolvedGoalId,
+        eventKey: "goal_processed",
+        properties: {
+          decisionRoute: route.action,
+          confidence: match.confidence,
+          skillGapCount: skillGaps.length,
+          learningTopicCount: learningTopics.length,
+          estimatedWeeksAtPace: timeline.estimatedWeeksAtPace,
+        },
       });
     } catch (err) {
       // Mark current step failed if we have a goalId

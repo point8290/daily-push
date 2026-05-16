@@ -132,6 +132,19 @@ export async function finalizePipelineRun(goalId: string): Promise<PipelineRunSt
   return status;
 }
 
+export async function failPipelineRun(goalId: string): Promise<void> {
+  const db = getDb();
+  await db.collection('goals').updateOne(
+    { _id: new ObjectId(goalId) },
+    {
+      $set: {
+        'pipelineRun.status': 'failed',
+        'pipelineRun.completedAt': new Date(),
+      },
+    }
+  );
+}
+
 export async function getPipelineRun(
   goalId: string,
   userId: string

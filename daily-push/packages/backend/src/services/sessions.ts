@@ -363,19 +363,21 @@ async function detectMilestones(
 
   if (newMilestones.length > 0) {
     const now = new Date();
+    const milestoneEntries = newMilestones.map((title, i) => ({
+      structured: { title, triggerType: 'automatic' },
+      achievedAt: now,
+      sequence: (goal?.milestones?.length ?? 0) + i + 1,
+    }));
+
     await db.collection('goals').updateOne(
       { _id: new ObjectId(goalId) },
       {
         $push: {
           milestones: {
-            $each: newMilestones.map((title, i) => ({
-              structured: { title, triggerType: 'automatic' },
-              achievedAt: now,
-              sequence: (goal?.milestones?.length ?? 0) + i + 1,
-            })),
+            $each: milestoneEntries,
           },
         },
-      }
+      } as any
     );
   }
 

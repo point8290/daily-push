@@ -19,10 +19,6 @@
       "@topic-engine/db": ["packages/db/src/index"]
     }
   },
-  "include": [
-    "src/**/*",
-    "../core/src/**/*",
-    "../db/src/**/*"
-  ],
+  "include": ["src/**/*", "../core/src/**/*", "../db/src/**/*"],
   "exclude": ["**/node_modules", "**/dist"]
 }

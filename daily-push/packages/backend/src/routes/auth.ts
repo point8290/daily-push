@@ -4,23 +4,32 @@ import jwt from 'jsonwebtoken';
 import { pool } from '../db/postgres';
 import { config } from '../config';
 import { requireAuth, AuthRequest } from '../middleware/auth';
+import { createRateLimit } from '../middleware/rateLimit';
+import { assertBodyObject, readEmail, readRequiredString } from '../utils/requestValidation';
 
 const router = Router();
+const authRateLimit = createRateLimit({
+  keyPrefix: 'auth',
+  windowMs: config.security.authRateLimitWindowMs,
+  maxRequests: config.security.authRateLimitMax,
+  message: 'Too many authentication attempts. Please try again shortly.',
+  keyBuilder: (req) => `${req.path}:${req.ip || req.socket.remoteAddress || 'unknown'}`,
+});
 
 // POST /api/auth/register
-router.post('/register', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/register', authRateLimit, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, password, name } = req.body;
-    if (!email || !password || !name) {
-      res.status(400).json({ error: 'email, password, and name are required' });
-      return;
-    }
-    if (password.length < 8) {
-      res.status(400).json({ error: 'password must be at least 8 characters' });
-      return;
-    }
+    const body = assertBodyObject(req.body);
+    const email = readEmail(body.email);
+    const password = readRequiredString(body.password, 'password', {
+      minLength: 8,
+      maxLength: 200,
+    });
+    const name = readRequiredString(body.name, 'name', {
+      maxLength: 120,
+    });
 
-    const exists = await pool.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+    const exists = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (exists.rows.length > 0) {
       res.status(409).json({ error: 'Email already registered' });
       return;
@@ -31,7 +40,7 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
       `INSERT INTO users (email, password_hash, name)
        VALUES ($1, $2, $3)
        RETURNING id, email, name, created_at`,
-      [email.toLowerCase(), hash, name.trim()]
+      [email, hash, name]
     );
 
     const user = rows[0];
@@ -44,17 +53,17 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
 });
 
 // POST /api/auth/login
-router.post('/login', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/login', authRateLimit, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      res.status(400).json({ error: 'email and password are required' });
-      return;
-    }
+    const body = assertBodyObject(req.body);
+    const email = readEmail(body.email);
+    const password = readRequiredString(body.password, 'password', {
+      maxLength: 200,
+    });
 
     const { rows } = await pool.query(
       'SELECT id, email, name, password_hash FROM users WHERE email = $1',
-      [email.toLowerCase()]
+      [email]
     );
     if (rows.length === 0) {
       res.status(401).json({ error: 'Invalid email or password' });

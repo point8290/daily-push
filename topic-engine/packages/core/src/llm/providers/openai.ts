@@ -33,6 +33,15 @@ export class OpenAIProvider implements LLMProvider {
     return !this.model.startsWith("o1");
   }
 
+  private usesMaxCompletionTokens() {
+    return (
+      this.model.startsWith("gpt-5") ||
+      this.model.startsWith("o1") ||
+      this.model.startsWith("o3") ||
+      this.model.startsWith("o4")
+    );
+  }
+
   async complete(options: CompletionOptions): Promise<CompletionResult> {
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
 
@@ -60,9 +69,17 @@ export class OpenAIProvider implements LLMProvider {
       messages,
     };
 
-    if (options.maxTokens) params.max_tokens = options.maxTokens;
+    if (options.maxTokens) {
+      if (this.usesMaxCompletionTokens()) {
+        (params as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming & {
+          max_completion_tokens?: number;
+        }).max_completion_tokens = options.maxTokens;
+      } else {
+        params.max_tokens = options.maxTokens;
+      }
+    }
     if (options.temperature !== undefined && this.supportsTools()) {
-      params.temperature = 1;
+      params.temperature = options.temperature;
     }
 
     if (options.tools?.length && this.supportsTools()) {

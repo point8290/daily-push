@@ -2,20 +2,35 @@ import { Router } from 'express';
 import authRouter from './auth';
 import intakeRouter from './intake';
 import goalsRouter from './goals';
+import goalArtifactsRouter from './goalArtifacts';
+import goalCareerRouter from './goalCareer';
+import goalWeeklyRouter from './goalWeekly';
 import todayRouter from './today';
 import sessionsRouter from './sessions';
+import mockInterviewsRouter from './mockInterviews';
 import settingsRouter from './settings';
-
+import eventsRouter from './events';
+import meRouter from './me';
+import billingRouter from './billing';
 import newsRouter from './news';
+import reportsRouter from './reports';
 
 const router = Router();
 
 router.use('/auth', authRouter);
 router.use('/intake', intakeRouter);
+router.use('/goals', goalArtifactsRouter);
+router.use('/goals', goalCareerRouter);
+router.use('/goals', goalWeeklyRouter);
 router.use('/goals', goalsRouter);
 router.use('/today', todayRouter);
 router.use('/sessions', sessionsRouter);
+router.use('/mock', mockInterviewsRouter);
+router.use('/reports', reportsRouter);
 router.use('/settings', settingsRouter);
+router.use('/events', eventsRouter);
+router.use('/me', meRouter);
+router.use('/billing', billingRouter);
 router.use('/news', newsRouter);
 
 export default router;

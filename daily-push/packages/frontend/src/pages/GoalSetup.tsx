@@ -1,12 +1,35 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
-  startGoalIntake,
-  saveRawInput,
+  Badge,
+  Box,
+  Button,
+  Center,
+  Circle,
+  FormControl,
+  FormLabel,
+  Heading,
+  HStack,
+  Input,
+  SimpleGrid,
+  Spinner,
+  Stack,
+  Text,
+  Textarea,
+} from '@chakra-ui/react';
+import {
+  type GoalSprintInput,
+  type SprintType,
   getClarifyingQuestions,
   processIntake,
-} from "../api/client";
-import PipelineStatus from "../components/PipelineStatus";
+  saveRawInput,
+  startGoalIntake,
+  trackEvent,
+} from '../api/client';
+import PipelineStatus from '../components/PipelineStatus';
+import PageHeader from '../components/ui/PageHeader';
+import SurfaceCard from '../components/ui/SurfaceCard';
+import { useEntitlements } from '../contexts/EntitlementsContext';
 
 interface Question {
   id: string;
@@ -15,327 +38,769 @@ interface Question {
   optional: boolean;
 }
 
+interface SprintFormState {
+  sprintType: SprintType;
+  targetRole: string;
+  targetCompany: string;
+  targetDate: string;
+  weeklyCommitmentHours: string;
+  currentBlockers: string;
+  successEvidence: string;
+}
+
 const QUICK_PICKS = [
-  "Get a senior engineering job at a product company",
-  "Build and ship an AI-powered product",
-  "Get promoted to senior / staff engineer",
-  "Transition from backend to full-stack",
-  "Become an AI/LLM engineer",
+  'Get a senior engineering job at a product company',
+  'Build and ship an AI-powered product',
+  'Get promoted to senior / staff engineer',
+  'Transition from backend to full-stack',
+  'Become an AI/LLM engineer',
 ];
 
-type Step = "goal" | "clarify" | "processing" | "done";
+const SPRINT_OPTIONS: Array<{
+  value: SprintType;
+  label: string;
+  description: string;
+  premium: boolean;
+}> = [
+  {
+    value: 'standard',
+    label: 'Standard Sprint',
+    description:
+      'A focused execution sprint with a deadline, weekly commitment, and forecast.',
+    premium: false,
+  },
+  {
+    value: 'senior_engineer',
+    label: 'Senior Engineer Sprint',
+    description:
+      'Bias the plan toward senior-level expectations, systems thinking, and promotion readiness.',
+    premium: true,
+  },
+  {
+    value: 'ai_engineer_transition',
+    label: 'AI Engineer Transition Sprint',
+    description:
+      'Bias the roadmap toward LLM tooling, applied AI workflows, and AI-role transition work.',
+    premium: true,
+  },
+];
+
+const DEFAULT_SPRINT_FORM: SprintFormState = {
+  sprintType: 'standard',
+  targetRole: '',
+  targetCompany: '',
+  targetDate: '',
+  weeklyCommitmentHours: '6',
+  currentBlockers: '',
+  successEvidence: '',
+};
+
+type Step = 'goal' | 'clarify' | 'sprint' | 'processing' | 'done';
+
+function splitLines(value: string): string[] {
+  return value
+    .split(/\r?\n|,/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
 
 export default function GoalSetup() {
   const navigate = useNavigate();
-  const [step, setStep] = useState<Step>("goal");
-  const [goalText, setGoalText] = useState("");
+  const { entitlements } = useEntitlements();
+  const [step, setStep] = useState<Step>('goal');
+  const [goalText, setGoalText] = useState('');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [error, setError] = useState("");
+  const [sprintForm, setSprintForm] = useState<SprintFormState>(DEFAULT_SPRINT_FORM);
+  const [error, setError] = useState('');
+  const [upgradePlan, setUpgradePlan] = useState<string | null>(null);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [currentGoalId, setCurrentGoalId] = useState<string | null>(null);
 
-  // Initialize goal on mount
+  const premiumSprintEnabled =
+    entitlements.find((entry) => entry.featureKey === 'premium_sprints.enabled')
+      ?.enabled ?? false;
+
+  const buildSprintConfig = (): GoalSprintInput => ({
+    sprintType: sprintForm.sprintType,
+    targetRole: sprintForm.targetRole.trim() || null,
+    targetCompany: sprintForm.targetCompany.trim() || null,
+    targetDate: sprintForm.targetDate || null,
+    weeklyCommitmentHours: sprintForm.weeklyCommitmentHours.trim()
+      ? Number(sprintForm.weeklyCommitmentHours)
+      : null,
+    currentBlockers: splitLines(sprintForm.currentBlockers),
+    successEvidence: splitLines(sprintForm.successEvidence),
+  });
+
   useEffect(() => {
     (async () => {
       try {
         const { goalId } = await startGoalIntake();
         setCurrentGoalId(goalId);
+        void trackEvent({
+          eventKey: 'goal_setup_viewed',
+          goalId,
+          properties: {
+            step: 'goal',
+          },
+        }).catch(() => {});
       } catch (err: any) {
-        setError(err?.response?.data?.error ?? "Failed to initialize goal");
+        setUpgradePlan(err?.response?.data?.upgradePlan ?? null);
+        setError(err?.response?.data?.error ?? 'Failed to initialize goal');
       }
     })();
   }, []);
 
-  // ── Step 1: user submits goal text ──
   const handleGoalSubmit = async () => {
     if (!goalText.trim() || !currentGoalId) return;
-    setError("");
+    setError('');
+    setUpgradePlan(null);
     setLoadingQuestions(true);
     try {
-      await saveRawInput(currentGoalId, goalText.trim(), "goal_intake");
+      await saveRawInput(currentGoalId, goalText.trim(), 'goal_intake');
+      void trackEvent({
+        eventKey: 'goal_text_submitted',
+        goalId: currentGoalId,
+        properties: {
+          goalTextLength: goalText.trim().length,
+        },
+      }).catch(() => {});
       const { questions: qs } = await getClarifyingQuestions(currentGoalId);
       setQuestions(qs);
-      setStep("clarify");
+      setStep('clarify');
     } catch (err: any) {
-      setError(err?.response?.data?.error ?? "Something went wrong");
+      setUpgradePlan(err?.response?.data?.upgradePlan ?? null);
+      setError(err?.response?.data?.error ?? 'Something went wrong');
     } finally {
       setLoadingQuestions(false);
     }
   };
 
-  // ── Step 2: user answers clarifying questions ──
+  const goToSprintStep = async (trackingEventKey: string) => {
+    if (!currentGoalId) return;
+    void trackEvent({
+      eventKey: trackingEventKey,
+      goalId: currentGoalId,
+      properties: {
+        totalQuestions: questions.length,
+      },
+    }).catch(() => {});
+    setStep('sprint');
+  };
+
   const handleClarifySubmit = async () => {
     if (!currentGoalId) return;
-    setError("");
+    setError('');
+    setUpgradePlan(null);
     try {
-      const answered = questions.filter((q) => answers[q.id]?.trim());
-      for (const q of answered) {
-        const content = `${q.question}\n${answers[q.id].trim()}`;
-        await saveRawInput(currentGoalId, content, "clarification");
+      const answered = questions.filter((question) => answers[question.id]?.trim());
+      for (const question of answered) {
+        const content = `${question.question}\n${answers[question.id].trim()}`;
+        await saveRawInput(currentGoalId, content, 'clarification');
       }
-      await runIntake();
+      void trackEvent({
+        eventKey: 'goal_clarify_submitted',
+        goalId: currentGoalId,
+        properties: {
+          answeredCount: answered.length,
+          totalQuestions: questions.length,
+        },
+      }).catch(() => {});
+      setStep('sprint');
     } catch (err: any) {
-      setError(err?.response?.data?.error ?? "Processing failed");
-      setStep("clarify");
+      setUpgradePlan(err?.response?.data?.upgradePlan ?? null);
+      setError(err?.response?.data?.error ?? 'Processing failed');
+      setStep('clarify');
     }
   };
 
   const skipClarify = async () => {
-    if (!currentGoalId) return;
-    setError("");
-    try {
-      await runIntake();
-    } catch (err: any) {
-      setError(err?.response?.data?.error ?? "Processing failed");
-      setStep("clarify");
+    setError('');
+    setUpgradePlan(null);
+    await goToSprintStep('goal_clarify_skipped');
+  };
+
+  const selectSprintType = (sprintType: SprintType, premium: boolean) => {
+    if (premium && !premiumSprintEnabled) {
+      setUpgradePlan('sprint');
+      setError('Premium sprint templates are available on the Sprint plan.');
+      return;
+    }
+
+    setError('');
+    setUpgradePlan(null);
+    setSprintForm((prev) => ({ ...prev, sprintType }));
+
+    if (currentGoalId) {
+      void trackEvent({
+        eventKey: 'goal_sprint_template_selected',
+        goalId: currentGoalId,
+        properties: {
+          sprintType,
+          premiumTemplate: premium,
+        },
+      }).catch(() => {});
     }
   };
 
   const runIntake = async () => {
     if (!currentGoalId) return;
-    setStep("processing");
-    await processIntake(currentGoalId);
-    // PipelineStatus mounts and polls; onComplete handles navigation
+    setStep('processing');
+    const sprintConfig = buildSprintConfig();
+
+    void trackEvent({
+      eventKey: 'goal_processing_started',
+      goalId: currentGoalId,
+      properties: {
+        step: 'processing',
+        sprintType: sprintConfig.sprintType,
+        hasTargetDate: !!sprintConfig.targetDate,
+        weeklyCommitmentHours: sprintConfig.weeklyCommitmentHours,
+      },
+    }).catch(() => {});
+
+    await processIntake(currentGoalId, sprintConfig);
   };
 
-  // ── Render ──
-  if (step === "processing" || step === "done") {
+  const handleSprintSubmit = async () => {
+    if (!currentGoalId) return;
+    setError('');
+    setUpgradePlan(null);
+
+    const sprintConfig = buildSprintConfig();
+    if (
+      (sprintConfig.sprintType === 'senior_engineer' ||
+        sprintConfig.sprintType === 'ai_engineer_transition') &&
+      !premiumSprintEnabled
+    ) {
+      setUpgradePlan('sprint');
+      setError('Upgrade to Sprint to use this template.');
+      return;
+    }
+
+    try {
+      void trackEvent({
+        eventKey: 'goal_sprint_submitted',
+        goalId: currentGoalId,
+        properties: {
+          sprintType: sprintConfig.sprintType,
+          hasTargetRole: !!sprintConfig.targetRole,
+          hasTargetDate: !!sprintConfig.targetDate,
+          weeklyCommitmentHours: sprintConfig.weeklyCommitmentHours,
+          blockerCount: sprintConfig.currentBlockers?.length ?? 0,
+        },
+      }).catch(() => {});
+      await runIntake();
+    } catch (err: any) {
+      setUpgradePlan(err?.response?.data?.upgradePlan ?? null);
+      setError(err?.response?.data?.error ?? 'Processing failed');
+      setStep('sprint');
+    }
+  };
+
+  const stepEntries = [
+    { id: 'goal', label: 'Goal' },
+    { id: 'clarify', label: 'Clarify' },
+    { id: 'sprint', label: 'Sprint' },
+  ] as const;
+  const currentStepIndex = stepEntries.findIndex((entry) => entry.id === step);
+
+  const ErrorPanel = error ? (
+    <SurfaceCard
+      px={4}
+      py={4}
+      bg="rgba(254,242,242,0.92)"
+      borderColor="red.100"
+    >
+      <Text fontSize="sm" color="red.600">
+        {error}
+      </Text>
+      {upgradePlan && (
+        <Button
+          as={Link}
+          to="/pricing"
+          variant="ghost"
+          color="brand.700"
+          px={0}
+          mt={2}
+          h="auto"
+          _hover={{ bg: 'transparent', color: 'brand.800' }}
+        >
+          Upgrade to {upgradePlan}
+        </Button>
+      )}
+    </SurfaceCard>
+  ) : null;
+
+  if (step === 'processing' || step === 'done') {
     if (!currentGoalId) {
       return (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
-          <div className="w-10 h-10 border-4 border-sky-200 border-t-sky-600 rounded-full animate-spin" />
-          <p className="text-slate-600 font-medium">Analysing your goal…</p>
-          <p className="text-slate-400 text-sm">This takes 10–20 seconds</p>
-        </div>
+        <Center minH="60vh">
+          <Stack spacing={4} align="center">
+            <Spinner size="xl" color="brand.500" thickness="4px" />
+            <Text fontWeight="700" color="ink.700">
+              Analysing your goal...
+            </Text>
+            <Text fontSize="sm" color="ink.400">
+              This usually takes 10–20 seconds.
+            </Text>
+          </Stack>
+        </Center>
       );
     }
 
-    if (step === "done") {
+    if (step === 'done') {
       return (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
-          <svg
-            className="w-12 h-12 text-emerald-500"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            <path
-              fillRule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
-              clipRule="evenodd"
-            />
-          </svg>
-          <p className="text-slate-700 font-semibold text-lg">
-            Your plan is ready
-          </p>
-          <p className="text-slate-400 text-sm">Redirecting…</p>
-        </div>
+        <Center minH="60vh">
+          <Stack spacing={4} align="center" textAlign="center">
+            <Circle size="16" bg="green.50" color="green.500">
+              <svg className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </Circle>
+            <Heading size="md" letterSpacing="-0.03em" color="ink.900">
+              Your sprint plan is ready
+            </Heading>
+            <Text fontSize="sm" color="ink.500">
+              Redirecting you to the goal workspace...
+            </Text>
+          </Stack>
+        </Center>
       );
     }
 
     return (
-      <div className="max-w-xl mx-auto py-8">
-        <div className="mb-6">
-          <h2
-            className="font-display text-xl text-slate-900"
-            style={{ letterSpacing: "-0.01em" }}
-          >
-            Building your plan
-          </h2>
-          <p className="text-slate-500 text-sm mt-1">
-            Analysing your goal and mapping what you need to learn.
-          </p>
-        </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-[var(--shadow-xs)]">
+      <Stack maxW="3xl" mx="auto" spacing={6}>
+        <PageHeader
+          eyebrow="Planning"
+          title="Building your sprint"
+          description="Analysing your goal, shaping the learning path, and forecasting the pace you need."
+        />
+        <SurfaceCard px={6} py={6}>
           <PipelineStatus
             goalId={currentGoalId}
             type="intake"
             onRetry={async () => {
-              await processIntake(currentGoalId!);
+              await processIntake(currentGoalId, buildSprintConfig());
             }}
             onComplete={(run) => {
-              if (run.status === "failed" || run.status === "partial") return;
-              setStep("done");
+              if (run.status === 'failed' || run.status === 'partial') return;
+              setStep('done');
               setTimeout(() => navigate(`/goals/${currentGoalId}`), 1200);
             }}
           />
-        </div>
-        <button
-          onClick={() => setStep("clarify")}
-          className="mt-4 text-xs text-slate-400 hover:text-slate-600 transition-colors"
-        >
-          ← Start over
-        </button>
-      </div>
+        </SurfaceCard>
+        <Button variant="ghost" alignSelf="flex-start" onClick={() => setStep('sprint')}>
+          Back to sprint setup
+        </Button>
+      </Stack>
     );
   }
 
   return (
-    <div className="max-w-xl mx-auto space-y-6">
-      {/* Progress indicator */}
-      <div className="flex items-center gap-2">
-        {["goal", "clarify"].map((s, i) => (
-          <div key={s} className="flex items-center gap-2">
-            <div
-              className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
-              ${step === s ? "bg-sky-600 text-white" : i < ["goal", "clarify"].indexOf(step) ? "bg-green-500 text-white" : "bg-slate-200 text-slate-400"}`}
-            >
-              {i < ["goal", "clarify"].indexOf(step) ? "✓" : i + 1}
-            </div>
-            <span
-              className={`text-xs font-medium ${step === s ? "text-slate-800" : "text-slate-400"}`}
-            >
-              {s === "goal" ? "Your goal" : "Clarify"}
-            </span>
-            {i < 1 && <div className="flex-1 h-px bg-slate-200 w-8" />}
-          </div>
-        ))}
-      </div>
+    <Stack maxW="4xl" mx="auto" spacing={8}>
+      <PageHeader
+        eyebrow="New goal"
+        title="Turn an ambition into a guided sprint"
+        description="Start with the outcome you want, add the context that matters, and package it into a deadline-backed plan you can actually follow."
+      />
 
-      {/* ── Step 1: Goal input ── */}
-      {step === "goal" && (
-        <div className="space-y-5">
-          <div>
-            <h1
-              className="font-display text-[26px] text-slate-900"
-              style={{ letterSpacing: "-0.02em", lineHeight: 1.15 }}
-            >
-              What are you trying to achieve?
-            </h1>
-            <p className="text-slate-500 text-sm mt-1.5 leading-relaxed">
-              Tell us your situation, where you are now, and what success looks
-              like. Don't worry about being precise — just talk.
-            </p>
-          </div>
+      <SurfaceCard px={{ base: 4, md: 6 }} py={5}>
+        <HStack spacing={0} align="center" w="full">
+          {stepEntries.map((entry, index) => {
+            const isComplete = currentStepIndex > index;
+            const isCurrent = step === entry.id;
 
-          <textarea
-            value={goalText}
-            onChange={(e) => setGoalText(e.target.value)}
-            rows={5}
-            placeholder="e.g. I'm a mid-level backend developer at a startup, been there 3 years. I want to move to a senior role at a bigger company. I've been passed over for promotion twice and I'm not sure what's missing. I have about 45 mins a day to study..."
-            className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 resize-none"
-          />
-
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">
-              Or pick a starting point
-            </p>
-            <div className="flex flex-col gap-2">
-              {QUICK_PICKS.map((pick) => (
-                <button
-                  key={pick}
-                  onClick={() => setGoalText(pick)}
-                  className="text-left text-sm px-3 py-2 rounded-lg border border-slate-200 hover:border-sky-300 hover:bg-sky-50 text-slate-600 transition-colors"
+            return (
+              <HStack
+                key={entry.id}
+                spacing={{ base: 2, md: 3 }}
+                flex="1"
+                minW={0}
+              >
+                <Circle
+                  size={{ base: '8', md: '8' }}
+                  flexShrink={0}
+                  bg={isCurrent ? 'brand.600' : isComplete ? 'green.500' : 'blackAlpha.100'}
+                  color={isCurrent || isComplete ? 'white' : 'ink.400'}
+                  fontSize="sm"
+                  fontWeight="800"
                 >
-                  {pick}
-                </button>
-              ))}
-            </div>
-          </div>
+                  {isComplete ? (
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path
+                        fillRule="evenodd"
+                        d="M16.704 5.29a1 1 0 0 1 .006 1.414l-7.25 7.31a1 1 0 0 1-1.42 0L3.29 9.22a1 1 0 1 1 1.42-1.41l4.04 4.07 6.54-6.59a1 1 0 0 1 1.414 0Z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  ) : index + 1}
+                </Circle>
+                <Box minW={0}>
+                  <Text
+                    fontSize={{ base: '10px', md: 'xs' }}
+                    fontWeight="800"
+                    letterSpacing={{ base: '0.1em', md: '0.14em' }}
+                    textTransform="uppercase"
+                    color={isCurrent ? 'brand.700' : 'ink.400'}
+                    noOfLines={1}
+                  >
+                    {entry.label}
+                  </Text>
+                </Box>
+                {index < stepEntries.length - 1 && (
+                  <Box h="1px" flex="1" minW={{ base: 3, md: 10 }} bg="blackAlpha.100" />
+                )}
+              </HStack>
+            );
+          })}
+        </HStack>
+      </SurfaceCard>
 
-          {error && (
-            <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-              {error}
-            </p>
-          )}
+      {step === 'goal' && (
+        <Stack spacing={6}>
+          <SurfaceCard px={{ base: 5, md: 7 }} py={{ base: 6, md: 7 }}>
+            <Stack spacing={5}>
+              <Box>
+                <Heading size="md" letterSpacing="-0.03em" color="ink.900">
+                  What are you trying to achieve?
+                </Heading>
+                <Text mt={2} fontSize="sm" lineHeight="1.8" color="ink.500">
+                  Tell us your situation, where you are now, and what success looks
+                  like. We’ll turn it into a sprint you can actually follow.
+                </Text>
+              </Box>
 
-          <button
+              <FormControl>
+                <Textarea
+                  value={goalText}
+                  onChange={(event) => setGoalText(event.target.value)}
+                  rows={6}
+                  placeholder="e.g. I'm a mid-level backend developer at a startup, been here 3 years. I want to move to a senior role at a bigger company. I have about 45 mins a day to study and I need a plan I can actually stick to."
+                />
+              </FormControl>
+
+              <Box>
+                <Text
+                  mb={3}
+                  fontSize="xs"
+                  fontWeight="800"
+                  letterSpacing="0.16em"
+                  textTransform="uppercase"
+                  color="ink.400"
+                >
+                  Or pick a strong starting point
+                </Text>
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+                  {QUICK_PICKS.map((pick) => (
+                    <Button
+                      key={pick}
+                      variant="outline"
+                      justifyContent="flex-start"
+                      h="auto"
+                      py={4}
+                      px={4}
+                      whiteSpace="normal"
+                      textAlign="left"
+                      onClick={() => {
+                        setGoalText(pick);
+                        if (currentGoalId) {
+                          void trackEvent({
+                            eventKey: 'goal_quick_pick_selected',
+                            goalId: currentGoalId,
+                            properties: {
+                              quickPick: pick,
+                            },
+                          }).catch(() => {});
+                        }
+                      }}
+                    >
+                      {pick}
+                    </Button>
+                  ))}
+                </SimpleGrid>
+              </Box>
+            </Stack>
+          </SurfaceCard>
+
+          {ErrorPanel}
+
+          <Button
             onClick={handleGoalSubmit}
-            disabled={!goalText.trim() || loadingQuestions}
-            className="w-full bg-sky-600 hover:bg-sky-700 text-white py-3 rounded-xl text-sm font-semibold disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+            isLoading={loadingQuestions}
+            loadingText="Reading your goal"
+            isDisabled={!goalText.trim()}
+            alignSelf="flex-start"
           >
-            {loadingQuestions ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                Reading your goal…
-              </>
-            ) : (
-              "Continue →"
-            )}
-          </button>
-        </div>
+            Continue
+          </Button>
+        </Stack>
       )}
 
-      {/* ── Step 2: Clarifying questions ── */}
-      {step === "clarify" && (
-        <div className="space-y-5">
-          {questions.length === 0 ? (
-            <div className="space-y-4">
-              <p className="text-slate-600">
-                We have enough to build your plan. Ready to go?
-              </p>
-              <button
-                onClick={skipClarify}
-                className="w-full bg-sky-600 hover:bg-sky-700 text-white py-3 rounded-xl text-sm font-semibold transition-colors"
-              >
-                Build my plan →
-              </button>
-            </div>
-          ) : (
-            <>
-              <div>
-                <h2
-                  className="font-display text-xl text-slate-900"
-                  style={{ letterSpacing: "-0.01em" }}
-                >
-                  A few quick questions
-                </h2>
-                <p className="text-slate-500 text-sm mt-1 leading-relaxed">
-                  These help us build a better plan. Skip any you don't want to
-                  answer.
-                </p>
-              </div>
+      {step === 'clarify' && (
+        <Stack spacing={6}>
+          <SurfaceCard px={{ base: 5, md: 7 }} py={{ base: 6, md: 7 }}>
+            <Stack spacing={5}>
+              {questions.length === 0 ? (
+                <>
+                  <Box>
+                    <Heading size="md" letterSpacing="-0.03em" color="ink.900">
+                      We already have enough context
+                    </Heading>
+                    <Text mt={2} fontSize="sm" lineHeight="1.8" color="ink.500">
+                      One more step and we’ll package this into a deadline-backed sprint.
+                    </Text>
+                  </Box>
 
-              <div className="space-y-4">
-                {questions.map((q) => (
-                  <div key={q.id} className="space-y-1.5">
-                    <label className="block text-sm font-medium text-slate-700">
-                      {q.question}
-                      {q.optional && (
-                        <span className="ml-1.5 text-xs font-normal text-slate-400">
-                          (optional)
-                        </span>
-                      )}
-                    </label>
-                    <textarea
-                      value={answers[q.id] ?? ""}
-                      onChange={(e) =>
-                        setAnswers((prev) => ({
-                          ...prev,
-                          [q.id]: e.target.value,
-                        }))
-                      }
-                      rows={2}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 resize-none"
-                    />
-                  </div>
-                ))}
-              </div>
+                  <Button onClick={skipClarify} alignSelf="flex-start">
+                    Continue to sprint setup
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Box>
+                    <Heading size="md" letterSpacing="-0.03em" color="ink.900">
+                      A few quick questions
+                    </Heading>
+                    <Text mt={2} fontSize="sm" lineHeight="1.8" color="ink.500">
+                      These sharpen the roadmap. Skip anything you don’t want to answer.
+                    </Text>
+                  </Box>
 
-              {error && (
-                <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                  {error}
-                </p>
+                  <Stack spacing={5}>
+                    {questions.map((question) => (
+                      <FormControl key={question.id}>
+                        <FormLabel fontSize="sm" fontWeight="700" color="ink.700">
+                          {question.question}
+                          {question.optional && (
+                            <Text as="span" ml={2} fontSize="xs" fontWeight="500" color="ink.400">
+                              Optional
+                            </Text>
+                          )}
+                        </FormLabel>
+                        <Textarea
+                          value={answers[question.id] ?? ''}
+                          onChange={(event) =>
+                            setAnswers((prev) => ({
+                              ...prev,
+                              [question.id]: event.target.value,
+                            }))
+                          }
+                          rows={3}
+                        />
+                        {question.purpose && (
+                          <Text mt={2} fontSize="xs" color="ink.400">
+                            {question.purpose}
+                          </Text>
+                        )}
+                      </FormControl>
+                    ))}
+                  </Stack>
+                </>
+              )}
+            </Stack>
+          </SurfaceCard>
+
+          {ErrorPanel}
+
+          {questions.length > 0 && (
+            <HStack spacing={3} align="stretch">
+              <Button flex="1" onClick={handleClarifySubmit}>
+                Continue
+              </Button>
+              <Button variant="outline" onClick={skipClarify}>
+                Skip
+              </Button>
+            </HStack>
+          )}
+        </Stack>
+      )}
+
+      {step === 'sprint' && (
+        <Stack spacing={6}>
+          <SurfaceCard px={{ base: 5, md: 7 }} py={{ base: 6, md: 7 }}>
+            <Stack spacing={6}>
+              <Box>
+                <Heading size="md" letterSpacing="-0.03em" color="ink.900">
+                  Package this as a sprint
+                </Heading>
+                <Text mt={2} fontSize="sm" lineHeight="1.8" color="ink.500">
+                  This is what turns a loose roadmap into a plan worth paying for:
+                  target role, deadline, and commitment.
+                </Text>
+              </Box>
+
+              {!premiumSprintEnabled && (
+                <SurfaceCard px={4} py={4} bg="rgba(255,251,235,0.92)" borderColor="orange.100">
+                  <Text fontSize="sm" fontWeight="800" color="accent.700">
+                    Standard Sprint is included right now
+                  </Text>
+                  <Text mt={2} fontSize="sm" color="ink.500">
+                    Premium templates like Senior Engineer Sprint and AI Engineer Transition Sprint unlock on the Sprint plan.
+                  </Text>
+                </SurfaceCard>
               )}
 
-              <div className="flex gap-3">
-                <button
-                  onClick={handleClarifySubmit}
-                  className="flex-1 bg-sky-600 hover:bg-sky-700 text-white py-3 rounded-xl text-sm font-semibold transition-colors"
-                >
-                  Build my plan →
-                </button>
-                <button
-                  onClick={skipClarify}
-                  className="px-4 py-3 rounded-xl text-sm text-slate-500 hover:text-slate-700 border border-slate-200 hover:border-slate-300 transition-colors"
-                >
-                  Skip
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+              <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={4}>
+                {SPRINT_OPTIONS.map((option) => {
+                  const selected = sprintForm.sprintType === option.value;
+                  const locked = option.premium && !premiumSprintEnabled;
+
+                  return (
+                    <SurfaceCard
+                      key={option.value}
+                      px={5}
+                      py={5}
+                      borderColor={selected ? 'brand.300' : locked ? 'orange.100' : 'whiteAlpha.700'}
+                      bg={selected ? 'linear-gradient(180deg, rgba(47,140,255,0.08), rgba(255,255,255,0.96))' : 'rgba(255,255,255,0.92)'}
+                      cursor="pointer"
+                      onClick={() => selectSprintType(option.value, option.premium)}
+                    >
+                      <Stack spacing={3}>
+                        <HStack justify="space-between" align="flex-start">
+                          <Text fontSize="md" fontWeight="800" color="ink.900">
+                            {option.label}
+                          </Text>
+                          {option.premium && (
+                            <Badge colorScheme={locked ? 'orange' : 'green'}>
+                              {locked ? 'Sprint plan' : 'Unlocked'}
+                            </Badge>
+                          )}
+                        </HStack>
+                        <Text fontSize="sm" lineHeight="1.8" color="ink.500">
+                          {option.description}
+                        </Text>
+                      </Stack>
+                    </SurfaceCard>
+                  );
+                })}
+              </SimpleGrid>
+
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={5}>
+                <FormControl>
+                  <FormLabel fontSize="sm" fontWeight="700" color="ink.700">
+                    Target role
+                  </FormLabel>
+                  <Input
+                    value={sprintForm.targetRole}
+                    onChange={(event) =>
+                      setSprintForm((prev) => ({
+                        ...prev,
+                        targetRole: event.target.value,
+                      }))
+                    }
+                    placeholder="Senior Backend Engineer"
+                  />
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel fontSize="sm" fontWeight="700" color="ink.700">
+                    Target company
+                  </FormLabel>
+                  <Input
+                    value={sprintForm.targetCompany}
+                    onChange={(event) =>
+                      setSprintForm((prev) => ({
+                        ...prev,
+                        targetCompany: event.target.value,
+                      }))
+                    }
+                    placeholder="Optional"
+                  />
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel fontSize="sm" fontWeight="700" color="ink.700">
+                    Target date
+                  </FormLabel>
+                  <Input
+                    type="date"
+                    value={sprintForm.targetDate}
+                    onChange={(event) =>
+                      setSprintForm((prev) => ({
+                        ...prev,
+                        targetDate: event.target.value,
+                      }))
+                    }
+                  />
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel fontSize="sm" fontWeight="700" color="ink.700">
+                    Weekly commitment
+                  </FormLabel>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={40}
+                    value={sprintForm.weeklyCommitmentHours}
+                    onChange={(event) =>
+                      setSprintForm((prev) => ({
+                        ...prev,
+                        weeklyCommitmentHours: event.target.value,
+                      }))
+                    }
+                    placeholder="6"
+                  />
+                  <Text mt={2} fontSize="xs" color="ink.400">
+                    Hours per week you can realistically sustain.
+                  </Text>
+                </FormControl>
+              </SimpleGrid>
+
+              <FormControl>
+                <FormLabel fontSize="sm" fontWeight="700" color="ink.700">
+                  Current blockers
+                </FormLabel>
+                <Textarea
+                  value={sprintForm.currentBlockers}
+                  onChange={(event) =>
+                    setSprintForm((prev) => ({
+                      ...prev,
+                      currentBlockers: event.target.value,
+                    }))
+                  }
+                  rows={4}
+                  placeholder="One per line. e.g. no system design reps yet, weak portfolio proof, inconsistent study habit"
+                />
+              </FormControl>
+
+              <FormControl>
+                <FormLabel fontSize="sm" fontWeight="700" color="ink.700">
+                  What would prove success?
+                </FormLabel>
+                <Textarea
+                  value={sprintForm.successEvidence}
+                  onChange={(event) =>
+                    setSprintForm((prev) => ({
+                      ...prev,
+                      successEvidence: event.target.value,
+                    }))
+                  }
+                  rows={4}
+                  placeholder="One per line. e.g. pass two senior mock interviews, ship one strong portfolio project, get recruiter responses"
+                />
+              </FormControl>
+            </Stack>
+          </SurfaceCard>
+
+          {ErrorPanel}
+
+          <HStack spacing={3} align="stretch">
+            <Button flex="1" onClick={handleSprintSubmit}>
+              Build my sprint
+            </Button>
+            <Button variant="outline" onClick={() => setStep('clarify')}>
+              Back
+            </Button>
+          </HStack>
+        </Stack>
       )}
-    </div>
+    </Stack>
   );
 }

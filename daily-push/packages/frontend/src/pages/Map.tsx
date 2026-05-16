@@ -1,4 +1,16 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
+import {
+  Badge,
+  Box,
+  Button,
+  HStack,
+  Select,
+  Spinner,
+  Stack,
+  Text,
+  VStack,
+} from '@chakra-ui/react';
 import {
   ReactFlow,
   Background,
@@ -16,8 +28,9 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { getGoals, getGoalNodes } from '../api/client';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import EmptyState from '../components/ui/EmptyState';
+import PageHeader from '../components/ui/PageHeader';
+import SurfaceCard from '../components/ui/SurfaceCard';
 
 interface GoalSummary {
   _id: string;
@@ -41,8 +54,6 @@ interface ConceptNode {
   outgoing_edges: Array<{ id: string; toNodeId: string; edgeType: string }>;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const DEPTH_ORDER = ['surface', 'foundational', 'intermediate', 'advanced'] as const;
 
 const NODE_W = 210;
@@ -51,8 +62,10 @@ const H_GAP = 48;
 const V_GAP = 100;
 
 const depthLabel: Record<string, string> = {
-  surface: 'Surface', foundational: 'Foundational',
-  intermediate: 'Intermediate', advanced: 'Advanced',
+  surface: 'Surface',
+  foundational: 'Foundational',
+  intermediate: 'Intermediate',
+  advanced: 'Advanced',
 };
 
 const longevityColor: Record<string, string> = {
@@ -63,19 +76,22 @@ const longevityColor: Record<string, string> = {
 
 function nodeColor(node: ConceptNode): { bg: string; border: string; text: string } {
   switch (node.status) {
-    case 'locked':      return { bg: '#f1f5f9', border: '#cbd5e1', text: '#94a3b8' };
-    case 'available':   return { bg: '#e0f2fe', border: '#38bdf8', text: '#0369a1' };
-    case 'in_progress': return { bg: '#fef9c3', border: '#facc15', text: '#854d0e' };
-    case 'review_due':  return { bg: '#fff7ed', border: '#fb923c', text: '#9a3412' };
+    case 'locked':
+      return { bg: '#f1f5f9', border: '#cbd5e1', text: '#94a3b8' };
+    case 'available':
+      return { bg: '#e0f2fe', border: '#38bdf8', text: '#0369a1' };
+    case 'in_progress':
+      return { bg: '#fef9c3', border: '#facc15', text: '#854d0e' };
+    case 'review_due':
+      return { bg: '#fff7ed', border: '#fb923c', text: '#9a3412' };
     case 'done':
       if ((node.confidence ?? 3) >= 4) return { bg: '#d1fae5', border: '#34d399', text: '#065f46' };
       if ((node.confidence ?? 3) <= 2) return { bg: '#fee2e2', border: '#f87171', text: '#991b1b' };
       return { bg: '#dcfce7', border: '#86efac', text: '#166534' };
-    default:            return { bg: '#f8fafc', border: '#e2e8f0', text: '#64748b' };
+    default:
+      return { bg: '#f8fafc', border: '#e2e8f0', text: '#64748b' };
   }
 }
-
-// ─── Layout ───────────────────────────────────────────────────────────────────
 
 function computeLayout(nodes: ConceptNode[]): Map<string, { x: number; y: number }> {
   const byDepth: Record<string, ConceptNode[]> = {};
@@ -97,8 +113,6 @@ function computeLayout(nodes: ConceptNode[]): Map<string, { x: number; y: number
   });
   return positions;
 }
-
-// ─── Custom node component ────────────────────────────────────────────────────
 
 type MapNodeData = {
   nodeInfo: ConceptNode;
@@ -122,20 +136,20 @@ function MapNode({ data }: NodeProps) {
         {nodeInfo.title}
       </p>
 
-      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         <span className="text-[10px] font-medium opacity-70">
           {depthLabel[nodeInfo.depth_level]}
         </span>
-        <span className="text-[10px] opacity-40">·</span>
+        <span className="text-[10px] opacity-40">.</span>
         <span className="text-[10px] opacity-70">{nodeInfo.estimated_mins}m</span>
-        {nodeInfo.longevity && (
+        {nodeInfo.longevity ? (
           <>
-            <span className="text-[10px] opacity-40">·</span>
-            <span className={`text-[10px] px-1 rounded font-medium ${longevityColor[nodeInfo.longevity]}`}>
+            <span className="text-[10px] opacity-40">.</span>
+            <span className={`rounded px-1 text-[10px] font-medium ${longevityColor[nodeInfo.longevity]}`}>
               {nodeInfo.longevity}
             </span>
           </>
-        )}
+        ) : null}
       </div>
 
       <Handle type="source" position={Position.Bottom} className="!bg-slate-300 !border-0 !w-2 !h-2" />
@@ -145,21 +159,19 @@ function MapNode({ data }: NodeProps) {
 
 const nodeTypes = { conceptNode: MapNode };
 
-// ─── Transform data → React Flow ─────────────────────────────────────────────
-
 function buildGraph(
   rawNodes: ConceptNode[],
   depthFilter: string | null,
-  onSelect: (n: ConceptNode) => void
+  onSelect: (n: ConceptNode) => void,
 ): { nodes: Node[]; edges: Edge[] } {
   const filtered = depthFilter
-    ? rawNodes.filter(n => n.depth_level === depthFilter)
+    ? rawNodes.filter((n) => n.depth_level === depthFilter)
     : rawNodes;
 
-  const filteredIds = new Set(filtered.map(n => n.id));
+  const filteredIds = new Set(filtered.map((n) => n.id));
   const positions = computeLayout(filtered);
 
-  const nodes: Node[] = filtered.map(n => ({
+  const nodes: Node[] = filtered.map((n) => ({
     id: n.id,
     type: 'conceptNode',
     position: positions.get(n.id) ?? { x: 0, y: 0 },
@@ -182,7 +194,10 @@ function buildGraph(
           strokeWidth: e.edgeType === 'hard_prerequisite' ? 2 : 1,
           strokeDasharray: e.edgeType === 'soft_prerequisite' ? '4 3' : undefined,
         },
-        markerEnd: { type: MarkerType.ArrowClosed, color: e.edgeType === 'hard_prerequisite' ? '#0ea5e9' : '#cbd5e1' },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: e.edgeType === 'hard_prerequisite' ? '#0ea5e9' : '#cbd5e1',
+        },
       });
     }
   }
@@ -190,92 +205,102 @@ function buildGraph(
   return { nodes, edges };
 }
 
-// ─── Side panel ───────────────────────────────────────────────────────────────
-
 const statusLabel: Record<string, string> = {
-  locked: 'Locked', available: 'Available', in_progress: 'In progress',
-  done: 'Done', review_due: 'Review due',
+  locked: 'Locked',
+  available: 'Available',
+  in_progress: 'In progress',
+  done: 'Done',
+  review_due: 'Review due',
 };
+
 const aiLabel: Record<string, string> = {
-  amplified: 'AI amplifies', replaced: 'AI replaces', unaffected: 'AI-neutral',
+  amplified: 'AI amplifies',
+  replaced: 'AI replaces',
+  unaffected: 'AI-neutral',
 };
 
 function SidePanel({ node, onClose }: { node: ConceptNode; onClose: () => void }) {
   const c = nodeColor(node);
+  const unlockCount = node.outgoing_edges.filter((e) => e.edgeType === 'hard_prerequisite').length;
+
   return (
-    <div className="absolute top-0 right-0 h-full w-80 bg-white border-l border-slate-200 shadow-xl z-10 flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between p-4 border-b border-slate-100">
-        <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
-          {depthLabel[node.depth_level]}
-        </span>
-        <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg leading-none">×</button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <div>
-          <h3 className="font-bold text-slate-900 text-base leading-snug">{node.title}</h3>
-          <div className="flex items-center gap-2 mt-2">
-            <span
-              className="text-xs px-2 py-0.5 rounded-full font-medium"
-              style={{ background: c.bg, color: c.text, border: `1px solid ${c.border}` }}
-            >
-              {statusLabel[node.status]}
-            </span>
-            {node.confidence && (
-              <span className="text-xs text-slate-400">Confidence: {node.confidence}/5</span>
-            )}
-          </div>
+    <div className="absolute inset-y-4 right-4 z-10 w-[22rem]">
+      <SurfaceCard h="full" overflow="hidden">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+            {depthLabel[node.depth_level]}
+          </span>
+          <button onClick={onClose} className="text-lg leading-none text-slate-400 transition-colors hover:text-slate-600">
+            x
+          </button>
         </div>
 
-        {node.description && (
+        <div className="flex h-[calc(100%-73px)] flex-col overflow-y-auto p-5">
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">About</p>
-            <p className="text-sm text-slate-600 leading-relaxed">{node.description}</p>
+            <h3 className="text-base font-bold leading-snug text-slate-900">{node.title}</h3>
+            <div className="mt-2 flex items-center gap-2">
+              <span
+                className="rounded-full px-2 py-0.5 text-xs font-medium"
+                style={{ background: c.bg, color: c.text, border: `1px solid ${c.border}` }}
+              >
+                {statusLabel[node.status]}
+              </span>
+              {node.confidence ? (
+                <span className="text-xs text-slate-400">Confidence: {node.confidence}/5</span>
+              ) : null}
+            </div>
           </div>
-        )}
 
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-slate-400">Time estimate</span>
-            <span className="font-medium text-slate-700">~{node.estimated_mins} min</span>
+          {node.description ? (
+            <div className="mt-5">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-slate-400">About</p>
+              <p className="text-sm leading-relaxed text-slate-600">{node.description}</p>
+            </div>
+          ) : null}
+
+          <div className="mt-5 space-y-3 text-sm">
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-400">Time estimate</span>
+              <span className="font-medium text-slate-700">~{node.estimated_mins} min</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-400">Longevity</span>
+              <span className={`rounded px-2 py-0.5 text-xs font-medium ${longevityColor[node.longevity]}`}>
+                {node.longevity}
+              </span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-slate-400">AI relationship</span>
+              <span className="text-right text-xs font-medium text-slate-700">
+                {aiLabel[node.ai_relationship] ?? node.ai_relationship}
+              </span>
+            </div>
           </div>
-          <div className="flex justify-between">
-            <span className="text-slate-400">Longevity</span>
-            <span className={`text-xs px-2 py-0.5 rounded font-medium ${longevityColor[node.longevity]}`}>
-              {node.longevity}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-400">AI relationship</span>
-            <span className="font-medium text-slate-700 text-xs">{aiLabel[node.ai_relationship] ?? node.ai_relationship}</span>
-          </div>
+
+          {unlockCount > 0 ? (
+            <div className="mt-5 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-widest text-sky-700">
+                Unlock effect
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-sky-900">
+                Completing this node unlocks {unlockCount} downstream concept{unlockCount === 1 ? '' : 's'}.
+              </p>
+            </div>
+          ) : null}
         </div>
-
-        {node.outgoing_edges.filter(e => e.edgeType === 'hard_prerequisite').length > 0 && (
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">
-              Unlocks ({node.outgoing_edges.filter(e => e.edgeType === 'hard_prerequisite').length})
-            </p>
-            <p className="text-xs text-slate-500">Complete this node to unlock dependent concepts.</p>
-          </div>
-        )}
-      </div>
+      </SurfaceCard>
     </div>
   );
 }
 
-// ─── Legend ───────────────────────────────────────────────────────────────────
-
 const LEGEND = [
-  { label: 'Locked',         bg: '#f1f5f9', border: '#cbd5e1' },
-  { label: 'Available',      bg: '#e0f2fe', border: '#38bdf8' },
-  { label: 'In progress',    bg: '#fef9c3', border: '#facc15' },
-  { label: 'Done ✓',         bg: '#d1fae5', border: '#34d399' },
+  { label: 'Locked', bg: '#f1f5f9', border: '#cbd5e1' },
+  { label: 'Available', bg: '#e0f2fe', border: '#38bdf8' },
+  { label: 'In progress', bg: '#fef9c3', border: '#facc15' },
+  { label: 'Done', bg: '#d1fae5', border: '#34d399' },
   { label: 'Low confidence', bg: '#fee2e2', border: '#f87171' },
-  { label: 'Review due',     bg: '#fff7ed', border: '#fb923c' },
+  { label: 'Review due', bg: '#fff7ed', border: '#fb923c' },
 ];
-
-// ─── Inner map (inside ReactFlowProvider) ────────────────────────────────────
 
 function MapInner({
   rawNodes,
@@ -297,14 +322,12 @@ function MapInner({
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
-  // Rebuild graph whenever raw data or filter changes
   useEffect(() => {
-    const { nodes: n, edges: e } = buildGraph(rawNodes, depthFilter, setSelectedNode);
-    setNodes(n);
-    setEdges(e);
+    const graph = buildGraph(rawNodes, depthFilter, setSelectedNode);
+    setNodes(graph.nodes);
+    setEdges(graph.edges);
   }, [rawNodes, depthFilter, setNodes, setEdges]);
 
-  // Fit view after nodes are committed to DOM
   useEffect(() => {
     if (nodes.length > 0) fitView({ padding: 0.15, duration: 400 });
   }, [nodes.length, fitView]);
@@ -314,139 +337,177 @@ function MapInner({
     setSelectedNode(null);
   }, []);
 
-  // Reset filter + panel when goal changes
   useEffect(() => {
     setDepthFilter(null);
     setSelectedNode(null);
   }, [selectedGoalId]);
 
   const depthCounts = DEPTH_ORDER.reduce((acc, d) => {
-    acc[d] = rawNodes.filter(n => n.depth_level === d).length;
+    acc[d] = rawNodes.filter((n) => n.depth_level === d).length;
     return acc;
   }, {} as Record<string, number>);
 
-  const selectedGoal = goals.find(g => g._id === selectedGoalId);
-  const goalTitle = selectedGoal?.structured?.title ?? 'Knowledge Map';
+  const selectedGoal = goals.find((g) => g._id === selectedGoalId);
+  const goalTitle = selectedGoal?.structured?.title ?? 'Knowledge map';
+  const doneCount = rawNodes.filter((n) => n.status === 'done').length;
+  const availableCount = rawNodes.filter((n) => n.status === 'available').length;
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white shrink-0 gap-3 flex-wrap">
-        <div className="min-w-0">
-          {goals.length > 1 ? (
-            <select
-              value={selectedGoalId}
-              onChange={e => onGoalChange(e.target.value)}
-              className="text-sm font-bold text-slate-900 border border-slate-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-sky-400 max-w-[220px] truncate"
-            >
-              {goals.map(g => (
-                <option key={g._id} value={g._id}>
-                  {g.structured?.title ?? 'Untitled goal'}
-                  {g.status === 'active' ? ' ★' : ''}
-                </option>
-              ))}
-            </select>
+    <SurfaceCard p={0} overflow="hidden" h="full">
+      <Stack h="full" spacing={0}>
+        <Box px={{ base: 5, md: 6 }} py={{ base: 5, md: 6 }} borderBottom="1px solid" borderColor="blackAlpha.100">
+          <Stack spacing={5}>
+            <HStack justify="space-between" align={{ base: 'flex-start', xl: 'center' }} flexDir={{ base: 'column', xl: 'row' }} spacing={4}>
+              <VStack align="flex-start" spacing={1}>
+                <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+                  Goal graph
+                </Text>
+                <Text fontSize="2xl" fontWeight="700" color="ink.900" letterSpacing="-0.04em" lineHeight="1.05">
+                  {goalTitle}
+                </Text>
+                <Text fontSize="sm" color="ink.500">
+                  {nodesLoading ? 'Loading concept nodes...' : `${rawNodes.length} nodes mapped across the learning path.`}
+                </Text>
+              </VStack>
+
+              <HStack spacing={3} flexWrap="wrap">
+                <Badge px={3} py={1.5} rounded="full" colorScheme="blue" fontSize="0.72rem">
+                  {availableCount} available
+                </Badge>
+                <Badge px={3} py={1.5} rounded="full" colorScheme="green" fontSize="0.72rem">
+                  {doneCount} done
+                </Badge>
+              </HStack>
+            </HStack>
+
+            <HStack justify="space-between" align={{ base: 'stretch', lg: 'center' }} flexDir={{ base: 'column', lg: 'row' }} spacing={4}>
+              {goals.length > 1 ? (
+                <Select
+                  value={selectedGoalId}
+                  onChange={(e) => onGoalChange(e.target.value)}
+                  maxW={{ base: 'full', lg: '24rem' }}
+                  bg="whiteAlpha.700"
+                  borderColor="blackAlpha.200"
+                >
+                  {goals.map((goal) => (
+                    <option key={goal._id} value={goal._id}>
+                      {goal.structured?.title ?? 'Untitled goal'}{goal.status === 'active' ? ' *' : ''}
+                    </option>
+                  ))}
+                </Select>
+              ) : (
+                <Text fontSize="sm" color="ink.500">
+                  Active map selected automatically from your confirmed goals.
+                </Text>
+              )}
+
+              <HStack spacing={2} flexWrap="wrap">
+                <Button
+                  size="sm"
+                  variant={depthFilter === null ? 'solid' : 'ghost'}
+                  colorScheme={depthFilter === null ? 'blue' : undefined}
+                  onClick={() => onFilterChange(null)}
+                >
+                  All
+                </Button>
+                {DEPTH_ORDER.map((depth) => (
+                  depthCounts[depth] > 0 ? (
+                    <Button
+                      key={depth}
+                      size="sm"
+                      variant={depthFilter === depth ? 'solid' : 'ghost'}
+                      colorScheme={depthFilter === depth ? 'blue' : undefined}
+                      onClick={() => onFilterChange(depth)}
+                    >
+                      {depthLabel[depth]} ({depthCounts[depth]})
+                    </Button>
+                  ) : null
+                ))}
+              </HStack>
+            </HStack>
+          </Stack>
+        </Box>
+
+        <Box position="relative" flex="1" minH="0">
+          {nodesLoading ? (
+            <VStack h="full" justify="center" spacing={4}>
+              <Spinner size="lg" color="brand.500" thickness="3px" />
+              <Text fontSize="sm" color="ink.500">Arranging your map...</Text>
+            </VStack>
+          ) : rawNodes.length === 0 ? (
+            <Box px={6} py={10}>
+              <EmptyState
+                title="No concept nodes yet"
+                description="Build study nodes from the goal page first, then come back here to explore dependencies, depth, and unlock paths."
+                action={(
+                  <Button as={RouterLink} to="/goals" colorScheme="blue">
+                    Back to goals
+                  </Button>
+                )}
+              />
+            </Box>
           ) : (
-            <h1 className="font-bold text-slate-900 text-base truncate max-w-xs">{goalTitle}</h1>
-          )}
-          <p className="text-xs text-slate-400 mt-0.5">
-            {nodesLoading
-              ? 'Loading nodes...'
-              : `${rawNodes.length} nodes · ${rawNodes.filter(n => n.status === 'done').length} done`}
-          </p>
-        </div>
-
-        <div className="flex gap-1 flex-wrap justify-end">
-          <button
-            onClick={() => onFilterChange(null)}
-            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-              !depthFilter ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-            }`}
-          >
-            All
-          </button>
-          {DEPTH_ORDER.map(d => (
-            depthCounts[d] > 0 && (
-              <button
-                key={d}
-                onClick={() => onFilterChange(d)}
-                className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
-                  depthFilter === d ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                }`}
+            <>
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                nodeTypes={nodeTypes}
+                fitView
+                fitViewOptions={{ padding: 0.15 }}
+                minZoom={0.2}
+                maxZoom={2}
+                onPaneClick={() => setSelectedNode(null)}
               >
-                {depthLabel[d]} <span className="opacity-60">({depthCounts[d]})</span>
-              </button>
-            )
-          ))}
-        </div>
-      </div>
+                <Background color="#d9e2ef" gap={20} />
+                <Controls />
+              </ReactFlow>
 
-      {/* Canvas */}
-      <div className="flex-1 relative">
-        {nodesLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="w-7 h-7 border-4 border-slate-200 border-t-sky-500 rounded-full animate-spin" />
-          </div>
-        ) : rawNodes.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center space-y-2">
-              <p className="text-slate-500 font-medium text-sm">No nodes yet</p>
-              <p className="text-slate-400 text-xs">Build study nodes on your goal page first.</p>
-            </div>
-          </div>
-        ) : (
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            nodeTypes={nodeTypes}
-            fitView
-            fitViewOptions={{ padding: 0.15 }}
-            minZoom={0.2}
-            maxZoom={2}
-            onPaneClick={() => setSelectedNode(null)}
-          >
-            <Background color="#e2e8f0" gap={20} />
-            <Controls />
-          </ReactFlow>
-        )}
+              {selectedNode ? (
+                <SidePanel node={selectedNode} onClose={() => setSelectedNode(null)} />
+              ) : null}
 
-        {selectedNode && (
-          <SidePanel node={selectedNode} onClose={() => setSelectedNode(null)} />
-        )}
-
-        {!nodesLoading && rawNodes.length > 0 && (
-          <div className="absolute bottom-4 left-4 bg-white border border-slate-200 rounded-xl p-3 shadow-sm z-10">
-            <div className="flex flex-wrap gap-x-3 gap-y-1.5">
-              {LEGEND.map(l => (
-                <div key={l.label} className="flex items-center gap-1.5">
-                  <div
-                    className="w-3 h-3 rounded-sm border shrink-0"
-                    style={{ background: l.bg, borderColor: l.border }}
-                  />
-                  <span className="text-[10px] text-slate-500">{l.label}</span>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-3 mt-2 pt-2 border-t border-slate-100">
-              <div className="flex items-center gap-1.5">
-                <div className="w-6 h-0.5 bg-sky-400" />
-                <span className="text-[10px] text-slate-400">Hard prerequisite</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-6 h-0.5 bg-slate-300" style={{ borderTop: '1px dashed #cbd5e1', background: 'none' }} />
-                <span className="text-[10px] text-slate-400">Soft prerequisite</span>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+              <Box position="absolute" bottom={4} left={4} zIndex={10}>
+                <SurfaceCard px={4} py={3}>
+                  <Stack spacing={3}>
+                    <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+                      Legend
+                    </Text>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+                      {LEGEND.map((item) => (
+                        <div key={item.label} className="flex items-center gap-1.5">
+                          <div
+                            className="h-3 w-3 shrink-0 rounded-sm border"
+                            style={{ background: item.bg, borderColor: item.border }}
+                          />
+                          <span className="text-[10px] text-slate-500">{item.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-3 border-t border-slate-100 pt-2">
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-0.5 w-6 bg-sky-400" />
+                        <span className="text-[10px] text-slate-400">Hard prerequisite</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div
+                          className="h-0.5 w-6 bg-slate-300"
+                          style={{ borderTop: '1px dashed #cbd5e1', background: 'none' }}
+                        />
+                        <span className="text-[10px] text-slate-400">Soft prerequisite</span>
+                      </div>
+                    </div>
+                  </Stack>
+                </SurfaceCard>
+              </Box>
+            </>
+          )}
+        </Box>
+      </Stack>
+    </SurfaceCard>
   );
 }
-
-// ─── Page shell ───────────────────────────────────────────────────────────────
 
 export default function Map() {
   const [goals, setGoals] = useState<GoalSummary[]>([]);
@@ -456,16 +517,17 @@ export default function Map() {
   const [nodesLoading, setNodesLoading] = useState(false);
   const [noGoal, setNoGoal] = useState(false);
 
-  // Load goals on mount
   useEffect(() => {
     (async () => {
       try {
         const allGoals: GoalSummary[] = await getGoals();
-        const confirmed = allGoals.filter(g => g.status === 'active' || g.status === 'completed');
-        if (confirmed.length === 0) { setNoGoal(true); return; }
+        const confirmed = allGoals.filter((g) => g.status === 'active' || g.status === 'completed');
+        if (confirmed.length === 0) {
+          setNoGoal(true);
+          return;
+        }
         setGoals(confirmed);
-        // Default to the active goal, or first
-        const active = confirmed.find(g => g.status === 'active');
+        const active = confirmed.find((g) => g.status === 'active');
         setSelectedGoalId((active ?? confirmed[0])._id);
       } catch {
         setNoGoal(true);
@@ -475,7 +537,6 @@ export default function Map() {
     })();
   }, []);
 
-  // Load nodes whenever selectedGoalId changes
   useEffect(() => {
     if (!selectedGoalId) return;
     setNodesLoading(true);
@@ -486,32 +547,57 @@ export default function Map() {
       .finally(() => setNodesLoading(false));
   }, [selectedGoalId]);
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-full min-h-[60vh]">
-      <div className="w-7 h-7 border-4 border-slate-200 border-t-sky-500 rounded-full animate-spin" />
-    </div>
-  );
+  if (loading) {
+    return (
+      <SurfaceCard p={{ base: 8, md: 12 }}>
+        <VStack spacing={4} minH="55vh" justify="center">
+          <Spinner size="lg" color="brand.500" thickness="3px" />
+          <Text fontSize="sm" color="ink.500">Loading your knowledge map...</Text>
+        </VStack>
+      </SurfaceCard>
+    );
+  }
 
-  if (noGoal) return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="text-center space-y-2">
-        <p className="text-slate-500 font-medium">No confirmed goals</p>
-        <p className="text-slate-400 text-sm">Set and confirm a goal to see your knowledge map.</p>
-      </div>
-    </div>
-  );
+  if (noGoal) {
+    return (
+      <Stack spacing={6}>
+        <PageHeader
+          eyebrow="Map"
+          title="Knowledge Map"
+          description="Follow dependencies, see what is blocked, and understand how each concept unlocks the next step in your plan."
+        />
+        <EmptyState
+          title="No confirmed goals yet"
+          description="Confirm a goal first, then this workspace will turn into a live map of your learning graph."
+          action={(
+            <Button as={RouterLink} to="/goals" colorScheme="blue">
+              Go to goals
+            </Button>
+          )}
+        />
+      </Stack>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 top-[49px]">
-      <ReactFlowProvider>
-        <MapInner
-          rawNodes={rawNodes}
-          goals={goals}
-          selectedGoalId={selectedGoalId}
-          onGoalChange={setSelectedGoalId}
-          nodesLoading={nodesLoading}
-        />
-      </ReactFlowProvider>
-    </div>
+    <Stack spacing={6}>
+      <PageHeader
+        eyebrow="Map"
+        title="Knowledge Map"
+        description="A dependency-aware view of your concept graph so you can spot the critical path, blocked work, and the highest-leverage next move."
+      />
+
+      <Box h={{ base: '72vh', xl: '78vh' }}>
+        <ReactFlowProvider>
+          <MapInner
+            rawNodes={rawNodes}
+            goals={goals}
+            selectedGoalId={selectedGoalId}
+            onGoalChange={setSelectedGoalId}
+            nodesLoading={nodesLoading}
+          />
+        </ReactFlowProvider>
+      </Box>
+    </Stack>
   );
 }

@@ -1,10 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter,
-  AlertDialogHeader, AlertDialogOverlay, Button, useToast,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogOverlay,
+  Badge,
+  Box,
+  Button,
+  HStack,
+  SimpleGrid,
+  Stack,
+  Text,
+  useToast,
 } from '@chakra-ui/react';
 import { getGoals, makePrimary, archiveGoal, deleteGoal } from '../api/client';
+import { useEntitlements } from '../contexts/EntitlementsContext';
+import PageHeader from '../components/ui/PageHeader';
+import SurfaceCard from '../components/ui/SurfaceCard';
+import EmptyState from '../components/ui/EmptyState';
 
 interface GoalSummary {
   _id: string;
@@ -16,17 +32,18 @@ interface GoalSummary {
 }
 
 const statusColor: Record<string, string> = {
-  drafting: 'text-slate-400',
-  assessing: 'text-amber-600',
-  planning: 'text-sky-600',
-  active: 'text-green-600',
-  paused: 'text-slate-500',
-  achieved: 'text-emerald-600',
-  abandoned: 'text-red-400',
-  archived: 'text-slate-400',
+  drafting: 'gray',
+  assessing: 'orange',
+  planning: 'blue',
+  active: 'green',
+  paused: 'purple',
+  achieved: 'green',
+  abandoned: 'red',
+  archived: 'gray',
 };
 
 export default function Goals() {
+  const { currentPlan, entitlements } = useEntitlements();
   const [goals, setGoals] = useState<GoalSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -44,28 +61,62 @@ export default function Goals() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadGoals(); }, []);
+  useEffect(() => {
+    loadGoals();
+  }, []);
 
   const handleMakePrimary = async (id: string) => {
     setBusy(id);
     try {
       await makePrimary(id);
-      setGoals(prev => prev.map(g => ({ ...g, isPrimary: g._id === id })));
-      toast({ title: 'Primary goal updated', status: 'success', duration: 2500, isClosable: true, position: 'top-right' });
+      setGoals((prev) => prev.map((goal) => ({ ...goal, isPrimary: goal._id === id })));
+      toast({
+        title: 'Primary goal updated',
+        status: 'success',
+        duration: 2500,
+        isClosable: true,
+        position: 'top-right',
+      });
     } catch {
-      toast({ title: 'Failed to update primary goal', status: 'error', duration: 3000, isClosable: true, position: 'top-right' });
-    } finally { setBusy(null); }
+      toast({
+        title: 'Failed to update primary goal',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+        position: 'top-right',
+      });
+    } finally {
+      setBusy(null);
+    }
   };
 
   const handleArchive = async (id: string) => {
     setBusy(id);
     try {
       await archiveGoal(id);
-      setGoals(prev => prev.map(g => g._id === id ? { ...g, status: 'archived', isPrimary: false } : g));
-      toast({ title: 'Goal archived', status: 'info', duration: 2500, isClosable: true, position: 'top-right' });
+      setGoals((prev) =>
+        prev.map((goal) =>
+          goal._id === id ? { ...goal, status: 'archived', isPrimary: false } : goal,
+        ),
+      );
+      toast({
+        title: 'Goal archived',
+        status: 'info',
+        duration: 2500,
+        isClosable: true,
+        position: 'top-right',
+      });
     } catch {
-      toast({ title: 'Failed to archive goal', status: 'error', duration: 3000, isClosable: true, position: 'top-right' });
-    } finally { setBusy(null); }
+      toast({
+        title: 'Failed to archive goal',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+        position: 'top-right',
+      });
+    } finally {
+      setBusy(null);
+    }
   };
 
   const handleDelete = async () => {
@@ -73,111 +124,182 @@ export default function Goals() {
     setBusy(deleteTarget._id);
     try {
       await deleteGoal(deleteTarget._id);
-      setGoals(prev => prev.filter(g => g._id !== deleteTarget._id));
+      setGoals((prev) => prev.filter((goal) => goal._id !== deleteTarget._id));
       setDeleteTarget(null);
-      toast({ title: 'Goal deleted', status: 'success', duration: 2500, isClosable: true, position: 'top-right' });
+      toast({
+        title: 'Goal deleted',
+        status: 'success',
+        duration: 2500,
+        isClosable: true,
+        position: 'top-right',
+      });
     } catch {
-      toast({ title: 'Failed to delete goal', status: 'error', duration: 3000, isClosable: true, position: 'top-right' });
-    } finally { setBusy(null); }
+      toast({
+        title: 'Failed to delete goal',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+        position: 'top-right',
+      });
+    } finally {
+      setBusy(null);
+    }
   };
 
-  if (loading) return <div className="text-slate-400 text-sm py-8 text-center">Loading...</div>;
-
-  if (error) return (
-    <div className="text-center py-16 space-y-3">
-      <p className="text-red-500 text-sm">{error}</p>
-      <button onClick={loadGoals} className="text-sm text-sky-600 hover:underline">Try again</button>
-    </div>
-  );
+  const activeGoalLimit = entitlements.find(
+    (entry) => entry.featureKey === 'goals.active.max',
+  )?.limitValue;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">Goals</h1>
-        <Link
-          to="/goals/new"
-          className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg text-sm font-semibold"
-        >
-          + New Goal
-        </Link>
-      </div>
+    <Stack spacing={8}>
+      <PageHeader
+        eyebrow="Workspace"
+        title="Goals"
+        description="Manage the outcomes you are actively pursuing, choose the primary path, and keep the workspace focused on the goals that matter now."
+        actions={(
+          <Button as={Link} to="/goals/new" width={{ base: 'full', lg: 'auto' }}>
+            New goal
+          </Button>
+        )}
+      />
 
-      {goals.length === 0 && (
-        <div className="text-center py-16 space-y-3">
-          <p className="text-slate-400 text-lg">No goals yet.</p>
-          <p className="text-slate-400 text-sm">Tell us what you want to achieve and we'll build your learning path.</p>
-          <Link
-            to="/goals/new"
-            className="inline-block mt-2 bg-sky-600 hover:bg-sky-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold"
-          >
-            Set your first goal →
-          </Link>
-        </div>
+      {currentPlan?.planKey === 'free' && (
+        <SurfaceCard px={6} py={5}>
+          <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexWrap="wrap" spacing={4}>
+            <Box>
+              <Text fontSize="sm" fontWeight="800" color="brand.700">
+                Free workspace limits are active
+              </Text>
+              <Text mt={2} fontSize="sm" color="ink.500" lineHeight="1.8">
+                You currently have {goals.length} goal{goals.length === 1 ? '' : 's'} in the workspace.
+                Your plan allows {activeGoalLimit ?? 1} active goal.
+              </Text>
+            </Box>
+            <Button as={Link} to="/pricing" variant="outline">
+              Compare plans
+            </Button>
+          </HStack>
+        </SurfaceCard>
       )}
 
-      {goals.map(goal => {
-        const isArchived = goal.status === 'archived';
-        const isBusy = busy === goal._id;
+      {loading ? (
+        <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={5}>
+          {Array.from({ length: 4 }).map((_, index) => (
+            <SurfaceCard key={index} px={6} py={6} minH="220px" />
+          ))}
+        </SimpleGrid>
+      ) : error ? (
+        <EmptyState
+          title="We couldn’t load your goals"
+          description={error}
+          accent="warning"
+          action={(
+            <Button variant="outline" onClick={loadGoals}>
+              Try again
+            </Button>
+          )}
+        />
+      ) : goals.length === 0 ? (
+        <EmptyState
+          title="No goals yet"
+          description="Start with one focused outcome and let Daily Push shape the roadmap, the daily sessions, and the proof of progress around it."
+          action={(
+            <Button as={Link} to="/goals/new">
+              Set your first goal
+            </Button>
+          )}
+        />
+      ) : (
+        <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={5}>
+          {goals.map((goal) => {
+            const isArchived = goal.status === 'archived';
+            const isBusy = busy === goal._id;
 
-        return (
-          <div key={goal._id} className="bg-white border border-slate-200 rounded-xl overflow-hidden hover:border-sky-200 hover:shadow-sm transition-all">
-            <Link to={`/goals/${goal._id}`} className="block p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    {goal.isPrimary && (
-                      <span className="text-xs bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full font-semibold">
-                        Primary
-                      </span>
-                    )}
-                    {isArchived && (
-                      <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-semibold">
-                        Archived
-                      </span>
-                    )}
-                    <span className="text-xs text-slate-400 capitalize">{goal.structured?.goalType}</span>
-                  </div>
-                  <h2 className="font-semibold text-slate-900 truncate">
-                    {goal.structured?.title ?? goal.raw?.input}
-                  </h2>
-                </div>
-                <span className={`text-xs font-semibold capitalize shrink-0 ${statusColor[goal.status] ?? 'text-slate-400'}`}>
-                  {goal.status}
-                </span>
-              </div>
-            </Link>
+            return (
+              <SurfaceCard key={goal._id} overflow="hidden">
+                <Box as={Link} to={`/goals/${goal._id}`} display="block" px={6} py={6}>
+                  <HStack justify="space-between" align="flex-start" spacing={3}>
+                    <Stack spacing={3} flex="1" minW={0}>
+                      <HStack spacing={2} flexWrap="wrap">
+                        {goal.isPrimary && <Badge colorScheme="blue">Primary</Badge>}
+                        {isArchived && <Badge colorScheme="gray">Archived</Badge>}
+                        <Badge colorScheme={statusColor[goal.status] ?? 'gray'}>
+                          {goal.status}
+                        </Badge>
+                      </HStack>
 
-            <div className="border-t border-slate-100 flex items-center gap-1 px-3 py-1.5 bg-slate-50/50">
-              {!goal.isPrimary && !isArchived && (
-                <button
-                  onClick={() => handleMakePrimary(goal._id)}
-                  disabled={isBusy}
-                  className="text-xs font-medium text-sky-600 hover:text-sky-800 px-2 py-1 rounded hover:bg-sky-50 transition-colors disabled:opacity-50"
+                      <Box>
+                        <Text
+                          fontSize="lg"
+                          fontWeight="800"
+                          color="ink.900"
+                          letterSpacing="-0.03em"
+                          noOfLines={2}
+                        >
+                          {goal.structured?.title ?? goal.raw?.input}
+                        </Text>
+                        <Text mt={2} fontSize="sm" color="ink.500" textTransform="capitalize">
+                          {goal.structured?.goalType ?? 'General learning goal'}
+                        </Text>
+                      </Box>
+
+                      <Text fontSize="xs" color="ink.400">
+                        Created {new Date(goal.createdAt).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </Text>
+                    </Stack>
+                  </HStack>
+                </Box>
+
+                <HStack
+                  px={5}
+                  py={4}
+                  borderTop="1px solid"
+                  borderColor="blackAlpha.100"
+                  bg="blackAlpha.50"
+                  spacing={2}
+                  flexWrap="wrap"
                 >
-                  {isBusy ? 'Updating…' : 'Make primary'}
-                </button>
-              )}
-              {!isArchived && (
-                <button
-                  onClick={() => handleArchive(goal._id)}
-                  disabled={isBusy}
-                  className="text-xs font-medium text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100 transition-colors disabled:opacity-50"
-                >
-                  Archive
-                </button>
-              )}
-              <button
-                onClick={() => setDeleteTarget(goal)}
-                className="text-xs font-medium text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors ml-auto"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        );
-      })}
+                  {!goal.isPrimary && !isArchived && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleMakePrimary(goal._id)}
+                      isLoading={isBusy}
+                    >
+                      Make primary
+                    </Button>
+                  )}
+                  {!isArchived && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleArchive(goal._id)}
+                      isLoading={isBusy}
+                    >
+                      Archive
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    color="red.500"
+                    _hover={{ bg: 'red.50', color: 'red.600' }}
+                    onClick={() => setDeleteTarget(goal)}
+                    ml="auto"
+                  >
+                    Delete
+                  </Button>
+                </HStack>
+              </SurfaceCard>
+            );
+          })}
+        </SimpleGrid>
+      )}
 
-      {/* Chakra AlertDialog for delete confirmation */}
       <AlertDialog
         isOpen={!!deleteTarget}
         leastDestructiveRef={cancelRef}
@@ -185,26 +307,28 @@ export default function Goals() {
         isCentered
       >
         <AlertDialogOverlay>
-          <AlertDialogContent borderRadius="xl" mx={4}>
-            <AlertDialogHeader fontSize="lg" fontWeight="bold" pb={2}>
+          <AlertDialogContent borderRadius="2xl" mx={4}>
+            <AlertDialogHeader fontSize="lg" fontWeight="800" pb={2}>
               Delete goal
             </AlertDialogHeader>
             <AlertDialogBody fontSize="sm" color="gray.600">
-              <p>
-                <strong className="text-slate-800">{deleteTarget?.structured?.title ?? deleteTarget?.raw?.input}</strong>
-              </p>
-              <p className="mt-2">This will permanently delete this goal along with all its concept nodes, sessions, and progress. This cannot be undone.</p>
+              <Text fontWeight="700" color="ink.900">
+                {deleteTarget?.structured?.title ?? deleteTarget?.raw?.input}
+              </Text>
+              <Text mt={2}>
+                This will permanently delete the goal along with its concept nodes, sessions,
+                and progress history. This cannot be undone.
+              </Text>
             </AlertDialogBody>
             <AlertDialogFooter gap={3}>
-              <Button ref={cancelRef} onClick={() => setDeleteTarget(null)} size="sm" variant="outline">
+              <Button ref={cancelRef} onClick={() => setDeleteTarget(null)} variant="outline">
                 Cancel
               </Button>
               <Button
                 colorScheme="red"
                 onClick={handleDelete}
                 isLoading={!!busy}
-                loadingText="Deleting…"
-                size="sm"
+                loadingText="Deleting"
               >
                 Delete permanently
               </Button>
@@ -212,6 +336,6 @@ export default function Goals() {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
-    </div>
+    </Stack>
   );
 }

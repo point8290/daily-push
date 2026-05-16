@@ -2,6 +2,10 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { createSession, completeSession, getStreak, getCalendarData } from '../services/sessions';
 import { scoreUnderstandingAnswer } from '../services/understandingCheck';
+import { trackProductEvent } from '../services/productEvents';
+import { consumeQuota } from '../services/entitlements';
+import { evaluateSessionArtifact } from '../services/artifactEvaluator';
+import { getSessionTask, saveSessionArtifact } from '../services/sessionTasks';
 
 const router = Router();
 
@@ -21,8 +25,122 @@ router.post('/', requireAuth, async (req: Request, res: Response, next: NextFunc
     }
 
     const sessionId = await createSession(userId, nodeId, sessionType, timebox);
+    void trackProductEvent({
+      userId,
+      sessionId,
+      eventKey: 'session_started',
+      properties: {
+        nodeId,
+        sessionType,
+        timebox,
+      },
+    });
     res.status(201).json({ sessionId });
   } catch (err) { next(err); }
+});
+
+// GET /api/sessions/:id/task - get or create the concrete task for this session
+router.get('/:id/task', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { userId } = req as AuthRequest;
+    const sessionId = String(req.params.id);
+    const task = await getSessionTask(sessionId, userId);
+    void trackProductEvent({
+      userId,
+      sessionId,
+      goalId: task.goalId,
+      eventKey: 'session_task_viewed',
+      properties: {
+        taskType: task.taskType,
+        artifactType: task.artifactType,
+        hasExistingArtifact: !!task.artifact?.content,
+      },
+    });
+    res.json(task);
+  } catch (err) { next(err); }
+});
+
+// POST /api/sessions/:id/artifact - save session artifact content
+router.post('/:id/artifact', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { userId } = req as AuthRequest;
+    const sessionId = String(req.params.id);
+    const { content } = req.body;
+
+    if (!content?.trim()) {
+      res.status(400).json({ error: 'content is required' });
+      return;
+    }
+
+    const task = await saveSessionArtifact(sessionId, userId, content.trim());
+    void trackProductEvent({
+      userId,
+      sessionId,
+      goalId: task.goalId,
+      eventKey: 'session_artifact_saved',
+      properties: {
+        taskType: task.taskType,
+        contentLength: content.trim().length,
+      },
+    });
+    res.status(201).json(task);
+  } catch (err) { next(err); }
+});
+
+// POST /api/sessions/:id/evaluate-artifact - rubric-based AI review
+router.post('/:id/evaluate-artifact', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { userId } = req as AuthRequest;
+    const sessionId = String(req.params.id);
+    const { content } = req.body ?? {};
+
+    if (content != null && typeof content !== 'string') {
+      res.status(400).json({ error: 'content must be a string when provided' });
+      return;
+    }
+
+    const entitlement = await consumeQuota(userId, 'ai_checks.monthly', {
+      source: 'artifact_evaluation',
+      properties: {
+        sessionId,
+        contentLength: content?.trim().length ?? null,
+      },
+    });
+
+    const task = await getSessionTask(sessionId, userId);
+    const evaluation = await evaluateSessionArtifact(sessionId, userId, content);
+
+    void trackProductEvent({
+      userId,
+      sessionId,
+      goalId: task.goalId,
+      eventKey: 'session_artifact_evaluated',
+      properties: {
+        taskType: task.taskType,
+        score: evaluation.score,
+        correct: evaluation.correct,
+        remainingChecks: entitlement.remaining,
+      },
+    });
+
+    res.json({
+      ...evaluation,
+      quota: {
+        featureKey: 'ai_checks.monthly',
+        remaining: entitlement.remaining,
+        limitValue: entitlement.limitValue,
+      },
+    });
+  } catch (err: any) {
+    if (
+      err?.message === 'Artifact content is required before evaluation' ||
+      err?.message === 'Write a bit more before requesting AI review'
+    ) {
+      res.status(400).json({ error: err.message });
+      return;
+    }
+    next(err);
+  }
 });
 
 // PATCH /api/sessions/:id/complete — mark session done with confidence
@@ -44,6 +162,20 @@ router.patch('/:id/complete', requireAuth, async (req: Request, res: Response, n
       parseInt(String(durationMins ?? '30'), 10),
       notes ?? null
     );
+
+    void trackProductEvent({
+      userId,
+      sessionId,
+      goalId: null,
+      eventKey: 'session_completed',
+      properties: {
+        confidenceAfter: parseInt(String(confidenceAfter), 10),
+        durationMins: parseInt(String(durationMins ?? '30'), 10),
+        unlockedNodeCount: result.unlockedNodeTitles.length,
+        milestoneCount: result.newMilestones.length,
+        completedNextNodeAvailable: !!result.nextNode,
+      },
+    });
 
     res.json(result);
   } catch (err) { next(err); }
@@ -68,8 +200,33 @@ router.post('/:id/check', requireAuth, async (req: Request, res: Response, next:
       res.status(400).json({ error: 'answer is required' });
       return;
     }
+    const entitlement = await consumeQuota(userId, 'ai_checks.monthly', {
+      source: 'understanding_check',
+      properties: {
+        sessionId,
+        answerLength: answer.trim().length,
+      },
+    });
     const result = await scoreUnderstandingAnswer(sessionId, answer.trim(), userId);
-    res.json(result);
+    void trackProductEvent({
+      userId,
+      sessionId,
+      eventKey: 'understanding_check_submitted',
+      properties: {
+        answerLength: answer.trim().length,
+        score: result.score,
+        correct: result.correct,
+        remainingChecks: entitlement.remaining,
+      },
+    });
+    res.json({
+      ...result,
+      quota: {
+        featureKey: 'ai_checks.monthly',
+        remaining: entitlement.remaining,
+        limitValue: entitlement.limitValue,
+      },
+    });
   } catch (err) { next(err); }
 });
 

@@ -1,5 +1,24 @@
 import { useEffect, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
+import {
+  Badge,
+  Button,
+  FormControl,
+  FormLabel,
+  HStack,
+  Input,
+  Select,
+  SimpleGrid,
+  Spinner,
+  Stack,
+  Switch,
+  Text,
+  VStack,
+} from '@chakra-ui/react';
 import { getSettings, updateSettings } from '../api/client';
+import { useEntitlements } from '../contexts/EntitlementsContext';
+import PageHeader from '../components/ui/PageHeader';
+import SurfaceCard from '../components/ui/SurfaceCard';
 
 const TIMEZONES = [
   'UTC', 'Asia/Kolkata', 'Asia/Singapore', 'Asia/Tokyo',
@@ -15,7 +34,40 @@ interface Settings {
   emailWeeklySummary: boolean;
 }
 
+function MetricCard({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+}) {
+  return (
+    <SurfaceCard p={5}>
+      <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+        {label}
+      </Text>
+      <Text mt={2} fontSize="lg" fontWeight="700" color="ink.900" letterSpacing="-0.03em">
+        {value}
+      </Text>
+      {detail ? (
+        <Text mt={1.5} fontSize="sm" color="ink.500" lineHeight="1.7">
+          {detail}
+        </Text>
+      ) : null}
+    </SurfaceCard>
+  );
+}
+
 export default function Settings() {
+  const {
+    currentPlan,
+    entitlements,
+    startCheckout,
+    openBillingPortal,
+    refreshEntitlements,
+  } = useEntitlements();
   const [form, setForm] = useState<Settings>({
     availableMinsDay: 45,
     availableDaysWeek: 5,
@@ -27,6 +79,8 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [billingBusy, setBillingBusy] = useState<string | null>(null);
+  const [billingMessage, setBillingMessage] = useState('');
 
   useEffect(() => {
     getSettings().then((s: Settings) => {
@@ -34,6 +88,10 @@ export default function Settings() {
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    void refreshEntitlements().catch(() => {});
+  }, [refreshEntitlements]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -50,116 +108,320 @@ export default function Settings() {
     }
   }
 
-  if (loading) return (
-    <div className="text-slate-400 text-sm text-center py-16">Loading settings...</div>
-  );
+  const aiChecks = entitlements.find((entry) => entry.featureKey === 'ai_checks.monthly');
+  const activeGoalLimit = entitlements.find((entry) => entry.featureKey === 'goals.active.max');
+  const weeklyReports = entitlements.find((entry) => entry.featureKey === 'weekly_reports.enabled');
+
+  const handleUpgrade = async (planKey: 'pro' | 'sprint') => {
+    setBillingBusy(planKey);
+    setBillingMessage('');
+    try {
+      const result = await startCheckout(planKey);
+      if (result.mode === 'external') {
+        window.location.assign(result.url);
+        return;
+      }
+      setBillingMessage(`Plan updated to ${planKey}.`);
+    } catch (err: any) {
+      setBillingMessage(err?.response?.data?.error ?? 'Could not update your plan.');
+    } finally {
+      setBillingBusy(null);
+    }
+  };
+
+  const handleManageBilling = async () => {
+    setBillingBusy('manage');
+    setBillingMessage('');
+    try {
+      const result = await openBillingPortal();
+      setBillingMessage(
+        result.mode === 'manual'
+          ? 'Billing controls are available in local simulation mode for now.'
+          : 'Billing portal opened in a new tab.',
+      );
+      if (result.mode === 'external') {
+        window.open(result.url, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err: any) {
+      setBillingMessage(err?.response?.data?.error ?? 'Could not open billing management.');
+    } finally {
+      setBillingBusy(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <SurfaceCard p={{ base: 8, md: 12 }}>
+        <VStack spacing={4} minH="40vh" justify="center">
+          <Spinner size="lg" color="brand.500" thickness="3px" />
+          <Text fontSize="sm" color="ink.500">Loading your settings...</Text>
+        </VStack>
+      </SurfaceCard>
+    );
+  }
+
+  const planName = currentPlan?.plan.name ?? 'Free';
+  const planTone = currentPlan?.planKey === 'sprint'
+    ? 'orange'
+    : currentPlan?.planKey === 'pro'
+      ? 'blue'
+      : 'gray';
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
+    <form onSubmit={handleSave}>
+      <Stack spacing={6}>
+        <PageHeader
+          eyebrow="Account"
+          title="Settings"
+          description="Tune your cadence, keep billing in view, and control the communication rhythm that powers your weekly execution loop."
+          actions={(
+            <>
+              <Badge colorScheme={planTone} px={3} py={1.5} rounded="full" fontSize="0.72rem" textTransform="uppercase" letterSpacing="0.12em">
+                {planName}
+              </Badge>
+              <Button
+                as={RouterLink}
+                to="/pricing"
+                variant="outline"
+                borderColor="blackAlpha.200"
+                color="ink.700"
+                _hover={{ borderColor: 'brand.300', color: 'brand.700' }}
+              >
+                View pricing
+              </Button>
+            </>
+          )}
+        />
 
-      <form onSubmit={handleSave} className="space-y-6">
-        {/* Study schedule */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Study schedule</h2>
+        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+          <MetricCard
+            label="Active goal limit"
+            value={activeGoalLimit?.limitValue == null ? 'Unlimited' : `${activeGoalLimit.limitValue} goals`}
+            detail="How many outcome tracks you can run in parallel."
+          />
+          <MetricCard
+            label="AI checks remaining"
+            value={aiChecks?.remaining == null ? 'Unlimited' : `${aiChecks.remaining} left`}
+            detail="Used for premium evaluations, reports, and coaching feedback."
+          />
+          <MetricCard
+            label="Weekly reports"
+            value={weeklyReports?.enabled ? 'Unlocked' : 'Locked'}
+            detail="Controls email summaries, recovery plans, and manager-style reporting."
+          />
+        </SimpleGrid>
 
-          <div>
-            <label className="block text-sm text-slate-600 mb-1">
-              Minutes per day
-            </label>
-            <input
-              type="number"
-              min={5}
-              max={480}
-              value={form.availableMinsDay}
-              onChange={e => setForm(f => ({ ...f, availableMinsDay: parseInt(e.target.value, 10) || 45 }))}
-              className="w-32 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
-            />
-            <p className="text-xs text-slate-400 mt-1">Used to estimate your weekly pace</p>
-          </div>
+        <SurfaceCard p={{ base: 5, md: 6 }}>
+          <Stack spacing={5}>
+            <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={4}>
+              <VStack align="flex-start" spacing={1}>
+                <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+                  Plan and billing
+                </Text>
+                <Text fontSize="sm" color="ink.500" lineHeight="1.7">
+                  Upgrade when you need more checks, richer feedback loops, or the full Sprint workflow.
+                </Text>
+              </VStack>
+              <Button
+                as={RouterLink}
+                to="/pricing"
+                variant="ghost"
+                color="brand.700"
+                _hover={{ bg: 'brand.50' }}
+              >
+                Compare plans
+              </Button>
+            </HStack>
 
-          <div>
-            <label className="block text-sm text-slate-600 mb-1">
-              Days per week
-            </label>
-            <div className="flex gap-2">
-              {[1, 2, 3, 4, 5, 6, 7].map(d => (
-                <button
-                  key={d}
+            <HStack spacing={3} flexWrap="wrap">
+              {currentPlan?.planKey !== 'pro' ? (
+                <Button
                   type="button"
-                  onClick={() => setForm(f => ({ ...f, availableDaysWeek: d }))}
-                  className={`w-9 h-9 rounded-full text-sm font-medium transition-colors ${
-                    form.availableDaysWeek === d
-                      ? 'bg-sky-500 text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
+                  colorScheme="blue"
+                  onClick={() => handleUpgrade('pro')}
+                  isLoading={billingBusy === 'pro'}
+                  isDisabled={billingBusy !== null}
                 >
-                  {d}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+                  Upgrade to Pro
+                </Button>
+              ) : null}
+              {currentPlan?.planKey !== 'sprint' ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  borderColor="blackAlpha.200"
+                  color="ink.700"
+                  onClick={() => handleUpgrade('sprint')}
+                  isLoading={billingBusy === 'sprint'}
+                  isDisabled={billingBusy !== null}
+                >
+                  Unlock Sprint
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                color="ink.600"
+                onClick={handleManageBilling}
+                isLoading={billingBusy === 'manage'}
+                isDisabled={billingBusy !== null}
+              >
+                Manage billing
+              </Button>
+            </HStack>
 
-        {/* Timezone & digest */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Timezone & email</h2>
+            {billingMessage ? (
+              <Text fontSize="sm" color={billingMessage.includes('Could not') ? 'red.500' : 'green.600'}>
+                {billingMessage}
+              </Text>
+            ) : null}
+          </Stack>
+        </SurfaceCard>
 
-          <div>
-            <label className="block text-sm text-slate-600 mb-1">Timezone</label>
-            <select
-              value={form.timezone}
-              onChange={e => setForm(f => ({ ...f, timezone: e.target.value }))}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+        <SurfaceCard p={{ base: 5, md: 6 }}>
+          <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={4}>
+            <VStack align="flex-start" spacing={1}>
+              <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+                Internal metrics
+              </Text>
+              <Text fontSize="sm" color="ink.500" lineHeight="1.7">
+                Inspect activation, premium usage, and the health of the monetization funnel without leaving the app.
+              </Text>
+            </VStack>
+            <Button
+              as={RouterLink}
+              to="/metrics"
+              variant="outline"
+              borderColor="blackAlpha.200"
+              color="ink.700"
             >
-              {TIMEZONES.map(tz => (
-                <option key={tz} value={tz}>{tz}</option>
-              ))}
-            </select>
-          </div>
+              Open metrics
+            </Button>
+          </HStack>
+        </SurfaceCard>
 
-          <div>
-            <label className="block text-sm text-slate-600 mb-1">Daily digest time (optional)</label>
-            <input
-              type="time"
-              value={form.digestTime ?? ''}
-              onChange={e => setForm(f => ({ ...f, digestTime: e.target.value || null }))}
-              className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
-            />
-          </div>
+        <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={6}>
+          <SurfaceCard p={{ base: 5, md: 6 }}>
+            <Stack spacing={5}>
+              <VStack align="flex-start" spacing={1}>
+                <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+                  Study schedule
+                </Text>
+                <Text fontSize="sm" color="ink.500" lineHeight="1.7">
+                  These values shape forecasts, sprint pacing, and how aggressively the app schedules your next steps.
+                </Text>
+              </VStack>
 
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={form.emailWeeklySummary}
-              onClick={() => setForm(f => ({ ...f, emailWeeklySummary: !f.emailWeeklySummary }))}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                form.emailWeeklySummary ? 'bg-sky-500' : 'bg-slate-200'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                  form.emailWeeklySummary ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-            <span className="text-sm text-slate-700">Weekly summary email</span>
-          </div>
-        </div>
+              <FormControl>
+                <FormLabel fontSize="sm" color="ink.700">Minutes per day</FormLabel>
+                <Input
+                  type="number"
+                  min={5}
+                  max={480}
+                  value={form.availableMinsDay}
+                  onChange={(e) => setForm((f) => ({ ...f, availableMinsDay: parseInt(e.target.value, 10) || 45 }))}
+                  maxW="11rem"
+                  bg="whiteAlpha.700"
+                  borderColor="blackAlpha.200"
+                />
+                <Text mt={2} fontSize="xs" color="ink.400">
+                  Used to estimate how much momentum you can sustain each week.
+                </Text>
+              </FormControl>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-6 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-          >
-            {saving ? 'Saving...' : 'Save settings'}
-          </button>
-          {saved && <span className="text-sm text-emerald-600 font-medium">Saved!</span>}
-          {saveError && <span className="text-sm text-red-600">{saveError}</span>}
-        </div>
-      </form>
-    </div>
+              <FormControl>
+                <FormLabel fontSize="sm" color="ink.700">Days per week</FormLabel>
+                <HStack spacing={2} flexWrap="wrap">
+                  {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                    <Button
+                      key={d}
+                      type="button"
+                      size="sm"
+                      minW="2.5rem"
+                      borderRadius="full"
+                      variant={form.availableDaysWeek === d ? 'solid' : 'ghost'}
+                      colorScheme={form.availableDaysWeek === d ? 'blue' : undefined}
+                      onClick={() => setForm((f) => ({ ...f, availableDaysWeek: d }))}
+                    >
+                      {d}
+                    </Button>
+                  ))}
+                </HStack>
+              </FormControl>
+            </Stack>
+          </SurfaceCard>
+
+          <SurfaceCard p={{ base: 5, md: 6 }}>
+            <Stack spacing={5}>
+              <VStack align="flex-start" spacing={1}>
+                <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+                  Timezone and communication
+                </Text>
+                <Text fontSize="sm" color="ink.500" lineHeight="1.7">
+                  Keep digests and weekly recaps aligned with your local workday so reminders land at the right moment.
+                </Text>
+              </VStack>
+
+              <FormControl>
+                <FormLabel fontSize="sm" color="ink.700">Timezone</FormLabel>
+                <Select
+                  value={form.timezone}
+                  onChange={(e) => setForm((f) => ({ ...f, timezone: e.target.value }))}
+                  bg="whiteAlpha.700"
+                  borderColor="blackAlpha.200"
+                >
+                  {TIMEZONES.map((tz) => (
+                    <option key={tz} value={tz}>{tz}</option>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel fontSize="sm" color="ink.700">Daily digest time</FormLabel>
+                <Input
+                  type="time"
+                  value={form.digestTime ?? ''}
+                  onChange={(e) => setForm((f) => ({ ...f, digestTime: e.target.value || null }))}
+                  maxW="11rem"
+                  bg="whiteAlpha.700"
+                  borderColor="blackAlpha.200"
+                />
+              </FormControl>
+
+              <HStack justify="space-between" align="center" rounded="2xl" bg="blackAlpha.50" px={4} py={3}>
+                <VStack align="flex-start" spacing={0.5}>
+                  <Text fontSize="sm" fontWeight="600" color="ink.800">Weekly summary email</Text>
+                  <Text fontSize="xs" color="ink.500">
+                    Send sprint health, recovery notes, and progress highlights.
+                  </Text>
+                </VStack>
+                <Switch
+                  colorScheme="blue"
+                  isChecked={form.emailWeeklySummary}
+                  onChange={() => setForm((f) => ({ ...f, emailWeeklySummary: !f.emailWeeklySummary }))}
+                />
+              </HStack>
+            </Stack>
+          </SurfaceCard>
+        </SimpleGrid>
+
+        <SurfaceCard p={{ base: 5, md: 6 }}>
+          <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={4}>
+            <VStack align="flex-start" spacing={1}>
+              <Text fontSize="sm" fontWeight="700" color="ink.900">Save your operating rhythm</Text>
+              <Text fontSize="sm" color="ink.500" lineHeight="1.7">
+                These settings directly affect sprint forecasts, report timing, and how the app shapes your daily workload.
+              </Text>
+              {saved ? <Text fontSize="sm" color="green.600">Settings saved.</Text> : null}
+              {saveError ? <Text fontSize="sm" color="red.500">{saveError}</Text> : null}
+            </VStack>
+
+            <Button type="submit" colorScheme="blue" size="lg" isLoading={saving}>
+              Save settings
+            </Button>
+          </HStack>
+        </SurfaceCard>
+      </Stack>
+    </form>
   );
 }

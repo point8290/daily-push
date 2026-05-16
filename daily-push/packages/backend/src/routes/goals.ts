@@ -28,14 +28,33 @@ import {
 } from "../services/reflections";
 import { suggestNextGoals } from "../services/similarity";
 import { config } from "../config";
+import { requireEntitlement } from "../middleware/requireEntitlement";
 import {
   buildDecomposeSteps,
   initPipelineRun,
   setStepStatus,
   finalizePipelineRun,
+  failPipelineRun,
   getPipelineRun,
 } from "../services/pipelineTracker";
 import { sendPipelineCompleteEmail } from "../services/emailService";
+import { trackProductEvent } from "../services/productEvents";
+import {
+  getGoalPlanHealth,
+  isPremiumSprintType,
+  rebaselineGoalSprint,
+  saveGoalSprintDefinition,
+} from "../services/sprintPlanner";
+import {
+  assertEntitlementEnabled,
+  consumeQuota,
+} from "../services/entitlements";
+import {
+  getGoalGapReportRecord,
+  rebuildGoalGapReport,
+  saveGoalJobDescription,
+  saveGoalResume,
+} from "../services/jobGapAnalysis";
 
 const router = Router();
 
@@ -50,6 +69,86 @@ function buildTrackerHooks(goalId: string): DecomposeTrackerHooks {
     onUnlockStart: () => setStepStatus(goalId, "unlock_logic", "running"),
     onUnlockDone: () => setStepStatus(goalId, "unlock_logic", "done"),
   };
+}
+
+function mapDecomposeStatusToEventKey(
+  status: "running" | "done" | "partial" | "failed",
+): "decompose_completed" | "decompose_partial" | "decompose_failed" {
+  switch (status) {
+    case "done":
+      return "decompose_completed";
+    case "partial":
+      return "decompose_partial";
+    case "running":
+    case "failed":
+    default:
+      return "decompose_failed";
+  }
+}
+
+async function runDecompositionInBackground({
+  userId,
+  goalId,
+  seniorityLevel,
+  requestedTopicCount,
+  retryMode,
+  tracker,
+  logLabel,
+}: {
+  userId: string;
+  goalId: string;
+  seniorityLevel: string | null;
+  requestedTopicCount: number;
+  retryMode: boolean;
+  tracker: DecomposeTrackerHooks;
+  logLabel: string;
+}): Promise<void> {
+  const startedAt = Date.now();
+
+  try {
+    const result = await decomposeGoal(
+      userId,
+      goalId,
+      seniorityLevel,
+      tracker,
+    );
+    const pipelineStatus = await finalizePipelineRun(goalId);
+
+    await trackProductEvent({
+      userId,
+      goalId,
+      eventKey: mapDecomposeStatusToEventKey(pipelineStatus),
+      properties: {
+        retryMode,
+        requestedTopicCount,
+        durationMs: Date.now() - startedAt,
+        nodesCreated: result.nodesCreated,
+        topicsDecomposed: result.topicsDecomposed,
+        topicsFailed: result.topicsFailed,
+        totalTopicsProcessed:
+          result.topicsDecomposed + result.topicsFailed,
+        pipelineStatus,
+      },
+    });
+
+    await sendPipelineCompleteEmail(userId, goalId, result);
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    await failPipelineRun(goalId);
+    await trackProductEvent({
+      userId,
+      goalId,
+      eventKey: "decompose_failed",
+      properties: {
+        retryMode,
+        requestedTopicCount,
+        durationMs: Date.now() - startedAt,
+        unexpectedError: true,
+        errorMessage,
+      },
+    });
+    console.error(`[${logLabel}] background pipeline error:`, err);
+  }
 }
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
@@ -191,10 +290,135 @@ router.post(
         updatedAt: new Date(),
       };
       if (availableMinsDay)
-        update["structured.estimatedWeeks"] = availableMinsDay;
+        update["structured.availableMinsDay"] = availableMinsDay;
 
       await db.collection("goals").updateOne({ _id: id }, { $set: update });
+      await rebaselineGoalSprint(userId, id.toString());
+      void trackProductEvent({
+        userId,
+        goalId: id.toString(),
+        eventKey: "goal_confirmed",
+        properties: {
+          availableMinsDay: availableMinsDay ?? null,
+          status: "active",
+          stage: "action",
+        },
+      });
       res.json({ confirmed: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// POST /api/goals/:id/sprint - create or update sprint metadata for a goal
+router.post(
+  "/:id/sprint",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      let id: ObjectId;
+      try {
+        id = new ObjectId(String(req.params.id));
+      } catch {
+        res.status(400).json({ error: "Invalid goal id" });
+        return;
+      }
+      const db = getDb();
+      const goal = await db.collection("goals").findOne({ _id: id, userId });
+      if (!goal) {
+        res.status(404).json({ error: "Goal not found" });
+        return;
+      }
+
+      if (isPremiumSprintType(req.body?.sprintType ?? "standard")) {
+        await assertEntitlementEnabled(userId, "premium_sprints.enabled");
+      }
+
+      const sprint = await saveGoalSprintDefinition(userId, id.toString(), req.body);
+      const health = await rebaselineGoalSprint(userId, id.toString());
+
+      void trackProductEvent({
+        userId,
+        goalId: id.toString(),
+        eventKey: "goal_sprint_saved",
+        properties: {
+          sprintType: sprint.sprintType,
+          hasTargetDate: !!sprint.targetDate,
+          weeklyCommitmentHours: sprint.weeklyCommitmentHours,
+          blockerCount: sprint.currentBlockers.length,
+          successEvidenceCount: sprint.successEvidence.length,
+          status: health.status,
+        },
+      });
+
+      res.json({ sprint: health.sprint, planHealth: health });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// POST /api/goals/:id/rebaseline - recompute sprint health after plan changes
+router.post(
+  "/:id/rebaseline",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      let id: ObjectId;
+      try {
+        id = new ObjectId(String(req.params.id));
+      } catch {
+        res.status(400).json({ error: "Invalid goal id" });
+        return;
+      }
+      const db = getDb();
+      const goal = await db.collection("goals").findOne({ _id: id, userId });
+      if (!goal) {
+        res.status(404).json({ error: "Goal not found" });
+        return;
+      }
+
+      if (req.body && Object.keys(req.body).length > 0) {
+        if (isPremiumSprintType(req.body?.sprintType ?? "standard")) {
+          await assertEntitlementEnabled(userId, "premium_sprints.enabled");
+        }
+        await saveGoalSprintDefinition(userId, id.toString(), req.body);
+      }
+
+      const health = await rebaselineGoalSprint(userId, id.toString());
+      res.json(health);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// GET /api/goals/:id/plan-health - sprint forecast and progress summary
+router.get(
+  "/:id/plan-health",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      let id: ObjectId;
+      try {
+        id = new ObjectId(String(req.params.id));
+      } catch {
+        res.status(400).json({ error: "Invalid goal id" });
+        return;
+      }
+      const db = getDb();
+      const goal = await db.collection("goals").findOne({ _id: id, userId });
+      if (!goal) {
+        res.status(404).json({ error: "Goal not found" });
+        return;
+      }
+
+      const health = await getGoalPlanHealth(userId, id.toString());
+      res.json(health);
     } catch (err) {
       next(err);
     }
@@ -262,15 +486,24 @@ router.post(
       res.json({ accepted: true, pipelineStatus: "running" });
 
       // Background: decompose → finalize → email (resource enrichment runs via BullMQ automatically)
-      decomposeGoal(userId, goalId, seniorityLevel, buildTrackerHooks(goalId))
-        .then((result) =>
-          finalizePipelineRun(goalId).then(() =>
-            sendPipelineCompleteEmail(userId, goalId, result),
-          ),
-        )
-        .catch((err) =>
-          console.error("[decompose] background pipeline error:", err),
-        );
+      void trackProductEvent({
+        userId,
+        goalId,
+        eventKey: "decompose_started",
+        properties: {
+          retryMode: false,
+          requestedTopicCount: nonCompleted.length,
+        },
+      });
+      void runDecompositionInBackground({
+        userId,
+        goalId,
+        seniorityLevel,
+        requestedTopicCount: nonCompleted.length,
+        retryMode: false,
+        tracker: buildTrackerHooks(goalId),
+        logLabel: "decompose",
+      });
     } catch (err) {
       next(err);
     }
@@ -379,15 +612,24 @@ router.post(
       res.json({ accepted: true, pipelineStatus: "running" });
 
       // Background: decompose → finalize → email (resource enrichment runs via BullMQ automatically)
-      decomposeGoal(userId, goalId, seniorityLevel, buildTrackerHooks(goalId))
-        .then((result) =>
-          finalizePipelineRun(goalId).then(() =>
-            sendPipelineCompleteEmail(userId, goalId, result),
-          ),
-        )
-        .catch((err) =>
-          console.error("[decompose/retry] background pipeline error:", err),
-        );
+      void trackProductEvent({
+        userId,
+        goalId,
+        eventKey: "decompose_started",
+        properties: {
+          retryMode: true,
+          requestedTopicCount: failedTopics.length,
+        },
+      });
+      void runDecompositionInBackground({
+        userId,
+        goalId,
+        seniorityLevel,
+        requestedTopicCount: failedTopics.length,
+        retryMode: true,
+        tracker: buildTrackerHooks(goalId),
+        logLabel: "decompose/retry",
+      });
     } catch (err) {
       next(err);
     }
@@ -494,6 +736,7 @@ router.post(
         timeline,
         goalClassification,
       );
+      await rebaselineGoalSprint(userId, goalId);
 
       const updated = await db.collection("goals").findOne({ _id: id, userId });
       res.json(updated);
@@ -693,6 +936,7 @@ router.get(
 router.post(
   "/:id/resources/retry",
   requireAuth,
+  requireEntitlement("premium_resources.enabled"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { userId } = req as AuthRequest;
@@ -785,6 +1029,7 @@ router.post(
 router.get(
   "/:id/resources/coverage",
   requireAuth,
+  requireEntitlement("premium_resources.enabled"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { userId } = req as AuthRequest;
@@ -844,6 +1089,7 @@ router.get(
 router.post(
   "/:id/resources/fill-gaps",
   requireAuth,
+  requireEntitlement("premium_resources.enabled"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { userId } = req as AuthRequest;

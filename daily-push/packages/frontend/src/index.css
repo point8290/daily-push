@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=JetBrains+Mono:wght@400;600&family=Manrope:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -27,10 +29,10 @@
   --red-500: #ef4444; --red-600: #dc2626;
 
   /* Semantic */
-  --brand-primary:     var(--sky-600);
-  --brand-primary-hov: var(--sky-700);
-  --bg-app:    var(--slate-50);
-  --bg-nav:    var(--slate-900);
+  --brand-primary:     #1e6eff;
+  --brand-primary-hov: #1f57e0;
+  --bg-app:    #f3f7fb;
+  --bg-nav:    #111827;
   --fg-1: var(--slate-900);
   --fg-2: var(--slate-600);
   --fg-3: var(--slate-400);
@@ -54,13 +56,17 @@
 
 /* ── Base ─────────────────────────────────────────────────────────────────────── */
 body {
-  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'Manrope', 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   background: var(--bg-app);
+  background-image:
+    radial-gradient(circle at top left, rgba(47, 140, 255, 0.12), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(255, 125, 20, 0.1), transparent 22%);
+  min-height: 100vh;
 }
 
-.font-display { font-family: 'Cagliostro', ui-sans-serif, system-ui, sans-serif !important; }
+.font-display { font-family: 'Fraunces', Georgia, serif !important; }
 .tabular-nums { font-variant-numeric: tabular-nums; }
 
 /* ── Eyebrow ─────────────────────────────────────────────────────────────────── */

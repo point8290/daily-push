@@ -287,6 +287,134 @@ Return JSON:
   return parseJSON<ExtractedProfile>(text);
 }
 
+function detectPrimaryStack(text: string): string[] {
+  const stackSignals: Array<{ label: string; patterns: RegExp[] }> = [
+    { label: "React", patterns: [/\breact\b/, /\bnext\.?js\b/] },
+    { label: "Node.js", patterns: [/\bnode\.?js\b/, /\bnode\b/] },
+    { label: "TypeScript", patterns: [/\btypescript\b/, /\bts\b/] },
+    { label: "JavaScript", patterns: [/\bjavascript\b/, /\bjs\b/] },
+    { label: "Python", patterns: [/\bpython\b/] },
+    { label: "Java", patterns: [/\bjava\b/] },
+    { label: "Docker", patterns: [/\bdocker\b/] },
+    { label: "PostgreSQL", patterns: [/\bpostgres\b/, /\bpostgresql\b/] },
+    { label: "MongoDB", patterns: [/\bmongodb\b/, /\bmongo\b/] },
+    { label: "AWS", patterns: [/\baws\b/, /\bamazon web services\b/] },
+  ];
+
+  return stackSignals
+    .filter((entry) => entry.patterns.some((pattern) => pattern.test(text)))
+    .map((entry) => entry.label);
+}
+
+export function extractProfileHeuristically(
+  rawInputs: RawInput[],
+): ExtractedProfile {
+  const allText = rawInputs.map((i) => i.content).join(" ");
+  const normalized = allText.toLowerCase();
+
+  const roleType: ExtractedProfile["roleType"] = /\b(engineer|developer|swe)\b/.test(normalized)
+    ? "engineer"
+    : /\b(product manager|pm)\b/.test(normalized)
+      ? "pm"
+      : /\bdesigner\b/.test(normalized)
+        ? "designer"
+        : /\banalyst\b/.test(normalized)
+          ? "analyst"
+          : normalized.trim()
+            ? "other"
+            : null;
+
+  const seniorityLevel: ExtractedProfile["seniorityLevel"] =
+    /\bstaff engineer\b/.test(normalized)
+      ? "staff"
+      : /\btech lead\b|\blead engineer\b|\blead\b/.test(normalized)
+        ? "lead"
+        : /\bsenior engineer\b|\bsenior\b/.test(normalized)
+          ? "senior"
+          : /\bmid level\b|\bmid-level\b|\bcurrently mid\b|\bmid\b/.test(normalized)
+            ? "mid"
+            : /\bjunior\b|\bcurrently junior\b/.test(normalized)
+              ? "junior"
+              : null;
+
+  const availableMinsDayMatch = normalized.match(
+    /(\d{1,3})\s*(minutes|minute|mins|min)\s*(a|per)?\s*day/,
+  );
+  const availableDaysWeekMatch = normalized.match(
+    /(\d)\s*(days)\s*(a|per)?\s*week/,
+  );
+  const yearsTotalMatch = normalized.match(/(\d{1,2})\+?\s*(years|year|yrs)/);
+
+  const availableMinsDay = availableMinsDayMatch
+    ? parseInt(availableMinsDayMatch[1], 10)
+    : null;
+  const availableDaysWeek = availableDaysWeekMatch
+    ? parseInt(availableDaysWeekMatch[1], 10)
+    : null;
+  const yearsTotal = yearsTotalMatch
+    ? parseInt(yearsTotalMatch[1], 10)
+    : null;
+
+  const primaryStack = detectPrimaryStack(normalized);
+
+  let jobTitle: string | null = null;
+  if (/\bfrontend (developer|engineer)\b/.test(normalized)) {
+    jobTitle = "Frontend Developer";
+  } else if (/\bbackend (developer|engineer)\b/.test(normalized)) {
+    jobTitle = "Backend Developer";
+  } else if (/\bfull ?stack (developer|engineer)\b/.test(normalized)) {
+    jobTitle = "Fullstack Developer";
+  } else if (/\bsoftware engineer\b/.test(normalized)) {
+    jobTitle = "Software Engineer";
+  } else if (/\bdeveloper\b/.test(normalized)) {
+    jobTitle = "Developer";
+  }
+
+  const employmentStatus: ExtractedProfile["employmentStatus"] =
+    /\bfreelance|freelancer\b/.test(normalized)
+      ? "freelance"
+      : /\bstudent\b/.test(normalized)
+        ? "student"
+        : /\bunemployed\b|\bout of work\b/.test(normalized)
+          ? "unemployed"
+          : normalized.trim()
+            ? "employed"
+            : null;
+
+  const uncertainFields: string[] = [];
+  if (!jobTitle) uncertainFields.push("jobTitle");
+  if (!seniorityLevel) uncertainFields.push("seniorityLevel");
+  if (!yearsTotal) uncertainFields.push("yearsTotal");
+  if (!availableMinsDay) uncertainFields.push("availableMinsDay");
+  if (!availableDaysWeek) uncertainFields.push("availableDaysWeek");
+  if (primaryStack.length === 0) uncertainFields.push("primaryStack");
+
+  const knownFieldCount = [
+    jobTitle,
+    roleType,
+    seniorityLevel,
+    yearsTotal,
+    employmentStatus,
+    primaryStack.length > 0 ? primaryStack : null,
+    availableMinsDay,
+    availableDaysWeek,
+  ].filter(Boolean).length;
+
+  return {
+    jobTitle,
+    roleType,
+    seniorityLevel,
+    yearsTotal,
+    employmentStatus,
+    primaryStack,
+    availableMinsDay,
+    availableDaysWeek,
+    timezone: null,
+    derivationConfidence: Math.min(0.85, 0.35 + knownFieldCount * 0.08),
+    uncertainFields,
+  };
+}
+
 // ─────────────────────────────────────────────
 // Claude: goal classification
 // ─────────────────────────────────────────────
@@ -612,6 +740,12 @@ export async function updateGoalWithPlan(
       ...topic,
       topicEngineId: null,
       decompositionStatus: "pending",
+      decompositionAttempts: 0,
+      lastTopicEngineAttempts: 0,
+      lastDecompositionAttemptAt: null,
+      lastDecompositionCompletedAt: null,
+      lastDecompositionDurationMs: null,
+      lastDecompositionError: null,
       status: "pending",
       position: i + 1,
       actualWeeks: null,

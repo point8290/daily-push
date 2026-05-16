@@ -9,3 +9,8 @@ node_modules
 *.log
 *.pid
 dist
+.logs/*
+run-logs/*
+tmp/*
+docs/*
+.pids/*
