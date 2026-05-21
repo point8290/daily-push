@@ -64,9 +64,9 @@ const SPRINT_OPTIONS: Array<{
 }> = [
   {
     value: 'standard',
-    label: 'Standard Sprint',
+    label: 'Execution Sprint',
     description:
-      'A focused execution sprint with a deadline, weekly commitment, and forecast.',
+      'A focused push with a deadline, weekly commitment, and progress forecast.',
     premium: false,
   },
   {
@@ -301,8 +301,8 @@ export default function GoalSetup() {
 
   const stepEntries = [
     { id: 'goal', label: 'Goal' },
-    { id: 'clarify', label: 'Clarify' },
-    { id: 'sprint', label: 'Sprint' },
+    { id: 'clarify', label: 'Context' },
+    { id: 'sprint', label: 'Plan' },
   ] as const;
   const currentStepIndex = stepEntries.findIndex((entry) => entry.id === step);
 
@@ -364,7 +364,7 @@ export default function GoalSetup() {
               </svg>
             </Circle>
             <Heading size="md" letterSpacing="-0.03em" color="ink.900">
-              Your sprint plan is ready
+              Your career plan is ready
             </Heading>
             <Text fontSize="sm" color="ink.500">
               Redirecting you to the goal workspace...
@@ -378,7 +378,7 @@ export default function GoalSetup() {
       <Stack maxW="3xl" mx="auto" spacing={6}>
         <PageHeader
           eyebrow="Planning"
-          title="Building your sprint"
+          title="Building your career plan"
           description="Analysing your goal, shaping the learning path, and forecasting the pace you need."
         />
         <SurfaceCard px={6} py={6}>
@@ -396,7 +396,7 @@ export default function GoalSetup() {
           />
         </SurfaceCard>
         <Button variant="ghost" alignSelf="flex-start" onClick={() => setStep('sprint')}>
-          Back to sprint setup
+          Back to plan setup
         </Button>
       </Stack>
     );
@@ -406,8 +406,8 @@ export default function GoalSetup() {
     <Stack maxW="4xl" mx="auto" spacing={8}>
       <PageHeader
         eyebrow="New goal"
-        title="Turn an ambition into a guided sprint"
-        description="Start with the outcome you want, add the context that matters, and package it into a deadline-backed plan you can actually follow."
+        title="Create a career goal"
+        description="A goal is your long-term career outcome. You can add an execution sprint after the goal is clear."
       />
 
       <SurfaceCard px={{ base: 4, md: 6 }} py={5}>
@@ -472,7 +472,7 @@ export default function GoalSetup() {
                 </Heading>
                 <Text mt={2} fontSize="sm" lineHeight="1.8" color="ink.500">
                   Tell us your situation, where you are now, and what success looks
-                  like. We’ll turn it into a sprint you can actually follow.
+                  like. We'll turn it into a career goal you can plan around.
                 </Text>
               </Box>
 
@@ -553,12 +553,12 @@ export default function GoalSetup() {
                       We already have enough context
                     </Heading>
                     <Text mt={2} fontSize="sm" lineHeight="1.8" color="ink.500">
-                      One more step and we’ll package this into a deadline-backed sprint.
+                      One more step and we’ll turn this into a practical plan.
                     </Text>
                   </Box>
 
                   <Button onClick={skipClarify} alignSelf="flex-start">
-                    Continue to sprint setup
+                    Continue to plan options
                   </Button>
                 </>
               ) : (
@@ -627,18 +627,18 @@ export default function GoalSetup() {
             <Stack spacing={6}>
               <Box>
                 <Heading size="md" letterSpacing="-0.03em" color="ink.900">
-                  Package this as a sprint
+                  Add an execution sprint
                 </Heading>
                 <Text mt={2} fontSize="sm" lineHeight="1.8" color="ink.500">
-                  This is what turns a loose roadmap into a plan worth paying for:
-                  target role, deadline, and commitment.
+                  A goal is the destination. A sprint is the focused push:
+                  target role, deadline, weekly rhythm, and proof you will create.
                 </Text>
               </Box>
 
               {!premiumSprintEnabled && (
                 <SurfaceCard px={4} py={4} bg="rgba(255,251,235,0.92)" borderColor="orange.100">
                   <Text fontSize="sm" fontWeight="800" color="accent.700">
-                    Standard Sprint is included right now
+                    Execution Sprint is included right now
                   </Text>
                   <Text mt={2} fontSize="sm" color="ink.500">
                     Premium templates like Senior Engineer Sprint and AI Engineer Transition Sprint unlock on the Sprint plan.
@@ -793,7 +793,7 @@ export default function GoalSetup() {
 
           <HStack spacing={3} align="stretch">
             <Button flex="1" onClick={handleSprintSubmit}>
-              Build my sprint
+              Build my plan
             </Button>
             <Button variant="outline" onClick={() => setStep('clarify')}>
               Back

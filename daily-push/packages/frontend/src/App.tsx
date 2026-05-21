@@ -26,6 +26,7 @@ import {
 } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { EntitlementsProvider } from './contexts/EntitlementsContext';
+import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Today from './pages/Today';
 import Goals from './pages/Goals';
@@ -34,6 +35,12 @@ import GoalDetail from './pages/GoalDetail';
 import Map from './pages/Map';
 import History from './pages/History';
 import News from './pages/News';
+import Resume from './pages/Resume';
+import ResumeApplication from './pages/ResumeApplication';
+import CareerMarket from './pages/CareerMarket';
+import RoleMarketDetail from './pages/RoleMarketDetail';
+import TargetRoles from './pages/TargetRoles';
+import TargetRoleWorkspace from './pages/TargetRoleWorkspace';
 import Settings from './pages/Settings';
 import Pricing from './pages/Pricing';
 import MockInterview from './pages/MockInterview';
@@ -42,9 +49,12 @@ import ReflectionModal from './components/ReflectionModal';
 import { getPrimaryGoal, getReflectionPrompt, getStreak } from './api/client';
 
 const navItems = [
-  { to: '/', label: 'Today', end: true },
+  { to: '/today', label: 'Today', end: true },
   { to: '/map', label: 'Map' },
   { to: '/goals', label: 'Goals' },
+  { to: '/career-market', label: 'Market' },
+  { to: '/target-roles', label: 'Targets' },
+  { to: '/resume', label: 'Resume' },
   { to: '/news', label: 'News' },
   { to: '/history', label: 'History' },
 ];
@@ -129,7 +139,7 @@ function TopNav({ streak }: { streak: number }) {
                 Daily Push
               </Text>
               <Text fontSize="xs" color="whiteAlpha.700" letterSpacing="0.12em" textTransform="uppercase">
-                Learning OS
+                Career progress system
               </Text>
             </Box>
             </HStack>
@@ -173,7 +183,6 @@ function TopNav({ streak }: { streak: number }) {
                   <MenuDivider />
                   <MenuItem onClick={() => navigate('/settings')}>Settings</MenuItem>
                   <MenuItem onClick={() => navigate('/pricing')}>Plans & billing</MenuItem>
-                  <MenuItem onClick={() => navigate('/metrics')}>Internal metrics</MenuItem>
                   <MenuDivider />
                   <MenuItem color="red.500" onClick={() => signOut()}>
                     Sign out
@@ -200,6 +209,7 @@ function TopNav({ streak }: { streak: number }) {
                 <Button
                   key={item.to}
                   size="sm"
+                  flexShrink={0}
                   variant={isActive ? 'solid' : 'ghost'}
                   bg={isActive ? 'whiteAlpha.240' : 'transparent'}
                   color={isActive ? 'white' : 'whiteAlpha.800'}
@@ -288,7 +298,6 @@ function TopNav({ streak }: { streak: number }) {
                 <MenuDivider />
                 <MenuItem onClick={() => navigate('/settings')}>Settings</MenuItem>
                 <MenuItem onClick={() => navigate('/pricing')}>Plans & billing</MenuItem>
-                <MenuItem onClick={() => navigate('/metrics')}>Internal metrics</MenuItem>
                 <MenuDivider />
                 <MenuItem color="red.500" onClick={() => signOut()}>
                   Sign out
@@ -390,17 +399,21 @@ function MainContent() {
       />
       <Container maxW="7xl" px={{ base: 4, md: 6 }} py={{ base: 6, md: 8 }} position="relative">
         <Routes>
-          <Route path="/" element={<Today />} />
+          <Route path="/today" element={<Today />} />
           <Route path="/goals" element={<Goals />} />
           <Route path="/goals/new" element={<GoalSetup />} />
           <Route path="/goals/:id" element={<GoalDetail />} />
+          <Route path="/target-roles" element={<TargetRoles />} />
+          <Route path="/target-roles/:id" element={<TargetRoleWorkspace />} />
+          <Route path="/resume" element={<Resume />} />
+          <Route path="/resume/applications/:applicationId" element={<ResumeApplication />} />
           <Route path="/news" element={<News />} />
           <Route path="/history" element={<History />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/metrics" element={<ProductMetrics />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/mock" element={<MockInterview />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/today" replace />} />
         </Routes>
       </Container>
     </Box>
@@ -410,7 +423,7 @@ function MainContent() {
 function PublicRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to="/today" replace />;
   return <>{children}</>;
 }
 
@@ -420,6 +433,7 @@ export default function App() {
       <EntitlementsProvider>
         <BrowserRouter>
           <Routes>
+            <Route path="/" element={<Landing />} />
             <Route
               path="/login"
               element={(
@@ -428,6 +442,9 @@ export default function App() {
                 </PublicRoute>
               )}
             />
+            <Route path="/career-market" element={<CareerMarket />} />
+            <Route path="/career-market/roles/:roleId" element={<RoleMarketDetail />} />
+            <Route path="/resume" element={<Resume />} />
             <Route path="/*" element={<ProtectedLayout />} />
           </Routes>
         </BrowserRouter>

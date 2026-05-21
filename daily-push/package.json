@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
+    "packages/shared",
     "packages/backend",
     "packages/frontend"
   ],
@@ -10,6 +11,8 @@
     "dev:backend": "npm run dev --workspace=packages/backend",
     "dev:frontend": "npm run dev --workspace=packages/frontend",
     "migrate": "npm run migrate --workspace=packages/backend",
-    "build": "npm run build --workspace=packages/backend && npm run build --workspace=packages/frontend"
+    "build": "npm run build --workspace=packages/shared && npm run build --workspace=packages/backend && npm run build --workspace=packages/frontend",
+    "validate:role-market-golden-fixtures": "npm run validate:golden-fixtures --workspace=packages/shared",
+    "validate:role-market-recommendations": "npm run build --workspace=packages/shared && npm run validate:role-market-recommendations --workspace=packages/backend"
   }
 }

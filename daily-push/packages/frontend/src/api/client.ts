@@ -1,4 +1,41 @@
 import axios from "axios";
+import type {
+  CandidateEvidenceProfile,
+  CandidateRoleInput,
+  CreateGoalFromTargetRoleResponse,
+  CreateUpgradePlanResponse,
+  GapToProofResponse,
+  ListRolesQuery,
+  ListRolesResponse,
+  CreateTargetRoleRequest,
+  CreateTargetRoleResponse,
+  GenerateReadinessResponse,
+  RoleMarketProfile,
+  RoleReadinessReport,
+  RoleRecommendationResponse,
+  StartUpgradePlanSprintResponse,
+  TargetRole,
+  UpgradePlan,
+} from "@daily-push/shared";
+
+export type {
+  CandidateEvidenceProfile,
+  CandidateRoleInput,
+  CreateGoalFromTargetRoleResponse,
+  CreateUpgradePlanResponse,
+  GapToProofResponse,
+  GenerateReadinessResponse,
+  ListRolesResponse,
+  ProofRecommendation,
+  RoleMarketCard,
+  RoleMarketProfile,
+  RoleReadinessReport,
+  RoleRecommendation,
+  RoleRecommendationResponse,
+  StartUpgradePlanSprintResponse,
+  TargetRole,
+  UpgradePlan,
+} from "@daily-push/shared";
 
 const api = axios.create({ baseURL: "/api" });
 
@@ -126,6 +163,43 @@ export interface ResumeSummary {
   strengths: string[];
   evidenceAreas: string[];
   gapsOrConcerns: string[];
+  resumeSections?: {
+    summary: string | null;
+    skills: string[];
+    experience: string[];
+    projects: string[];
+    education: string[];
+    certifications: string[];
+  };
+  experienceItems?: Array<{
+    company: string | null;
+    role: string | null;
+    dates: string | null;
+    bullets: string[];
+    technologies: string[];
+    quantifiedOutcomes: string[];
+  }>;
+  projectItems?: Array<{
+    name: string | null;
+    description: string | null;
+    techStack: string[];
+    bullets: string[];
+    links: string[];
+  }>;
+  evidenceClaims?: Array<{
+    claim: string;
+    sourceSection: string | null;
+    sourceSnippet: string;
+    confidence: number;
+  }>;
+}
+
+export interface JdRequirement {
+  requirement: string;
+  type: "skill" | "experience" | "responsibility" | "domain" | "seniority" | "tool" | "soft_skill";
+  priority: "required" | "preferred" | "nice_to_have";
+  keywords: string[];
+  evidenceNeeded: string;
 }
 
 export interface ParsedJobDescription {
@@ -136,6 +210,7 @@ export interface ParsedJobDescription {
   evidenceSignals: string[];
   responsibilities: string[];
   hiringGoals: string[];
+  jdRequirements?: JdRequirement[];
 }
 
 export interface GapReportItem {
@@ -150,10 +225,22 @@ export interface MissingProofItem {
   reason: string;
 }
 
+export interface RequirementCoverageItem {
+  requirement: string;
+  status: "covered" | "weak" | "missing";
+  priority: "high" | "medium" | "low";
+  resumeEvidence: string | null;
+  sourceSnippet?: string | null;
+  sourceSection?: string | null;
+  confidence?: number;
+  action: string;
+}
+
 export interface GoalGapReport {
   targetRole: string | null;
   readinessLabel: "early" | "building" | "close";
   summary: string;
+  requirementCoverage: RequirementCoverageItem[];
   strengths: string[];
   missingSkills: GapReportItem[];
   missingProof: MissingProofItem[];
@@ -161,6 +248,38 @@ export interface GoalGapReport {
   interviewRisks: string[];
   portfolioSuggestion: string | null;
   confidence: number;
+}
+
+export interface TailoredResume {
+  targetRole: string | null;
+  headline: string;
+  professionalSummary: string;
+  skills: string[];
+  experienceBullets: string[];
+  projectBullets: string[];
+  missingEvidenceWarnings: string[];
+  atsKeywords: string[];
+  bulletEvidence?: Array<{
+    bullet: string;
+    sourceSnippet: string;
+  }>;
+  coverNote: string | null;
+}
+
+export interface ResumeFitSnapshot {
+  targetRole: string | null;
+  fitScore: number;
+  fitLabel: "early" | "building" | "close";
+  headline: string;
+  summary: string;
+  topStrengths: string[];
+  topGaps: Array<{
+    name: string;
+    reason: string;
+    priority: "high" | "medium" | "low";
+  }>;
+  missingKeywords: string[];
+  premiumPreview: string[];
 }
 
 export type RepoSummarySource =
@@ -194,7 +313,18 @@ export interface GoalGapReportRecord {
   repoUrl: string | null;
   repoSummary: RepoSummary | null;
   gapReport: GoalGapReport | null;
+  tailoredResume: TailoredResume | null;
+  tailoredResumeGeneratedAt: string | null;
   lastAnalyzedAt: string | null;
+}
+
+export interface ResumeApplicationWorkspace extends GoalGapReportRecord {
+  id: string;
+  title: string;
+  linkedGoalId: string | null;
+  linkedSprintCreatedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface GapReportQuotaSummary {
@@ -456,6 +586,156 @@ export const rebuildGoalGapReport = (id: string) =>
   api
     .post(`/goals/${id}/gap-report/rebuild`)
     .then((r) => r.data as GoalGapReportResponse);
+export const generateTailoredResume = (id: string) =>
+  api
+    .post(`/goals/${id}/tailored-resume`)
+    .then((r) => r.data as GoalGapReportRecord);
+export const getResumeWorkspace = () =>
+  api.get("/resume/workspace").then((r) => r.data as GoalGapReportRecord);
+export const saveResumeWorkspaceResume = (
+  data: {
+    rawText: string;
+    source?: "upload" | "linkedin_paste" | "manual";
+  },
+) =>
+  api
+    .post("/resume/resume", data)
+    .then((r) => r.data as { resumeId: string; resumeSummary: ResumeSummary });
+export const saveResumeWorkspaceJobDescription = (
+  data: {
+    targetRole?: string | null;
+    targetCompany?: string | null;
+    jdText: string;
+  },
+) =>
+  api
+    .post("/resume/job-description", data)
+    .then((r) => r.data as { parsedJd: ParsedJobDescription });
+export const rebuildResumeWorkspaceGapReport = () =>
+  api
+    .post("/resume/gap-report/rebuild")
+    .then((r) => r.data as GoalGapReportResponse);
+export const generateResumeWorkspaceTailoredResume = () =>
+  api
+    .post("/resume/tailored-resume")
+    .then((r) => r.data as GoalGapReportRecord);
+export const previewResumeFit = (data: {
+  rawText: string;
+  jdText: string;
+}) =>
+  api
+    .post("/resume/preview", data)
+    .then((r) => r.data as ResumeFitSnapshot);
+
+export const getMarketRoles = (params?: ListRolesQuery) =>
+  api
+    .get("/market/roles", { params })
+    .then((r) => r.data as ListRolesResponse);
+export const getMarketRole = (roleId: string) =>
+  api
+    .get(`/market/roles/${roleId}`)
+    .then((r) => r.data as RoleMarketProfile);
+export const recommendMarketRoles = (data: {
+  input: CandidateRoleInput;
+  limit?: number;
+}) =>
+  api
+    .post("/market/recommend-roles", data)
+    .then((r) => r.data as RoleRecommendationResponse);
+export const getTargetRoles = () =>
+  api
+    .get("/target-roles")
+    .then((r) => r.data as TargetRole[]);
+export const getTargetRole = (id: string) =>
+  api
+    .get(`/target-roles/${id}`)
+    .then((r) => r.data as TargetRole);
+export const getTargetRoleEvidence = (id: string) =>
+  api
+    .get(`/target-roles/${id}/evidence`)
+    .then((r) => r.data as CandidateEvidenceProfile);
+export const getTargetRoleReadiness = (id: string) =>
+  api
+    .get(`/target-roles/${id}/readiness`)
+    .then((r) => r.data as { report: RoleReadinessReport });
+export const generateTargetRoleReadiness = (
+  id: string,
+  data: { includeAiSummary?: boolean } = {},
+) =>
+  api
+    .post(`/target-roles/${id}/readiness`, data)
+    .then((r) => r.data as GenerateReadinessResponse);
+export const generateTargetRoleProofRecommendations = (
+  id: string,
+  data: { readinessReportId?: string; maxItems?: number } = {},
+) =>
+  api
+    .post(`/target-roles/${id}/proof-recommendations`, data)
+    .then((r) => r.data as GapToProofResponse);
+export const createTargetRoleUpgradePlan = (
+  id: string,
+  data: {
+    readinessReportId?: string;
+    durationWeeks?: 2 | 4 | 6 | 8;
+    weeklyCommitmentHours?: number;
+  } = {},
+) =>
+  api
+    .post(`/target-roles/${id}/create-upgrade-plan`, data)
+    .then((r) => r.data as CreateUpgradePlanResponse);
+export const createTargetRoleGoal = (
+  id: string,
+  data: { upgradePlanId?: string } = {},
+) =>
+  api
+    .post(`/target-roles/${id}/create-goal`, data)
+    .then((r) => r.data as CreateGoalFromTargetRoleResponse);
+export const startTargetRoleUpgradeSprint = (
+  id: string,
+  upgradePlanId: string,
+) =>
+  api
+    .post(`/target-roles/${id}/upgrade-plans/${upgradePlanId}/start-sprint`)
+    .then((r) => r.data as StartUpgradePlanSprintResponse);
+export const saveTargetRole = (data: CreateTargetRoleRequest) =>
+  api
+    .post("/target-roles", data)
+    .then((r) => r.data as CreateTargetRoleResponse);
+export const getResumeApplications = () =>
+  api
+    .get("/resume/applications")
+    .then((r) => r.data as ResumeApplicationWorkspace[]);
+export const getResumeApplication = (id: string) =>
+  api
+    .get(`/resume/applications/${id}`)
+    .then((r) => r.data as ResumeApplicationWorkspace);
+export const createResumeApplication = (data: {
+  rawText: string;
+  jdText: string;
+  source?: "upload" | "linkedin_paste" | "manual";
+  title?: string | null;
+}) =>
+  api
+    .post("/resume/applications", data)
+    .then((r) => r.data as {
+      application: ResumeApplicationWorkspace;
+      quota?: GapReportQuotaSummary;
+    });
+export const generateResumeApplicationTailoredResume = (id: string) =>
+  api
+    .post(`/resume/applications/${id}/tailored-resume`)
+    .then((r) => r.data as {
+      application: ResumeApplicationWorkspace;
+      quota?: GapReportQuotaSummary;
+    });
+export const createGoalFromResumeApplication = (id: string) =>
+  api
+    .post(`/resume/applications/${id}/create-goal`)
+    .then((r) => r.data as { goalId: string });
+export const createSprintFromResumeApplication = (id: string) =>
+  api
+    .post(`/resume/applications/${id}/create-sprint`)
+    .then((r) => r.data as { goalId: string; sprint: GoalSprint | null; planHealth: GoalPlanHealth });
 export const getGoalWeeklyCheckin = (id: string) =>
   api.get(`/goals/${id}/checkin`).then((r) => r.data as GoalWeeklyCheckinState);
 export const saveGoalWeeklyCheckin = (

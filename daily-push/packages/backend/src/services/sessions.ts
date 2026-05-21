@@ -441,10 +441,16 @@ export interface TodayData {
   goal: {
     id: string;
     title: string;
+    status: string;
     totalNodes: number;
     doneNodes: number;
     estimatedWeeksRemaining: number;
     topicsMap: Record<string, string>; // learningTopicId → topic title
+  } | null;
+  pendingGoal: {
+    id: string;
+    title: string;
+    status: string;
   } | null;
   node: (NodeSummary & { description: string }) | null;
   reviewNode: (NodeSummary & { description: string; dueAt: string }) | null;
@@ -456,7 +462,29 @@ export async function getTodayData(userId: string): Promise<TodayData> {
 
   // Get primary active goal from MongoDB
   const goal = await db.collection('goals').findOne({ userId, isPrimary: true, status: 'active' });
-  if (!goal) return { goal: null, node: null, reviewNode: null, streak: 0 };
+  const { currentStreak } = await getStreak(userId);
+
+  if (!goal) {
+    const pendingGoal = await db.collection('goals').findOne({
+      userId,
+      isPrimary: true,
+      status: { $in: ['intake_in_progress', 'drafting', 'assessing', 'planning', 'paused'] },
+    });
+
+    return {
+      goal: null,
+      pendingGoal: pendingGoal
+        ? {
+            id: pendingGoal._id.toString(),
+            title: pendingGoal.structured?.title ?? pendingGoal.raw?.input ?? 'Your goal',
+            status: pendingGoal.status ?? 'planning',
+          }
+        : null,
+      node: null,
+      reviewNode: null,
+      streak: currentStreak,
+    };
+  }
 
   const goalId = goal._id.toString();
 
@@ -513,17 +541,17 @@ export async function getTodayData(userId: string): Promise<TodayData> {
     [userId]
   );
 
-  const { currentStreak } = await getStreak(userId);
-
   return {
     goal: {
       id: goalId,
       title: goal.structured?.title ?? 'Your goal',
+      status: goal.status ?? 'active',
       totalNodes,
       doneNodes,
       estimatedWeeksRemaining,
       topicsMap,
     },
+    pendingGoal: null,
     node: nodeRows[0]
       ? { ...nodeRows[0] }
       : null,

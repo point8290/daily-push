@@ -180,7 +180,10 @@ export async function getEntitlementRows(userId: string): Promise<EntitlementRow
     [userId],
   );
 
-  if (rows.length > 0) {
+  const hasAllKnownKeys = KNOWN_ENTITLEMENT_KEYS.every((featureKey) =>
+    rows.some((row) => row.feature_key === featureKey),
+  );
+  if (rows.length > 0 && hasAllKnownKeys) {
     return rows;
   }
 
@@ -309,6 +312,31 @@ export async function consumeQuota(
         ? null
         : Math.max(summary.limitValue - (summary.usage + quantity), 0),
   };
+}
+
+export async function assertQuotaAvailable(
+  userId: string,
+  featureKey: string,
+  quantity = 1,
+): Promise<EntitlementSummary> {
+  const normalizedQuantity = Math.max(1, quantity);
+  const summary = await assertEntitlementEnabled(userId, featureKey);
+
+  if (
+    summary.limitValue !== null &&
+    summary.usage + normalizedQuantity > summary.limitValue
+  ) {
+    throw new EntitlementError({
+      message: 'You have reached the quota for this feature on your current plan.',
+      code: 'quota_exceeded',
+      featureKey,
+      upgradePlan: getUpgradePlanForFeature(featureKey),
+      limitValue: summary.limitValue,
+      usage: summary.usage,
+    });
+  }
+
+  return summary;
 }
 
 export async function assertBelowStateLimit(

@@ -8,6 +8,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { securityHeaders } from './middleware/securityHeaders';
 import { startSRScheduler } from './services/srScheduler';
 import { startWeeklySummaryScheduler } from './services/weeklySummaryScheduler';
+import { validateRoleMarketStartupConfig } from './services/roleMarketStartupValidation';
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use(errorHandler);
 
 async function start() {
   await testPostgresConnection();
+  await validateRoleMarketStartupConfig();
   await connectMongo();
   startSRScheduler();
   startWeeklySummaryScheduler();

@@ -4,10 +4,16 @@ import { useToast } from '@chakra-ui/react';
 import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import {
   getGoalGapReport,
+  getResumeWorkspace,
+  generateTailoredResume,
+  generateResumeWorkspaceTailoredResume,
   rebuildGoalGapReport,
+  rebuildResumeWorkspaceGapReport,
   saveGoalJobDescription,
+  saveResumeWorkspaceJobDescription,
   saveGoalRepoImport,
   saveGoalResume,
+  saveResumeWorkspaceResume,
   type GoalGapReportRecord,
   type GapReportQuotaSummary,
 } from '../api/client';
@@ -15,13 +21,15 @@ import EmptyState from './ui/EmptyState';
 import SurfaceCard from './ui/SurfaceCard';
 
 interface JobGapPanelProps {
-  goalId: string;
+  goalId?: string;
+  scope?: 'goal' | 'global';
   defaultTargetRole?: string | null;
   defaultTargetCompany?: string | null;
 }
 
 type ResumeInputSource = 'manual' | 'upload' | 'linkedin_paste';
 type DocumentKind = 'resume' | 'jobDescription';
+type DocumentInputMode = 'upload' | 'paste';
 
 let pdfJsPromise: Promise<typeof import('pdfjs-dist')> | null = null;
 
@@ -37,6 +45,12 @@ const priorityStyles: Record<string, string> = {
   low: 'bg-sky-50 border-sky-200 text-sky-700',
 };
 
+const coverageStatusStyles: Record<string, string> = {
+  covered: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  weak: 'bg-amber-50 text-amber-700 border-amber-200',
+  missing: 'bg-red-50 text-red-700 border-red-200',
+};
+
 function emptyRecord(): GoalGapReportRecord {
   return {
     targetRole: null,
@@ -48,6 +62,8 @@ function emptyRecord(): GoalGapReportRecord {
     repoUrl: null,
     repoSummary: null,
     gapReport: null,
+    tailoredResume: null,
+    tailoredResumeGeneratedAt: null,
     lastAnalyzedAt: null,
   };
 }
@@ -183,61 +199,23 @@ function formatTimestamp(value: string | null): string {
   });
 }
 
-function WorkflowStep({
-  index,
-  title,
-  description,
-  state,
-}: {
-  index: number;
-  title: string;
-  description: string;
-  state: 'done' | 'current' | 'locked';
-}) {
-  const stateClass = {
-    done: 'border-emerald-200 bg-emerald-50 text-emerald-800',
-    current: 'border-slate-900 bg-slate-950 text-white shadow-lg shadow-slate-950/10',
-    locked: 'border-slate-200 bg-white text-slate-500',
-  }[state];
-
-  return (
-    <div className={`rounded-2xl border px-4 py-3 ${stateClass}`}>
-      <div className="flex items-center gap-3">
-        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${
-          state === 'current' ? 'bg-white/15 text-white' : 'bg-white text-slate-800'
-        }`}>
-          {state === 'done' ? 'OK' : index}
-        </div>
-        <div>
-          <p className="text-sm font-extrabold">{title}</p>
-          <p className={`mt-0.5 text-xs leading-relaxed ${
-            state === 'current' ? 'text-white/75' : 'text-slate-500'
-          }`}>
-            {description}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function JobGapPanel({
   goalId,
+  scope = 'goal',
   defaultTargetRole = null,
-  defaultTargetCompany = null,
 }: JobGapPanelProps) {
   const toast = useToast();
   const [record, setRecord] = useState<GoalGapReportRecord | null>(null);
   const [quota, setQuota] = useState<GapReportQuotaSummary | null>(null);
   const [resumeText, setResumeText] = useState('');
   const [resumeSource, setResumeSource] = useState<ResumeInputSource>('manual');
+  const [resumeInputMode, setResumeInputMode] = useState<DocumentInputMode>('upload');
   const [resumeUploadName, setResumeUploadName] = useState<string | null>(null);
   const [resumeDragActive, setResumeDragActive] = useState(false);
+  const [jdInputMode, setJdInputMode] = useState<DocumentInputMode>('upload');
   const [jdUploadName, setJdUploadName] = useState<string | null>(null);
   const [jdDragActive, setJdDragActive] = useState(false);
   const [uploadingJd, setUploadingJd] = useState(false);
-  const [targetRole, setTargetRole] = useState(defaultTargetRole ?? '');
-  const [targetCompany, setTargetCompany] = useState(defaultTargetCompany ?? '');
   const [jdText, setJdText] = useState('');
   const [repoUrl, setRepoUrl] = useState('');
   const [repoContext, setRepoContext] = useState('');
@@ -245,8 +223,11 @@ export default function JobGapPanel({
   const [uploadingResume, setUploadingResume] = useState(false);
   const [savingRepo, setSavingRepo] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
+  const [generatingResume, setGeneratingResume] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [upgradePlan, setUpgradePlan] = useState<string | null>(null);
+  const isGlobalScope = scope === 'global';
+  const repoEvidenceEnabled = REPO_EVIDENCE_ENABLED && !isGlobalScope;
 
   const applyRecord = (nextRecord: GoalGapReportRecord) => {
     setRecord(nextRecord);
@@ -254,11 +235,9 @@ export default function JobGapPanel({
     setResumeSource('manual');
     setResumeUploadName(null);
     setJdUploadName(null);
-    setTargetRole(nextRecord.targetRole ?? defaultTargetRole ?? '');
-    setTargetCompany(nextRecord.targetCompany ?? defaultTargetCompany ?? '');
     setJdText(nextRecord.jdText ?? '');
-    setRepoUrl(REPO_EVIDENCE_ENABLED ? nextRecord.repoUrl ?? '' : '');
-    setRepoContext(REPO_EVIDENCE_ENABLED ? nextRecord.repoSummary?.inputContext ?? '' : '');
+    setRepoUrl(repoEvidenceEnabled ? nextRecord.repoUrl ?? '' : '');
+    setRepoContext(repoEvidenceEnabled ? nextRecord.repoSummary?.inputContext ?? '' : '');
   };
 
   const mergeRecord = (patch: Partial<GoalGapReportRecord>) => {
@@ -276,7 +255,12 @@ export default function JobGapPanel({
       setLoading(true);
       setError(null);
       try {
-        const nextRecord = await getGoalGapReport(goalId);
+        if (!isGlobalScope && !goalId) {
+          throw new Error('Goal id is required for goal resume analysis.');
+        }
+        const nextRecord = isGlobalScope
+          ? await getResumeWorkspace()
+          : await getGoalGapReport(goalId as string);
         if (cancelled) return;
         applyRecord(nextRecord);
       } catch (err: any) {
@@ -293,21 +277,7 @@ export default function JobGapPanel({
     return () => {
       cancelled = true;
     };
-  }, [goalId]);
-
-  useEffect(() => {
-    if (record?.targetRole || targetRole) return;
-    if (defaultTargetRole) {
-      setTargetRole(defaultTargetRole);
-    }
-  }, [defaultTargetRole, record?.targetRole, targetRole]);
-
-  useEffect(() => {
-    if (record?.targetCompany || targetCompany) return;
-    if (defaultTargetCompany) {
-      setTargetCompany(defaultTargetCompany);
-    }
-  }, [defaultTargetCompany, record?.targetCompany, targetCompany]);
+  }, [goalId, isGlobalScope]);
 
   const handleResumeFileSelected = async (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -393,58 +363,62 @@ export default function JobGapPanel({
   const handleGenerateReport = async () => {
     const nextResumeText = normalizeText(resumeText);
     const nextJdText = normalizeText(jdText);
-    const nextTargetRole = normalizeText(targetRole);
-    const nextTargetCompany = normalizeText(targetCompany);
-    const nextRepoUrl = REPO_EVIDENCE_ENABLED ? normalizeText(repoUrl) : null;
-    const nextRepoContext = REPO_EVIDENCE_ENABLED ? normalizeText(repoContext) : null;
+    const nextRepoUrl = repoEvidenceEnabled ? normalizeText(repoUrl) : null;
+    const nextRepoContext = repoEvidenceEnabled ? normalizeText(repoContext) : null;
 
     if (!nextResumeText) {
-      setError('Upload your resume first so we can understand your current profile.');
+      setError('Upload or paste your resume first so we can understand your current profile.');
       return;
     }
     if (!nextJdText) {
-      setError('Upload the target job description first so we know what to compare against.');
+      setError('Upload or paste the target job description first so we know what to compare against.');
       return;
     }
 
     setRebuilding(true);
+    setGeneratingResume(false);
     setError(null);
     setUpgradePlan(null);
 
     try {
       const savedResumeText = normalizeText(record?.resumeText ?? '');
       const savedJdText = normalizeText(record?.jdText ?? '');
-      const savedTargetRole = normalizeText(record?.targetRole ?? '');
-      const savedTargetCompany = normalizeText(record?.targetCompany ?? '');
-      const savedRepoUrl = REPO_EVIDENCE_ENABLED ? normalizeText(record?.repoUrl ?? '') : null;
-      const savedRepoContext = REPO_EVIDENCE_ENABLED
+      const savedRepoUrl = repoEvidenceEnabled ? normalizeText(record?.repoUrl ?? '') : null;
+      const savedRepoContext = repoEvidenceEnabled
         ? normalizeText(record?.repoSummary?.inputContext ?? '')
         : null;
 
       if (nextResumeText !== savedResumeText) {
-        const result = await saveGoalResume(goalId, {
-          rawText: nextResumeText,
-          source: resumeSource,
-        });
+        const result = isGlobalScope
+          ? await saveResumeWorkspaceResume({
+              rawText: nextResumeText,
+              source: resumeSource,
+            })
+          : await saveGoalResume(goalId as string, {
+              rawText: nextResumeText,
+              source: resumeSource,
+            });
         mergeRecord({
           resumeText: nextResumeText,
           resumeSummary: result.resumeSummary,
         });
       }
 
-      if (
-        nextJdText !== savedJdText ||
-        nextTargetRole !== savedTargetRole ||
-        nextTargetCompany !== savedTargetCompany
-      ) {
-        const result = await saveGoalJobDescription(goalId, {
-          targetRole: nextTargetRole,
-          targetCompany: nextTargetCompany,
-          jdText: nextJdText,
-        });
+      if (nextJdText !== savedJdText) {
+        const result = isGlobalScope
+          ? await saveResumeWorkspaceJobDescription({
+              targetRole: null,
+              targetCompany: null,
+              jdText: nextJdText,
+            })
+          : await saveGoalJobDescription(goalId as string, {
+              targetRole: null,
+              targetCompany: null,
+              jdText: nextJdText,
+            });
         mergeRecord({
-          targetRole: nextTargetRole ?? result.parsedJd.targetRole,
-          targetCompany: nextTargetCompany,
+          targetRole: result.parsedJd.targetRole,
+          targetCompany: null,
           jdText: nextJdText,
           parsedJd: result.parsedJd,
         });
@@ -457,7 +431,7 @@ export default function JobGapPanel({
           nextRepoContext !== savedRepoContext
         )
       ) {
-        const result = await saveGoalRepoImport(goalId, {
+        const result = await saveGoalRepoImport(goalId as string, {
           repoUrl: nextRepoUrl,
           repoContext: nextRepoContext,
         });
@@ -467,32 +441,44 @@ export default function JobGapPanel({
         });
       }
 
-      const result = await rebuildGoalGapReport(goalId);
-      setQuota(result.quota ?? null);
-      applyRecord(result);
+      const gapResult = isGlobalScope
+        ? await rebuildResumeWorkspaceGapReport()
+        : await rebuildGoalGapReport(goalId as string);
+      setQuota(gapResult.quota ?? null);
+      applyRecord(gapResult);
+      setGeneratingResume(true);
+      const resumeResult = isGlobalScope
+        ? await generateResumeWorkspaceTailoredResume()
+        : await generateTailoredResume(goalId as string);
+      applyRecord({
+        ...resumeResult,
+        gapReport: resumeResult.gapReport ?? gapResult.gapReport,
+      });
       toast({
-        title: 'Gap report ready',
-        description: 'Your plan is now tied to a real target role.',
+        title: 'Resume analysis ready',
+        description: 'Your gap report and tailored resume draft are ready.',
         status: 'success',
         duration: 3000,
         isClosable: true,
         position: 'top-right',
       });
     } catch (err: any) {
-      setError(err?.response?.data?.error ?? 'Failed to generate gap report.');
+      setError(err?.response?.data?.error ?? 'Failed to generate resume analysis.');
       setUpgradePlan(err?.response?.data?.upgradePlan ?? null);
     } finally {
+      setGeneratingResume(false);
       setRebuilding(false);
     }
   };
 
   const resumeSummary = record?.resumeSummary;
   const parsedJd = record?.parsedJd;
-  const repoSummary = REPO_EVIDENCE_ENABLED ? record?.repoSummary : null;
+  const repoSummary = repoEvidenceEnabled ? record?.repoSummary : null;
   const gapReport = record?.gapReport;
+  const tailoredResume = record?.tailoredResume;
 
   const handleSaveRepo = async () => {
-    if (!REPO_EVIDENCE_ENABLED) {
+    if (!repoEvidenceEnabled) {
       setError('Repository evidence is currently disabled for gap reports.');
       return;
     }
@@ -508,6 +494,10 @@ export default function JobGapPanel({
     setError(null);
     setUpgradePlan(null);
     try {
+      if (!goalId) {
+        setError('Repository evidence is only available inside a goal.');
+        return;
+      }
       const result = await saveGoalRepoImport(goalId, {
         repoUrl: nextRepoUrl,
         repoContext: nextRepoContext,
@@ -532,16 +522,53 @@ export default function JobGapPanel({
     }
   };
 
+  const handleCopyTailoredResume = async () => {
+    if (!tailoredResume) return;
+    const text = [
+      tailoredResume.headline,
+      '',
+      'Professional Summary',
+      tailoredResume.professionalSummary,
+      '',
+      'Skills',
+      tailoredResume.skills.join(', '),
+      '',
+      'Experience Bullets',
+      ...tailoredResume.experienceBullets.map((item) => `- ${item}`),
+      '',
+      'Project Bullets',
+      ...tailoredResume.projectBullets.map((item) => `- ${item}`),
+      '',
+      'Evidence to verify',
+      ...tailoredResume.missingEvidenceWarnings.map((item) => `- ${item}`),
+    ].join('\n');
+
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: 'Tailored resume copied',
+        status: 'success',
+        duration: 2200,
+        isClosable: true,
+        position: 'top-right',
+      });
+    } catch {
+      setError('Could not copy the tailored resume. Select the text manually and copy it.');
+    }
+  };
+
   const normalizedResumeText = normalizeText(resumeText);
   const normalizedJdText = normalizeText(jdText);
   const hasResumeInput = !!normalizedResumeText;
   const hasTargetInput = !!normalizedJdText;
+  const hasGeneratedAnalysis = !!gapReport || !!tailoredResume;
   const savedResumeText = normalizeText(record?.resumeText ?? '');
   const savedJdText = normalizeText(record?.jdText ?? '');
   const canGenerateReport =
     hasResumeInput &&
     hasTargetInput &&
     !rebuilding &&
+    !generatingResume &&
     !savingRepo &&
     !uploadingResume &&
     !uploadingJd;
@@ -549,21 +576,16 @@ export default function JobGapPanel({
     {
       title: 'Profile',
       description: hasResumeInput
-        ? 'Resume uploaded'
-        : 'Upload resume',
+        ? 'Resume added'
+        : 'Add resume',
       state: hasResumeInput ? 'done' : 'current',
     },
     {
       title: 'Target',
       description: hasTargetInput
-        ? 'Job description uploaded'
-        : 'Upload job description',
+        ? 'Job description added'
+        : 'Add job description',
       state: hasTargetInput ? 'done' : hasResumeInput ? 'current' : 'locked',
-    },
-    {
-      title: 'Report',
-      description: gapReport ? 'Gap report generated' : 'Generate missing skills and proof',
-      state: gapReport ? 'done' : hasResumeInput && hasTargetInput ? 'current' : 'locked',
     },
   ] as const;
 
@@ -573,14 +595,14 @@ export default function JobGapPanel({
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-              Career gap analysis
+              Resume
             </span>
             <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
-              Sprint feature
+              Detailed resume analysis
             </span>
           </div>
           <p className="text-sm leading-relaxed text-slate-600">
-            Compare your current resume against a real job description, then turn the missing skills and proof gaps into sprint actions.
+                  Upload or paste a resume and job description to find gaps and generate a tailored resume draft.
           </p>
         </div>
         <p className="text-xs text-slate-400">
@@ -605,7 +627,7 @@ export default function JobGapPanel({
                   to="/pricing"
                   className="mt-2 inline-flex items-center text-xs font-semibold text-red-700 hover:text-red-800"
                 >
-                  Upgrade to {upgradePlan} to unlock gap reports
+                  Upgrade to {upgradePlan} for detailed resume analysis
                 </Link>
               )}
             </SurfaceCard>
@@ -619,147 +641,267 @@ export default function JobGapPanel({
             </SurfaceCard>
           )}
 
-          <div className="grid gap-3 lg:grid-cols-3">
-            {workflowSteps.map((step, index) => (
-              <WorkflowStep
-                key={step.title}
-                index={index + 1}
-                title={step.title}
-                description={step.description}
-                state={step.state}
-              />
-            ))}
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
-            <SurfaceCard p={5} className="space-y-4 border-sky-100 bg-sky-50/40">
-              <div className="flex flex-col gap-1">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-sky-700">
-                  Step 1 - Current profile
-                </p>
-                <p className="text-lg font-extrabold tracking-[-0.03em] text-slate-900">
-                  Upload the resume you would actually apply with.
-                </p>
-                <p className="text-sm leading-relaxed text-slate-600">
-                  The app extracts and parses the document in the background. You only need to confirm the right file is loaded.
-                </p>
-              </div>
-
-              <label
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setResumeDragActive(true);
-                }}
-                onDragLeave={() => setResumeDragActive(false)}
-                onDrop={handleResumeDrop}
-                className={`block cursor-pointer rounded-3xl border-2 border-dashed px-5 py-6 text-center transition-colors ${
-                  resumeDragActive
-                    ? 'border-sky-500 bg-white'
-                    : 'border-sky-200 bg-white/75 hover:border-sky-400'
-                }`}
-              >
-                <input
-                  type="file"
-                  accept={SUPPORTED_RESUME_ACCEPT}
-                  onChange={handleResumeFileSelected}
-                  className="hidden"
-                />
-                <span className="text-sm font-extrabold text-slate-900">
-                  {uploadingResume ? 'Reading resume...' : 'Drop resume here or browse files'}
-                </span>
-                <span className="mt-2 block text-xs leading-relaxed text-slate-500">
-                  Supports PDF, TXT, MD, and RTF. For DOCX, export to PDF first.
-                </span>
-                {uploadingResume && (
-                  <span className="mx-auto mt-4 block h-5 w-5 animate-spin rounded-full border-2 border-sky-100 border-t-sky-600" />
-                )}
-              </label>
-
-              {resumeUploadName && (
-                <p className="text-sm font-semibold text-emerald-700">
-                  {resumeUploadName} uploaded
-                </p>
-              )}
-            </SurfaceCard>
-
-            <SurfaceCard p={5} className="space-y-4">
+          <SurfaceCard p={5} className="space-y-5 border-sky-100 bg-sky-50/35">
+            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-600">
-                  Step 2 - Target role
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-sky-700">
+                  Application documents
                 </p>
-                <p className="mt-1 text-lg font-extrabold tracking-[-0.03em] text-slate-900">
-                  Upload the job description for the role.
+                <p className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-slate-900">
+                  Add resume and job description
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                  Use the original JD document so we can parse responsibilities, must-have skills, and proof signals.
+                  We parse both documents, identify gaps, and generate a tailored resume draft.
                 </p>
               </div>
-
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="space-y-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-                    Target role
-                  </span>
-                  <input
-                    value={targetRole}
-                    onChange={(event) => setTargetRole(event.target.value)}
-                    placeholder="Senior Backend Engineer"
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none transition-colors focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-                  />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-                    Target company
-                  </span>
-                  <input
-                    value={targetCompany}
-                    onChange={(event) => setTargetCompany(event.target.value)}
-                    placeholder="Optional"
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 outline-none transition-colors focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
-                  />
-                </label>
+              <div className="flex w-full gap-2 md:w-auto">
+                {workflowSteps.map((step, index) => (
+                  <div
+                    key={step.title}
+                    className={`flex-1 rounded-2xl border px-3 py-2 text-xs font-bold md:min-w-[132px] ${
+                      step.state === 'done'
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                        : step.state === 'current'
+                          ? 'border-slate-900 bg-slate-950 text-white'
+                          : 'border-slate-200 bg-white text-slate-500'
+                    }`}
+                  >
+                    <span className="mr-2">{index + 1}</span>
+                    {step.title}
+                  </div>
+                ))}
               </div>
+            </div>
 
-              <label
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setJdDragActive(true);
-                }}
-                onDragLeave={() => setJdDragActive(false)}
-                onDrop={handleJdDrop}
-                className={`block cursor-pointer rounded-3xl border-2 border-dashed px-5 py-6 text-center transition-colors ${
-                  jdDragActive
-                    ? 'border-indigo-500 bg-indigo-50'
-                    : 'border-indigo-200 bg-indigo-50/50 hover:border-indigo-400'
-                }`}
-              >
-                <input
-                  type="file"
-                  accept={SUPPORTED_RESUME_ACCEPT}
-                  onChange={handleJdFileSelected}
-                  className="hidden"
-                />
-                <span className="text-sm font-extrabold text-slate-900">
-                  {uploadingJd ? 'Reading job description...' : 'Drop JD here or browse files'}
-                </span>
-                <span className="mt-2 block text-xs leading-relaxed text-slate-500">
-                  Supports PDF, TXT, MD, and RTF. Upload the role description from the job post.
-                </span>
-                {uploadingJd && (
-                  <span className="mx-auto mt-4 block h-5 w-5 animate-spin rounded-full border-2 border-indigo-100 border-t-indigo-600" />
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                    Resume
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Upload a file or paste the resume you would actually apply with.
+                  </p>
+                </div>
+
+                <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1">
+                  {(['upload', 'paste'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setResumeInputMode(mode)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-extrabold transition-colors ${
+                        resumeInputMode === mode
+                          ? 'bg-slate-950 text-white'
+                          : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                    >
+                      {mode === 'upload' ? 'Upload' : 'Paste'}
+                    </button>
+                  ))}
+                </div>
+
+                {hasGeneratedAnalysis && hasResumeInput && resumeInputMode === 'upload' ? (
+                  <div className="rounded-3xl border border-emerald-100 bg-emerald-50/70 px-4 py-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-extrabold text-emerald-900">
+                          Resume saved
+                        </p>
+                        <p className="mt-1 text-xs leading-relaxed text-emerald-700">
+                          We will use this saved resume for the current analysis.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setResumeInputMode('paste')}
+                        className="inline-flex items-center justify-center rounded-xl bg-white px-3 py-2 text-xs font-extrabold text-emerald-800 transition-colors hover:bg-emerald-100"
+                      >
+                        Edit resume
+                      </button>
+                    </div>
+                  </div>
+                ) : resumeInputMode === 'upload' ? (
+                  <>
+                    <label
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        setResumeDragActive(true);
+                      }}
+                      onDragLeave={() => setResumeDragActive(false)}
+                      onDrop={handleResumeDrop}
+                      className={`block cursor-pointer rounded-3xl border-2 border-dashed px-5 py-6 text-center transition-colors ${
+                        resumeDragActive
+                          ? 'border-sky-500 bg-white'
+                          : 'border-sky-200 bg-white/75 hover:border-sky-400'
+                      }`}
+                    >
+                      <input
+                        type="file"
+                        accept={SUPPORTED_RESUME_ACCEPT}
+                        onChange={handleResumeFileSelected}
+                        className="hidden"
+                      />
+                      <span className="text-sm font-extrabold text-slate-900">
+                        {uploadingResume ? 'Reading resume...' : 'Drop resume here or browse files'}
+                      </span>
+                      <span className="mt-2 block text-xs leading-relaxed text-slate-500">
+                        Supports PDF, TXT, MD, and RTF. For DOCX, export to PDF first.
+                      </span>
+                      {uploadingResume && (
+                        <span className="mx-auto mt-4 block h-5 w-5 animate-spin rounded-full border-2 border-sky-100 border-t-sky-600" />
+                      )}
+                    </label>
+
+                    {resumeUploadName && (
+                      <p className="text-sm font-semibold text-emerald-700">
+                        {resumeUploadName} uploaded
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <textarea
+                    value={resumeText}
+                    onChange={(event) => {
+                      setResumeText(event.target.value);
+                      setResumeSource('manual');
+                      setResumeUploadName(null);
+                    }}
+                    placeholder="Paste your resume text here."
+                    rows={10}
+                    className="w-full rounded-3xl border border-sky-200 bg-white/90 px-4 py-4 text-sm leading-relaxed text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  />
                 )}
-              </label>
+              </div>
 
-              {jdUploadName && (
-                <p className="text-sm font-semibold text-emerald-700">
-                  {jdUploadName} uploaded
-                </p>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                    Job description
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Upload a file or paste the job description for the role you want to target.
+                  </p>
+                </div>
+
+              <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1">
+                {(['upload', 'paste'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setJdInputMode(mode)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-extrabold transition-colors ${
+                      jdInputMode === mode
+                        ? 'bg-slate-950 text-white'
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                  >
+                    {mode === 'upload' ? 'Upload' : 'Paste'}
+                  </button>
+                ))}
+              </div>
+
+              {hasGeneratedAnalysis && hasTargetInput && jdInputMode === 'upload' ? (
+                <div className="rounded-3xl border border-emerald-100 bg-emerald-50/70 px-4 py-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-extrabold text-emerald-900">
+                        Job description saved
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-emerald-700">
+                        We will compare against this saved job description.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setJdInputMode('paste')}
+                      className="inline-flex items-center justify-center rounded-xl bg-white px-3 py-2 text-xs font-extrabold text-emerald-800 transition-colors hover:bg-emerald-100"
+                    >
+                      Edit job description
+                    </button>
+                  </div>
+                </div>
+              ) : jdInputMode === 'upload' ? (
+                <>
+                  <label
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      setJdDragActive(true);
+                    }}
+                    onDragLeave={() => setJdDragActive(false)}
+                    onDrop={handleJdDrop}
+                    className={`block cursor-pointer rounded-3xl border-2 border-dashed px-5 py-6 text-center transition-colors ${
+                      jdDragActive
+                        ? 'border-indigo-500 bg-indigo-50'
+                        : 'border-indigo-200 bg-indigo-50/50 hover:border-indigo-400'
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      accept={SUPPORTED_RESUME_ACCEPT}
+                      onChange={handleJdFileSelected}
+                      className="hidden"
+                    />
+                    <span className="text-sm font-extrabold text-slate-900">
+                      {uploadingJd ? 'Reading job description...' : 'Drop job description here or browse files'}
+                    </span>
+                    <span className="mt-2 block text-xs leading-relaxed text-slate-500">
+                      Supports PDF, TXT, MD, and RTF. Upload the role description from the job listing.
+                    </span>
+                    {uploadingJd && (
+                      <span className="mx-auto mt-4 block h-5 w-5 animate-spin rounded-full border-2 border-indigo-100 border-t-indigo-600" />
+                    )}
+                  </label>
+
+                  {jdUploadName && (
+                    <p className="text-sm font-semibold text-emerald-700">
+                      {jdUploadName} uploaded
+                    </p>
+                  )}
+                </>
+              ) : (
+                <textarea
+                  value={jdText}
+                  onChange={(event) => {
+                    setJdText(event.target.value);
+                    setJdUploadName(null);
+                  }}
+                  placeholder="Paste the full job description here."
+                  rows={10}
+                  className="w-full rounded-3xl border border-indigo-200 bg-white/90 px-4 py-4 text-sm leading-relaxed text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                />
               )}
-            </SurfaceCard>
-          </div>
+              </div>
+            </div>
 
-          {REPO_EVIDENCE_ENABLED && (
+            <div className="rounded-2xl bg-slate-950 px-4 py-4 text-white">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm leading-relaxed text-slate-300">
+                    {canGenerateReport
+                      ? hasGeneratedAnalysis
+                        ? 'Documents are ready. Regenerate the analysis when you update the resume or job description.'
+                        : 'Both documents are ready. Generate the gap report and tailored resume.'
+                      : 'Upload or paste both documents to generate the report and tailored resume.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleGenerateReport}
+                  disabled={!canGenerateReport}
+                  className="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2.5 text-sm font-extrabold text-slate-950 transition-colors hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    {rebuilding
+                      ? generatingResume
+                        ? 'Generating resume...'
+                        : 'Analyzing fit...'
+                      : hasGeneratedAnalysis
+                        ? 'Regenerate analysis'
+                        : 'Generate gap report and resume'}
+                </button>
+              </div>
+            </div>
+          </SurfaceCard>
+
+          {repoEvidenceEnabled && (
             <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
               <label className="space-y-2">
                 <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
@@ -788,41 +930,12 @@ export default function JobGapPanel({
             </div>
           )}
 
-          <SurfaceCard p={4} className="border-slate-200 bg-slate-950 text-white">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-sky-200">
-                  Step 3 - Generate report
-                </p>
-                <p className="mt-1 text-sm leading-relaxed text-slate-300">
-                  We will parse both documents and generate missing skills, missing proof, interview risks, and sprint edits.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleGenerateReport}
-                disabled={!canGenerateReport}
-                className="inline-flex min-w-[190px] items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-extrabold text-slate-950 transition-colors hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {rebuilding ? 'Generating...' : 'Generate gap report'}
-              </button>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2 border-t border-white/10 pt-4">
-              {!canGenerateReport && (
-                <span className="inline-flex items-center text-xs text-slate-400">
-                  Upload a resume and job description to generate the report.
-                </span>
-              )}
-            </div>
-          </SurfaceCard>
-
           {(resumeSummary || parsedJd || repoSummary) && (
             <div className="grid gap-4 md:grid-cols-3">
               {resumeSummary && (
                 <SurfaceCard p={4}>
                   <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-                    Current profile signals
+                    Resume understanding
                   </p>
                   {resumeSummary.headline && (
                     <p className="mt-2 text-sm font-semibold text-slate-800">
@@ -847,16 +960,44 @@ export default function JobGapPanel({
                       <p key={item}>- {item}</p>
                     ))}
                   </div>
+                  {resumeSummary.experienceItems && resumeSummary.experienceItems.length > 0 && (
+                    <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                        Roles found
+                      </p>
+                      <div className="mt-2 space-y-1 text-xs text-slate-600">
+                        {resumeSummary.experienceItems.slice(0, 3).map((item, index) => (
+                          <p key={`${item.company}-${item.role}-${index}`}>
+                            {[item.role, item.company].filter(Boolean).join(' at ') || 'Experience item'}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {resumeSummary.projectItems && resumeSummary.projectItems.length > 0 && (
+                    <div className="mt-3 rounded-xl bg-sky-50 px-3 py-2">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-sky-700">
+                        Projects found
+                      </p>
+                      <div className="mt-2 space-y-1 text-xs text-sky-800">
+                        {resumeSummary.projectItems.slice(0, 3).map((item, index) => (
+                          <p key={`${item.name}-${index}`}>
+                            {item.name ?? item.description ?? 'Project item'}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </SurfaceCard>
               )}
 
               {parsedJd && (
                 <SurfaceCard p={4}>
                   <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-                    Target role signals
+                    Job description understanding
                   </p>
                   <p className="mt-2 text-sm font-semibold text-slate-800">
-                    {(parsedJd.targetRole ?? targetRole) || 'Target role'}
+                    {(parsedJd.targetRole ?? defaultTargetRole) || 'Target role'}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {parsedJd.mustHaveSkills.map((skill) => (
@@ -940,6 +1081,75 @@ export default function JobGapPanel({
                 </SurfaceCard>
               </div>
 
+              {gapReport.requirementCoverage?.length > 0 && (
+                <SurfaceCard p={4} className="mt-4 bg-white">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                        Requirement coverage
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        What the job asks for, whether your resume proves it, and the next best action.
+                      </p>
+                    </div>
+                    <p className="text-xs font-semibold text-slate-400">
+                      Full fit analysis
+                    </p>
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    {gapReport.requirementCoverage.map((item) => (
+                      <div
+                        key={`${item.requirement}-${item.status}`}
+                        className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4"
+                      >
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="text-sm font-extrabold text-slate-900">
+                              {item.requirement}
+                            </p>
+                            {item.resumeEvidence && (
+                              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                                Evidence found: {item.resumeEvidence}
+                              </p>
+                            )}
+                            {item.sourceSnippet && (
+                              <p className="mt-2 rounded-xl bg-white px-3 py-2 text-xs leading-relaxed text-slate-500">
+                                Source: {item.sourceSnippet}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex shrink-0 gap-2">
+                            <span
+                              className={`rounded-full border px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${
+                                coverageStatusStyles[item.status] ?? coverageStatusStyles.missing
+                              }`}
+                            >
+                              {item.status}
+                            </span>
+                            <span
+                              className={`rounded-full border px-2 py-1 text-[11px] font-bold uppercase tracking-wide ${
+                                priorityStyles[item.priority] ?? priorityStyles.medium
+                              }`}
+                            >
+                              {item.priority}
+                            </span>
+                            {typeof item.confidence === 'number' && (
+                              <span className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                                {item.confidence}%
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-medium leading-relaxed text-slate-600">
+                          Next action: {item.action}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </SurfaceCard>
+              )}
+
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <SurfaceCard p={4}>
                   <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
@@ -959,7 +1169,7 @@ export default function JobGapPanel({
 
                 <SurfaceCard p={4}>
                   <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-                    Sprint edits
+                    Recommended improvements
                   </p>
                   <div className="mt-3 space-y-2 text-sm text-slate-600">
                     {gapReport.sprintEdits.map((item) => (
@@ -1063,10 +1273,133 @@ export default function JobGapPanel({
             </SurfaceCard>
           ) : (
             <EmptyState
-              title="Generate a job-linked gap report"
-              description="Add your resume and a target JD, then generate a gap report to see missing skills, missing proof, interview risks, and sprint edits."
+              title="Your analysis will appear here"
+              description="Upload or paste both documents to see role gaps, requirement coverage, and a tailored resume draft grounded in your actual experience."
               accent="neutral"
             />
+          )}
+
+          {tailoredResume && (
+            <SurfaceCard p={5} className="bg-white">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                    Tailored resume draft
+                  </p>
+                  <h3 className="mt-2 text-xl font-extrabold tracking-[-0.03em] text-slate-900">
+                    {tailoredResume.headline}
+                  </h3>
+                  <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
+                    {tailoredResume.professionalSummary}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyTailoredResume}
+                  className="inline-flex items-center justify-center rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-sky-300 hover:text-sky-700"
+                >
+                  Copy resume draft
+                </button>
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <SurfaceCard p={4}>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                    Skills to emphasize
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {tailoredResume.skills.map((skill) => (
+                      <span
+                        key={skill}
+                        className="rounded-full bg-sky-50 px-2 py-1 text-xs font-medium text-sky-700"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </SurfaceCard>
+
+                <SurfaceCard p={4}>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                    ATS keywords
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {tailoredResume.atsKeywords.map((keyword) => (
+                      <span
+                        key={keyword}
+                        className="rounded-full bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700"
+                      >
+                        {keyword}
+                      </span>
+                    ))}
+                  </div>
+                </SurfaceCard>
+              </div>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <SurfaceCard p={4}>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                    Experience bullets
+                  </p>
+                  <div className="mt-3 space-y-2 text-sm text-slate-600">
+                    {tailoredResume.experienceBullets.map((item) => (
+                      <p key={item}>- {item}</p>
+                    ))}
+                  </div>
+                </SurfaceCard>
+
+                <SurfaceCard p={4}>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                    Project bullets
+                  </p>
+                  <div className="mt-3 space-y-2 text-sm text-slate-600">
+                    {tailoredResume.projectBullets.map((item) => (
+                      <p key={item}>- {item}</p>
+                    ))}
+                  </div>
+                </SurfaceCard>
+              </div>
+
+              {tailoredResume.missingEvidenceWarnings.length > 0 && (
+                <SurfaceCard p={4} className="mt-4 border-amber-200 bg-amber-50">
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-amber-700">
+                    Evidence to add before applying
+                  </p>
+                  <div className="mt-3 space-y-2 text-sm text-amber-800">
+                    {tailoredResume.missingEvidenceWarnings.map((item) => (
+                      <p key={item}>- {item}</p>
+                    ))}
+                  </div>
+                </SurfaceCard>
+              )}
+
+              {tailoredResume.bulletEvidence && tailoredResume.bulletEvidence.length > 0 && (
+                <SurfaceCard p={4} className="mt-4 border-emerald-200 bg-emerald-50/70">
+                  <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-700">
+                    Evidence lock
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-emerald-800">
+                    These generated bullets are tied back to source evidence from the uploaded resume.
+                  </p>
+                  <div className="mt-3 space-y-3">
+                    {tailoredResume.bulletEvidence.slice(0, 6).map((item) => (
+                      <div key={`${item.bullet}-${item.sourceSnippet}`} className="rounded-xl bg-white/80 p-3 text-xs text-emerald-900">
+                        <p className="font-bold">{item.bullet}</p>
+                        <p className="mt-1 leading-relaxed text-emerald-700">
+                          Source: {item.sourceSnippet}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </SurfaceCard>
+              )}
+
+              {tailoredResume.coverNote && (
+                <p className="mt-4 text-xs leading-relaxed text-slate-500">
+                  {tailoredResume.coverNote}
+                </p>
+              )}
+            </SurfaceCard>
           )}
         </div>
       )}

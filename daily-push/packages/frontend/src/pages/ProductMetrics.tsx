@@ -68,7 +68,7 @@ function MetricsTable({
               <th className="pb-2 font-medium">Unique users</th>
               <th className="pb-2 font-medium">Total events</th>
               {'conversionFromPreviousPct' in rows[0] ? (
-                <th className="pb-2 font-medium">Stage conversion</th>
+                <th className="pb-2 font-medium">Progress from previous stage</th>
               ) : null}
             </tr>
           </thead>
@@ -151,9 +151,9 @@ export default function ProductMetrics() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Internal metrics"
-        title="Product health dashboard"
-        description="Track activation, premium usage, and plan mix without dropping into the database or reading raw event tables."
+        eyebrow="Usage insights"
+        title="Product activity dashboard"
+        description="Review signups, plan activity, session progress, and AI usage in one place."
         actions={(
           <div className="flex flex-wrap gap-2">
             {WINDOW_OPTIONS.map((option) => (
@@ -189,7 +189,7 @@ export default function ProductMetrics() {
 
       {loading ? (
         <SurfaceCard p={10}>
-          <div className="text-center text-sm text-slate-400">Loading product metrics...</div>
+          <div className="text-center text-sm text-slate-400">Loading usage insights...</div>
         </SurfaceCard>
       ) : null}
 
@@ -201,8 +201,8 @@ export default function ProductMetrics() {
 
       {!loading && !error && !summary ? (
         <EmptyState
-          title="No metrics available"
-          description="Try another reporting window or generate more product activity before checking the dashboard again."
+          title="No usage data available"
+          description="Try another reporting window or generate more activity before checking the dashboard again."
           accent="neutral"
         />
       ) : null}
@@ -251,9 +251,9 @@ export default function ProductMetrics() {
 
               <div className="grid gap-4 xl:grid-cols-2">
                 <UsageTable
-                  title="AI usage by feature"
-                  subtitle="Where premium token usage is going."
-                  columns={['Feature', 'Calls', 'Tokens', 'Est. cost']}
+                  title="AI usage by area"
+                  subtitle="How AI calls are distributed across product areas."
+                  columns={['Area', 'Calls', 'Tokens', 'Est. cost']}
                   rows={aiUsage.byFeature.map((row: LlmUsageFeatureSummary) => (
                     <tr key={row.featureKey}>
                       <td className="py-3 font-medium text-slate-700">{row.featureKey}</td>
@@ -289,14 +289,14 @@ export default function ProductMetrics() {
           </div>
 
           <MetricsTable
-            title="Activation funnel"
-            subtitle={`Core funnel stages for the last ${summary.windowDays} days.`}
+            title="User journey"
+            subtitle={`Key journey stages for the last ${summary.windowDays} days.`}
             rows={summary.funnel}
           />
 
           <MetricsTable
-            title="Premium feature usage"
-            subtitle={`Billing and premium feature events for the last ${summary.windowDays} days.`}
+            title="Plan feature usage"
+            subtitle={`Plan-related feature events for the last ${summary.windowDays} days.`}
             rows={summary.premiumEvents}
           />
         </>

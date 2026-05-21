@@ -10,7 +10,12 @@ node_modules
 *.pid
 dist
 .logs/*
+*/run-logs/*
 run-logs/*
 tmp/*
 docs/*
 .pids/*
+.agents
+docs
+*-lock.json
+*.lock

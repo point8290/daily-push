@@ -173,7 +173,7 @@ export default function Settings() {
         <PageHeader
           eyebrow="Account"
           title="Settings"
-          description="Tune your cadence, keep billing in view, and control the communication rhythm that powers your weekly execution loop."
+          description="Update your plan, billing, reminders, and weekly cadence."
           actions={(
             <>
               <Badge colorScheme={planTone} px={3} py={1.5} rounded="full" fontSize="0.72rem" textTransform="uppercase" letterSpacing="0.12em">
@@ -202,7 +202,7 @@ export default function Settings() {
           <MetricCard
             label="AI checks remaining"
             value={aiChecks?.remaining == null ? 'Unlimited' : `${aiChecks.remaining} left`}
-            detail="Used for premium evaluations, reports, and coaching feedback."
+            detail="Used for resume reviews, reports, and coaching feedback."
           />
           <MetricCard
             label="Weekly reports"
@@ -278,37 +278,15 @@ export default function Settings() {
           </Stack>
         </SurfaceCard>
 
-        <SurfaceCard p={{ base: 5, md: 6 }}>
-          <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={4}>
-            <VStack align="flex-start" spacing={1}>
-              <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
-                Internal metrics
-              </Text>
-              <Text fontSize="sm" color="ink.500" lineHeight="1.7">
-                Inspect activation, premium usage, and the health of the monetization funnel without leaving the app.
-              </Text>
-            </VStack>
-            <Button
-              as={RouterLink}
-              to="/metrics"
-              variant="outline"
-              borderColor="blackAlpha.200"
-              color="ink.700"
-            >
-              Open metrics
-            </Button>
-          </HStack>
-        </SurfaceCard>
-
         <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={6}>
           <SurfaceCard p={{ base: 5, md: 6 }}>
             <Stack spacing={5}>
               <VStack align="flex-start" spacing={1}>
                 <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
-                  Study schedule
+                  Plan cadence
                 </Text>
                 <Text fontSize="sm" color="ink.500" lineHeight="1.7">
-                  These values shape forecasts, sprint pacing, and how aggressively the app schedules your next steps.
+                  These values shape forecasts, sprint pacing, and how much work the app recommends each week.
                 </Text>
               </VStack>
 
@@ -408,9 +386,9 @@ export default function Settings() {
         <SurfaceCard p={{ base: 5, md: 6 }}>
           <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={4}>
             <VStack align="flex-start" spacing={1}>
-              <Text fontSize="sm" fontWeight="700" color="ink.900">Save your operating rhythm</Text>
+              <Text fontSize="sm" fontWeight="700" color="ink.900">Save your cadence</Text>
               <Text fontSize="sm" color="ink.500" lineHeight="1.7">
-                These settings directly affect sprint forecasts, report timing, and how the app shapes your daily workload.
+                These settings affect forecasts, report timing, and recommended daily workload.
               </Text>
               {saved ? <Text fontSize="sm" color="green.600">Settings saved.</Text> : null}
               {saveError ? <Text fontSize="sm" color="red.500">{saveError}</Text> : null}

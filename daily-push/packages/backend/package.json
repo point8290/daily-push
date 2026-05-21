@@ -9,10 +9,12 @@
     "migrate": "ts-node src/db/migrate.ts",
     "seed": "ts-node src/db/seed/index.ts",
     "reset": "ts-node src/db/reset.ts",
+    "validate:role-market-recommendations": "npm run build && node scripts/validate-role-market-recommendations.mjs",
     "test:integration": "ts-node src/tests/integration/premiumFlows.ts",
     "test:stripe-webhooks": "ts-node src/tests/integration/stripeWebhookLifecycle.ts"
   },
   "dependencies": {
+    "@daily-push/shared": "file:../shared",
     "@anthropic-ai/sdk": "^0.36.3",
     "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",

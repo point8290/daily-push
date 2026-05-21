@@ -451,7 +451,7 @@ export default function History() {
                       value={winsText}
                       onChange={(event) => setWinsText(event.target.value)}
                       rows={4}
-                      placeholder="One line per win. Example: finished the caching module, clarified the JD, or completed three sessions."
+                      placeholder="One line per win. Example: finished the caching module, clarified the job description, or completed three sessions."
                       resize="none"
                       borderRadius="2xl"
                       borderColor="blackAlpha.200"

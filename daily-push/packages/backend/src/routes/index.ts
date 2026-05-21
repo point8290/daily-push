@@ -14,6 +14,9 @@ import meRouter from './me';
 import billingRouter from './billing';
 import newsRouter from './news';
 import reportsRouter from './reports';
+import resumeRouter from './resume';
+import marketRouter from './market';
+import targetRolesRouter from './targetRoles';
 
 const router = Router();
 
@@ -27,6 +30,9 @@ router.use('/today', todayRouter);
 router.use('/sessions', sessionsRouter);
 router.use('/mock', mockInterviewsRouter);
 router.use('/reports', reportsRouter);
+router.use('/resume', resumeRouter);
+router.use('/market', marketRouter);
+router.use('/target-roles', targetRolesRouter);
 router.use('/settings', settingsRouter);
 router.use('/events', eventsRouter);
 router.use('/me', meRouter);

@@ -153,9 +153,9 @@ export default function Goals() {
   return (
     <Stack spacing={8}>
       <PageHeader
-        eyebrow="Workspace"
+        eyebrow="Career goals"
         title="Goals"
-        description="Manage the outcomes you are actively pursuing, choose the primary path, and keep the workspace focused on the goals that matter now."
+        description="Manage the outcomes you are actively pursuing and choose the primary path for your next sessions."
         actions={(
           <Button as={Link} to="/goals/new" width={{ base: 'full', lg: 'auto' }}>
             New goal
@@ -168,10 +168,10 @@ export default function Goals() {
           <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexWrap="wrap" spacing={4}>
             <Box>
               <Text fontSize="sm" fontWeight="800" color="brand.700">
-                Free workspace limits are active
+                Free plan goal limit
               </Text>
               <Text mt={2} fontSize="sm" color="ink.500" lineHeight="1.8">
-                You currently have {goals.length} goal{goals.length === 1 ? '' : 's'} in the workspace.
+                You currently have {goals.length} saved goal{goals.length === 1 ? '' : 's'}.
                 Your plan allows {activeGoalLimit ?? 1} active goal.
               </Text>
             </Box>

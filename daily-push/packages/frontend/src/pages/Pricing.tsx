@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import {
   Badge,
   Box,
@@ -21,6 +21,7 @@ function formatPrice(cents: number | null, interval: 'month' | 'year') {
 }
 
 export default function Pricing() {
+  const location = useLocation();
   const {
     currentPlan,
     startCheckout,
@@ -32,6 +33,8 @@ export default function Pricing() {
   const [busyPlan, setBusyPlan] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const isResumeSource = new URLSearchParams(location.search).get('source') === 'resume';
+  const showDevBillingBanner = import.meta.env.VITE_SHOW_DEV_BILLING_BANNER === 'true';
 
   useEffect(() => {
     getBillingPlanState()
@@ -63,8 +66,10 @@ export default function Pricing() {
     <Stack spacing={8}>
       <PageHeader
         eyebrow="Plans"
-        title="Pricing built for serious career progression"
-        description="Start free, then upgrade when you want deeper feedback, better accountability, and premium outcome tooling around the roles you are targeting."
+        title={isResumeSource ? 'Plans for stronger job applications' : 'Pricing built for serious career progression'}
+        description={isResumeSource
+          ? 'Upgrade when you want full resume reports, tailored drafts, saved applications, and a sprint plan to close the gaps.'
+          : 'Start free, then upgrade when you want deeper feedback, stronger resume support, and more accountability around the roles you are targeting.'}
         actions={(
           <ButtonGroup isAttached variant="outline" size="sm">
             <Button
@@ -85,13 +90,13 @@ export default function Pricing() {
         )}
       />
 
-      {provider === 'manual' && (
+      {provider === 'manual' && showDevBillingBanner && (
         <SurfaceCard px={6} py={5}>
           <Text fontSize="sm" fontWeight="800" color="accent.700">
-            Local billing simulation is active
+            Billing test mode is active
           </Text>
           <Text mt={2} fontSize="sm" color="ink.500" lineHeight="1.8">
-            In this environment, plan changes apply immediately instead of redirecting to hosted checkout.
+            Plan changes apply immediately in this test environment instead of redirecting to hosted checkout.
           </Text>
         </SurfaceCard>
       )}

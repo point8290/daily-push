@@ -7,7 +7,146 @@
 > vite
 
 
-  [32m[1mVITE[22m v6.4.2[39m  [2mready in [0m[1m420[22m[2m[0m ms[22m
+  [32m[1mVITE[22m v6.4.2[39m  [2mready in [0m[1m311[22m[2m[0m ms[22m
 
   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
 [2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[2m9:55:06 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/main.tsx[22m
+[2m9:55:06 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[2m9:56:18 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css[22m
+[2m9:58:22 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Login.tsx, /src/index.css[22m
+[2m9:58:22 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Goals.tsx, /src/index.css[22m
+[2m9:58:22 pm[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Pricing.tsx, /src/index.css[22m
+[2m8:44:39 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ui/SurfaceCard.tsx, /src/index.css[22m
+[2m8:44:39 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/App.tsx, /src/index.css[22m
+[2m8:48:01 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalSetup.tsx, /src/index.css[22m
+[2m8:48:01 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalSetup.tsx, /src/index.css[22m
+[2m8:50:33 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Today.tsx, /src/index.css[22m
+[2m8:50:56 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Today.tsx, /src/index.css[22m
+[2m8:51:09 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Today.tsx, /src/index.css[22m
+[2m8:51:33 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Today.tsx, /src/index.css[22m
+[2m8:59:43 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Settings.tsx, /src/index.css[22m
+[2m8:59:43 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Settings.tsx, /src/index.css[22m
+[2m9:01:49 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Map.tsx, /src/index.css[22m
+[2m9:02:17 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:04:19 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:06:09 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:06:15 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:10:44 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/History.tsx, /src/index.css[22m
+[2m9:12:56 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/MockInterview.tsx, /src/index.css[22m
+[2m9:21:09 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:22:29 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:22:59 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Today.tsx, /src/index.css[22m
+[2m9:26:18 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:26:24 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:26:30 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:26:53 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:27:13 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:27:19 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:27:26 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:27:53 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:27:59 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:28:06 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:28:14 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:28:31 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:28:43 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:35:48 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Today.tsx, /src/index.css[22m
+[2m9:36:02 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Today.tsx, /src/index.css[22m
+[2m9:36:09 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Today.tsx, /src/index.css[22m
+[2m9:36:18 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Today.tsx, /src/index.css[22m
+[2m9:36:42 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Today.tsx, /src/index.css[22m
+[2m9:37:51 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Today.tsx, /src/index.css[22m
+[2m9:37:58 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Today.tsx, /src/index.css[22m
+[2m9:37:59 am[22m [31m[1m[vite][22m[39m [31mInternal server error: C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\packages\frontend\src\pages\Today.tsx: Expected corresponding JSX closing tag for <SurfaceCard>. (1306:8)
+
+[0m [90m 1304 |[31m             [33mStart[31m [35m15[31mmin review →
+ [90m 1305 |[31m           [33m<[31m[33m/[31m[33mbutton[31m[33m>[31m
+[31m[1m>[22m[31m[90m 1306 |[31m         [33m<[31m[33m/[31m[33mdiv[31m[33m>[31m
+ [90m      |[31m         [31m[1m^[22m[31m
+ [90m 1307 |[31m       )}
+ [90m 1308 |[31m
+ [90m 1309 |[31m       {error [33m&&[31m ([0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mC:/Users/Krishna Meghwal/Desktop/HELP/daily-push/packages/frontend/src/pages/Today.tsx[39m:1306:8
+[33m  1304|              Start 15min review →
+  1305|            </button>
+  1306|          </div>
+     |          ^
+  1307|        )}
+  1308|  [39m
+      at constructor (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:6599:19)
+      at TypeScriptParserMixin.jsxParseElementAt (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:4727:16)
+      at TypeScriptParserMixin.jsxParseElement (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:4749:17)
+      at TypeScriptParserMixin.parseExprAtom (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:4759:19)
+      at TypeScriptParserMixin.parseExprSubscripts (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:11081:23)
+      at TypeScriptParserMixin.parseUpdate (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:11066:21)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:11046:23)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:9837:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:10899:61)
+      at TypeScriptParserMixin.parseExprOps (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:10904:23)
+      at TypeScriptParserMixin.parseMaybeConditional (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:10881:23)
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:10831:21)
+      at C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:9775:39
+      at TypeScriptParserMixin.tryParse (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:6907:20)
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:9775:18)
+      at C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:10800:39
+      at TypeScriptParserMixin.allowInAnd (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:12426:12)
+      at TypeScriptParserMixin.parseMaybeAssignAllowIn (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:10800:17)
+      at TypeScriptParserMixin.parseMaybeAssignAllowInOrVoidPattern (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:12493:17)
+      at TypeScriptParserMixin.parseParenAndDistinguishExpression (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:11675:28)
+      at TypeScriptParserMixin.parseExprAtom (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:11331:23)
+      at TypeScriptParserMixin.parseExprAtom (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:4764:20)
+      at TypeScriptParserMixin.parseExprSubscripts (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:11081:23)
+      at TypeScriptParserMixin.parseUpdate (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:11066:21)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:11046:23)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:9837:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:10899:61)
+      at TypeScriptParserMixin.parseExprOpBaseRightExpr (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:10986:34)
+      at TypeScriptParserMixin.parseExprOpRightExpr (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:10981:21)
+      at TypeScriptParserMixin.parseExprOp (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:10947:27)
+      at TypeScriptParserMixin.parseExprOp (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:9306:18)
+      at TypeScriptParserMixin.parseExprOp (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:10953:21)
+      at TypeScriptParserMixin.parseExprOp (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:9306:18)
+      at TypeScriptParserMixin.parseExprOps (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:10908:17)
+      at TypeScriptParserMixin.parseMaybeConditional (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:10881:23)
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:10831:21)
+      at TypeScriptParserMixin.parseMaybeAssign (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:9786:20)
+      at TypeScriptParserMixin.parseExpressionBase (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:10784:23)
+      at C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:10780:39
+      at TypeScriptParserMixin.allowInAnd (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:12426:12)
+      at TypeScriptParserMixin.parseExpression (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:10780:17)
+      at TypeScriptParserMixin.jsxParseExpressionContainer (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:4632:31)
+      at TypeScriptParserMixin.jsxParseElementAt (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:4711:36)
+      at TypeScriptParserMixin.jsxParseElement (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:4749:17)
+      at TypeScriptParserMixin.parseExprAtom (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:4759:19)
+      at TypeScriptParserMixin.parseExprSubscripts (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:11081:23)
+      at TypeScriptParserMixin.parseUpdate (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:11066:21)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:11046:23)
+      at TypeScriptParserMixin.parseMaybeUnary (C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\node_modules\@babel\parser\lib\index.js:9837:18)
+[2m9:38:18 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Today.tsx, /src/index.css[22m
+[2m9:38:34 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m9:58:11 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Today.tsx, /src/index.css[22m
+[2m9:58:29 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Today.tsx, /src/index.css[22m
+[2m10:25:12 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m10:29:59 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m10:30:14 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m10:30:35 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/Today.tsx, /src/index.css[22m
+[2m10:31:08 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/GoalDetail.tsx, /src/index.css[22m
+[2m10:37:31 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/News.tsx, /src/index.css[22m
+[2m10:38:27 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/News.tsx, /src/index.css[22m
+[2m10:38:32 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ProductMetrics.tsx, /src/index.css[22m
+[2m10:39:26 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ProductMetrics.tsx, /src/index.css[22m
+[2m10:39:35 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/pages/ProductMetrics.tsx, /src/index.css[22m
+[2m10:39:40 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/PipelineStatus.tsx, /src/index.css[22m
+[2m10:40:32 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/PipelineStatus.tsx, /src/index.css[22m
+[2m10:40:37 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ReflectionModal.tsx, /src/index.css[22m
+[2m10:41:06 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/ReflectionModal.tsx, /src/index.css[22m
+[2m10:41:59 am[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/JobGapPanel.tsx, /src/index.css[22m
+npm error Lifecycle script `dev` failed with error:
+npm error code 1073807364
+npm error path C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\packages\frontend
+npm error workspace @daily-push/frontend@1.0.0
+npm error location C:\Users\Krishna Meghwal\Desktop\HELP\daily-push\packages\frontend
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c vite

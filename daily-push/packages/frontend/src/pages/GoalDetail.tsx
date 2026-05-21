@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter,
   AlertDialogHeader, AlertDialogOverlay, Button, useToast,
@@ -28,7 +28,6 @@ import {
   trackEvent,
 } from '../api/client';
 import PipelineStatus from '../components/PipelineStatus';
-import JobGapPanel from '../components/JobGapPanel';
 import EmptyState from '../components/ui/EmptyState';
 import PageHeader from '../components/ui/PageHeader';
 import SurfaceCard from '../components/ui/SurfaceCard';
@@ -60,7 +59,12 @@ interface LearningTopic {
 interface Goal {
   _id: string;
   isPrimary: boolean;
-  raw: { input: string };
+  raw: {
+    input: string;
+    source?: string;
+    targetRoleId?: string;
+    targetRoleTitle?: string;
+  };
   pipelineRun?: { status: 'running' | 'done' | 'partial' | 'failed' };
   sprint?: GoalSprint | null;
   structured: {
@@ -295,9 +299,13 @@ function ActionCard({
 export default function GoalDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { entitlements } = useEntitlements();
+  const sourceParam = new URLSearchParams(location.search).get('source');
+  const fromResume = sourceParam === 'resume';
 
   const [goal, setGoal] = useState<Goal | null>(null);
+  const fromTargetRole = sourceParam === 'target-role' || goal?.raw?.source === 'target_role';
   const [planHealth, setPlanHealth] = useState<GoalPlanHealth | null>(null);
   const [nodes, setNodes] = useState<ConceptNode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -393,7 +401,7 @@ export default function GoalDetail() {
     }).catch(() => {});
     try {
       await confirmGoal(id);
-      navigate('/');
+      navigate('/today');
     } catch { setConfirming(false); }
   };
 
@@ -743,6 +751,48 @@ export default function GoalDetail() {
         )}
       />
 
+      {fromResume && (
+        <SurfaceCard p={5} className="border-sky-100 bg-sky-50/80">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">
+                Created from resume analysis
+              </p>
+              <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
+                We turned the resume gaps into a career goal. Review the plan before Daily Push starts scheduling daily work from it.
+              </p>
+            </div>
+            <Link
+              to="/resume"
+              className="inline-flex items-center justify-center rounded-full border border-sky-200 bg-white px-4 py-2 text-sm font-black text-sky-700 hover:border-sky-300"
+            >
+              Back to resume report
+            </Link>
+          </div>
+        </SurfaceCard>
+      )}
+
+      {fromTargetRole && (
+        <SurfaceCard p={5} className="border-emerald-100 bg-emerald-50/80">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
+                Created from role market readiness
+              </p>
+              <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
+                This execution goal came from your {goal.raw?.targetRoleTitle ?? 'target role'} upgrade plan. Daily Push is turning the missing proof and interview risks into focused daily work.
+              </p>
+            </div>
+            <Link
+              to={goal.raw?.targetRoleId ? `/target-roles/${goal.raw.targetRoleId}` : '/career-market'}
+              className="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-black text-emerald-700 hover:border-emerald-300"
+            >
+              Back to role workspace
+            </Link>
+          </div>
+        </SurfaceCard>
+      )}
+
       <SurfaceCard p={0} overflow="hidden">
         <div className={hasPlanPreview ? 'grid gap-0 lg:grid-cols-[1.45fr_0.9fr]' : ''}>
           {hasPlanPreview && (
@@ -813,7 +863,7 @@ export default function GoalDetail() {
                   </button>
                 ) : nextAction.kind === 'today' ? (
                   <Link
-                    to="/"
+                    to="/today"
                     className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-extrabold text-slate-950 transition-colors hover:bg-cyan-50"
                   >
                     {nextAction.label}
@@ -1053,14 +1103,6 @@ export default function GoalDetail() {
                 </div>
               )}
             </SurfaceCard>
-          )}
-
-          {isActive && id && (
-            <JobGapPanel
-              goalId={id}
-              defaultTargetRole={sprint?.targetRole ?? null}
-              defaultTargetCompany={sprint?.targetCompany ?? null}
-            />
           )}
 
           {/* Success criteria */}
@@ -1633,6 +1675,7 @@ export default function GoalDetail() {
           )}
         </div>
       )}
+
     </div>
   );
 }

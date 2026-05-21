@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import type { SourceMode } from '@daily-push/shared';
 
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
@@ -113,6 +114,30 @@ export const config = {
     gapReportRepoEvidenceEnabled: readBool(
       process.env.GAP_REPORT_REPO_EVIDENCE_ENABLED,
       false,
+    ),
+  },
+  roleMarket: {
+    featurePublic: readBool(process.env.FEATURE_ROLE_MARKET_PUBLIC, false),
+    featureTargetRoleSave: readBool(process.env.FEATURE_TARGET_ROLE_SAVE, false),
+    featureReadinessReport: readBool(
+      process.env.FEATURE_ROLE_READINESS_REPORT,
+      false,
+    ),
+    featureAiSummary: readBool(
+      process.env.FEATURE_ROLE_MARKET_AI_SUMMARY,
+      false,
+    ),
+    seedVersion: process.env.ROLE_MARKET_SEED_VERSION || 'role-market-seed.v1',
+    lastUpdated:
+      process.env.ROLE_MARKET_LAST_UPDATED || '2026-05-18T00:00:00.000Z',
+    sourceMode: (process.env.ROLE_MARKET_SOURCE_MODE || 'curated') as SourceMode,
+    recommendRateLimitWindowMs: readInt(
+      process.env.ROLE_MARKET_RECOMMEND_RATE_LIMIT_WINDOW_MS,
+      60 * 1000,
+    ),
+    recommendRateLimitMax: readInt(
+      process.env.ROLE_MARKET_RECOMMEND_RATE_LIMIT_MAX,
+      20,
     ),
   },
 };

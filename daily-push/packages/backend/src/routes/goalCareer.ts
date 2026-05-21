@@ -7,6 +7,7 @@ import { trackProductEvent } from "../services/productEvents";
 import { assertEntitlementEnabled, consumeQuota } from "../services/entitlements";
 import {
   getGoalGapReportRecord,
+  generateTailoredResume,
   rebuildGoalGapReport,
   saveGoalJobDescription,
   saveGoalRepoImport,
@@ -280,6 +281,56 @@ router.post(
         err?.message === "Save a resume before generating a gap report." ||
         err?.message ===
           "Save a target job description before generating a gap report."
+      ) {
+        res.status(400).json({ error: err.message });
+        return;
+      }
+      next(err);
+    }
+  },
+);
+
+router.post(
+  "/:id/tailored-resume",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      let id: ObjectId;
+      try {
+        id = new ObjectId(String(req.params.id));
+      } catch {
+        res.status(400).json({ error: "Invalid goal id" });
+        return;
+      }
+
+      const db = getDb();
+      const goal = await db.collection("goals").findOne({ _id: id, userId });
+      if (!goal) {
+        res.status(404).json({ error: "Goal not found" });
+        return;
+      }
+
+      await assertEntitlementEnabled(userId, "premium_sprints.enabled");
+      const record = await generateTailoredResume(userId, id.toString());
+
+      void trackProductEvent({
+        userId,
+        goalId: id.toString(),
+        eventKey: "tailored_resume_generated",
+        properties: {
+          targetRole: record.tailoredResume?.targetRole ?? null,
+          skillCount: record.tailoredResume?.skills.length ?? 0,
+          warningCount: record.tailoredResume?.missingEvidenceWarnings.length ?? 0,
+        },
+      });
+
+      res.json(record);
+    } catch (err: any) {
+      if (
+        err?.message === "Save a resume before generating a tailored resume." ||
+        err?.message ===
+          "Save a target job description before generating a tailored resume."
       ) {
         res.status(400).json({ error: err.message });
         return;

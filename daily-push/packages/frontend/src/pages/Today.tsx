@@ -60,10 +60,16 @@ interface TodayData {
   goal: {
     id: string;
     title: string;
+    status: string;
     totalNodes: number;
     doneNodes: number;
     estimatedWeeksRemaining: number;
     topicsMap: Record<string, string>;
+  } | null;
+  pendingGoal: {
+    id: string;
+    title: string;
+    status: string;
   } | null;
   node: NodeInfo | null;
   reviewNode: NodeInfo | null;
@@ -515,6 +521,31 @@ export default function Today() {
   }
 
   if (!data?.goal) {
+    if (data?.pendingGoal) {
+      return (
+        <div className="space-y-6">
+          <PageHeader
+            eyebrow="Plan review"
+            title="Your goal is waiting for review"
+            description="Review the plan we created from your resume gaps, then confirm it when it matches what you want to pursue."
+          />
+          <EmptyState
+            title={data.pendingGoal.title}
+            description="This goal is not active yet, so Daily Push will not schedule daily sessions until you review and confirm the plan."
+            accent="brand"
+            action={(
+              <Link
+                to={`/goals/${data.pendingGoal.id}`}
+                className="inline-block rounded-xl bg-[var(--brand-primary)] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-primary-hov)]"
+              >
+                Review goal plan
+              </Link>
+            )}
+          />
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-6">
         <PageHeader
@@ -987,8 +1018,8 @@ export default function Today() {
                     Why this matters
                   </p>
                   <p className="text-sm leading-relaxed text-slate-600">
-                    Passive reading feels productive, but paid learning products win when users finish each session with proof.
-                    This deliverable becomes that proof.
+                    Passive reading can feel productive, but real progress shows up when you finish each session with proof.
+                    This deliverable becomes that proof for interviews, projects, and your resume.
                   </p>
                   <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 text-sm text-slate-600">
                     {task.rubric.map((dimension) => (

@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Alert,
   AlertIcon,
@@ -24,12 +24,23 @@ import SurfaceCard from '../components/ui/SurfaceCard';
 export default function Login() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const location = useLocation();
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const [mode, setMode] = useState<'login' | 'register'>(
+    searchParams.get('mode') === 'register' ? 'register' : 'login',
+  );
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const nextPath = searchParams.get('next');
+  const isResumeFlow = nextPath === '/resume';
+  const isMarketFlow = nextPath === '/career-market';
+
+  useEffect(() => {
+    setMode(searchParams.get('mode') === 'register' ? 'register' : 'login');
+  }, [searchParams]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -41,7 +52,7 @@ export default function Login() {
           ? await login({ email, password })
           : await register({ email, password, name });
       signIn(data.token, data.user);
-      navigate('/');
+      navigate(nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : '/today');
     } catch (err: any) {
       setError(err?.response?.data?.error ?? 'Something went wrong');
     } finally {
@@ -73,7 +84,7 @@ export default function Login() {
                 textTransform="uppercase"
                 color="brand.700"
               >
-                Personal learning cockpit
+                Career progress system
               </Text>
               <Heading
                 mt={4}
@@ -83,11 +94,18 @@ export default function Login() {
                 letterSpacing="-0.05em"
                 color="ink.900"
               >
-                Turn ambitious career goals into a daily practice system.
+                {isResumeFlow
+                  ? 'Save your resume fit report and keep improving.'
+                  : isMarketFlow
+                    ? 'Save your role direction and turn it into a plan.'
+                  : 'Turn ambitious career goals into steady progress.'}
               </Heading>
               <Text mt={5} maxW="xl" fontSize="md" lineHeight="1.9" color="ink.500">
-                Daily Push turns fuzzy ambition into a mapped learning path, scheduled sessions,
-                proof-of-skill artifacts, and career-focused feedback you can actually act on.
+                {isResumeFlow
+                  ? 'Your snapshot will continue after signup, so you can save the full report, tailor the resume, and decide whether to turn the gaps into a plan.'
+                  : isMarketFlow
+                    ? 'Keep your target role direction, compare it with real jobs, and build the proof that makes the move believable.'
+                  : 'Daily Push turns fuzzy ambition into a mapped plan, focused sessions, proof-of-skill artifacts, and career-focused feedback you can act on.'}
               </Text>
 
               <Stack
@@ -97,18 +115,26 @@ export default function Login() {
               >
                 <SurfaceCard flex="1" px={5} py={5}>
                   <Text fontSize="xs" fontWeight="800" letterSpacing="0.16em" textTransform="uppercase" color="brand.700">
-                    Career-focused
+                    {isResumeFlow ? 'Resume-first' : 'Career-focused'}
                   </Text>
                   <Text mt={2} fontSize="sm" lineHeight="1.7" color="ink.600">
-                    Tie every session to a sprint, target role, and missing proof signals.
+                    {isResumeFlow
+                      ? 'Pick up exactly where you left off after checking your resume against the job description.'
+                      : isMarketFlow
+                        ? 'Start from the market role you want, not from a random list of topics.'
+                      : 'Tie every session to a target role, skill gap, and missing proof signal.'}
                   </Text>
                 </SurfaceCard>
                 <SurfaceCard flex="1" px={5} py={5}>
                   <Text fontSize="xs" fontWeight="800" letterSpacing="0.16em" textTransform="uppercase" color="accent.700">
-                    Execution-first
+                    {isResumeFlow ? 'Next steps' : 'Execution-first'}
                   </Text>
                   <Text mt={2} fontSize="sm" lineHeight="1.7" color="ink.600">
-                    End each study block with an artifact, a score, and a concrete next step.
+                    {isResumeFlow
+                      ? 'Save the report, generate a tailored draft, or build a gap-closing sprint when you are ready.'
+                      : isMarketFlow
+                        ? 'Move from direction to resume checks, proof tasks, and focused upgrade sprints.'
+                      : 'End each focused block with an artifact, a score, and a concrete next step.'}
                   </Text>
                 </SurfaceCard>
               </Stack>
@@ -131,10 +157,16 @@ export default function Login() {
                 mb={4}
               />
               <Heading size="lg" color="ink.900" letterSpacing="-0.04em">
-                Welcome back
+                {isResumeFlow
+                  ? mode === 'register'
+                    ? 'Create account to save your report'
+                    : 'Sign in to continue your report'
+                  : 'Welcome back'}
               </Heading>
               <Text mt={2} fontSize="sm" color="ink.500">
-                Sign in to continue your next best learning session.
+                {isResumeFlow
+                  ? 'Your resume snapshot will be waiting for you after this step.'
+                  : 'Sign in to continue your next best career session.'}
               </Text>
             </Box>
 

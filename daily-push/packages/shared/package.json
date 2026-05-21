@@ -1,0 +1,17 @@
+{
+  "name": "@daily-push/shared",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "validate:golden-fixtures": "npm run build && node scripts/validate-role-market-golden-fixtures.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
