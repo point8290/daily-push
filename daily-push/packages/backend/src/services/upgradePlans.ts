@@ -232,6 +232,64 @@ export async function linkUpgradePlanExecution(
   return mapUpgradePlanRow(rows[0]);
 }
 
+export async function addUpgradePlanWarning(
+  userId: string,
+  targetRoleId: string,
+  upgradePlanId: string,
+  warning: ContractWarning,
+): Promise<UpgradePlan> {
+  const upgradePlan = await getUpgradePlanForTargetRole(
+    userId,
+    targetRoleId,
+    upgradePlanId,
+  );
+  if (!upgradePlan) {
+    const error = new Error('Upgrade plan not found');
+    (error as Error & { statusCode?: number; code?: string }).statusCode = 404;
+    (error as Error & { statusCode?: number; code?: string }).code = 'not_found';
+    throw error;
+  }
+
+  const exists = upgradePlan.meta.warnings.some(
+    (entry) => entry.code === warning.code && entry.message === warning.message,
+  );
+  const updatedPlan: UpgradePlan = {
+    ...upgradePlan,
+    meta: {
+      ...upgradePlan.meta,
+      warnings: exists
+        ? upgradePlan.meta.warnings
+        : [...upgradePlan.meta.warnings, warning],
+    },
+  };
+  assertValidUpgradePlan(updatedPlan);
+
+  const { rows } = await pool.query<UpgradePlanRow>(
+    `UPDATE candidate_upgrade_plans
+        SET plan = $4::jsonb,
+            metadata = metadata || $5::jsonb,
+            updated_at = NOW()
+      WHERE user_id = $1
+        AND target_role_id = $2
+        AND id = $3
+      RETURNING id::text, plan`,
+    [
+      userId,
+      targetRoleId,
+      upgradePlanId,
+      JSON.stringify(updatedPlan),
+      JSON.stringify({
+        latestWarning: warning,
+      }),
+    ],
+  );
+
+  if (!rows[0]) {
+    throw new Error('Upgrade plan warning could not be saved.');
+  }
+  return mapUpgradePlanRow(rows[0]);
+}
+
 export async function createUpgradePlanForTargetRole(params: {
   userId: string;
   targetRoleId: string;

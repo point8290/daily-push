@@ -7,10 +7,13 @@ import type {
   CreateUpgradePlanResponse,
   GenerateReadinessResponse,
   GapToProofResponse,
+  StartTargetRoleDecompositionResponse,
   StartUpgradePlanSprintResponse,
   ContractMeta,
   ListRolesResponse,
+  ProofEvidenceStatusResponse,
   ProofRecommendation,
+  PublishProofEvidenceResponse,
   RequirementCoverage,
   UpgradePlan,
   UpgradePlanTopic,
@@ -20,6 +23,8 @@ import type {
   RoleRecommendation,
   RoleRecommendationResponse,
   SourceReference,
+  TargetRoleDecompositionStatusResponse,
+  TargetRoleDecompositionTopic,
 } from "./roleMarketContracts";
 
 export interface ValidationResult {
@@ -864,6 +869,152 @@ export function validateStartUpgradePlanSprintResponse(
   return { valid: errors.length === 0, errors };
 }
 
+function validateTargetRoleDecompositionTopic(
+  value: unknown,
+  path = "targetRoleDecompositionTopic",
+): ValidationResult {
+  const errors: string[] = [];
+  if (!isObject(value)) {
+    return { valid: false, errors: [`${path} must be an object`] };
+  }
+
+  pushIfInvalid(
+    errors,
+    isNullableString(value.topicId),
+    `${path}.topicId must be string or null`,
+  );
+  pushIfInvalid(errors, isString(value.title), `${path}.title is required`);
+  pushIfInvalid(
+    errors,
+    value.status === "not_started" ||
+      value.status === "pending" ||
+      value.status === "in_progress" ||
+      value.status === "completed" ||
+      value.status === "failed",
+    `${path}.status is invalid`,
+  );
+  pushIfInvalid(errors, isNumber(value.nodesCreated), `${path}.nodesCreated must be a number`);
+  pushIfInvalid(errors, typeof value.usingFallback === "boolean", `${path}.usingFallback must be boolean`);
+  pushIfInvalid(
+    errors,
+    isNullableString(value.error),
+    `${path}.error must be string or null`,
+  );
+
+  return { valid: errors.length === 0, errors };
+}
+
+export function validateTargetRoleDecompositionStatusResponse(
+  value: unknown,
+  path = "targetRoleDecompositionStatusResponse",
+): ValidationResult {
+  const errors: string[] = [];
+  if (!isObject(value)) {
+    return { valid: false, errors: [`${path} must be an object`] };
+  }
+
+  pushIfInvalid(errors, isString(value.targetRoleId), `${path}.targetRoleId is required`);
+  pushIfInvalid(errors, isString(value.upgradePlanId), `${path}.upgradePlanId is required`);
+  pushIfInvalid(errors, isNullableString(value.goalId), `${path}.goalId must be string or null`);
+  pushIfInvalid(
+    errors,
+    value.pipelineStatus === "idle" ||
+      value.pipelineStatus === "running" ||
+      value.pipelineStatus === "done" ||
+      value.pipelineStatus === "partial" ||
+      value.pipelineStatus === "failed",
+    `${path}.pipelineStatus is invalid`,
+  );
+  pushIfInvalid(errors, Array.isArray(value.topics), `${path}.topics must be an array`);
+  if (Array.isArray(value.topics)) {
+    value.topics.forEach((topic, index) => {
+      errors.push(
+        ...validateTargetRoleDecompositionTopic(topic, `${path}.topics[${index}]`).errors,
+      );
+    });
+  }
+  pushIfInvalid(errors, isNumber(value.nodesCreated), `${path}.nodesCreated must be a number`);
+  pushIfInvalid(errors, isNumber(value.fallbackTaskCount), `${path}.fallbackTaskCount must be a number`);
+  pushIfInvalid(errors, typeof value.canStart === "boolean", `${path}.canStart must be boolean`);
+  pushIfInvalid(errors, typeof value.canRetry === "boolean", `${path}.canRetry must be boolean`);
+  pushIfInvalid(errors, isString(value.message), `${path}.message is required`);
+  pushIfInvalid(errors, isObject(value.config), `${path}.config must be an object`);
+  if (isObject(value.config)) {
+    pushIfInvalid(
+      errors,
+      isNumber(value.config.requestTimeoutMs),
+      `${path}.config.requestTimeoutMs must be a number`,
+    );
+    pushIfInvalid(
+      errors,
+      isNumber(value.config.maxAttempts),
+      `${path}.config.maxAttempts must be a number`,
+    );
+    pushIfInvalid(
+      errors,
+      isNumber(value.config.topicConcurrency),
+      `${path}.config.topicConcurrency must be a number`,
+    );
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+export function validateStartTargetRoleDecompositionResponse(
+  value: unknown,
+  path = "startTargetRoleDecompositionResponse",
+): ValidationResult {
+  const errors = validateTargetRoleDecompositionStatusResponse(value, path).errors;
+  if (!isObject(value)) {
+    return { valid: false, errors };
+  }
+  pushIfInvalid(errors, typeof value.accepted === "boolean", `${path}.accepted must be boolean`);
+  pushIfInvalid(errors, typeof value.retryMode === "boolean", `${path}.retryMode must be boolean`);
+  return { valid: errors.length === 0, errors };
+}
+
+export function validateProofEvidenceStatusResponse(
+  value: unknown,
+  path = "proofEvidenceStatusResponse",
+): ValidationResult {
+  const errors: string[] = [];
+  if (!isObject(value)) {
+    return { valid: false, errors: [`${path} must be an object`] };
+  }
+
+  pushIfInvalid(errors, isString(value.targetRoleId), `${path}.targetRoleId is required`);
+  pushIfInvalid(errors, isNullableString(value.linkedGoalId), `${path}.linkedGoalId must be string or null`);
+  pushIfInvalid(errors, isNumber(value.evidenceClaimCount), `${path}.evidenceClaimCount must be a number`);
+  pushIfInvalid(errors, isNumber(value.publishedArtifactCount), `${path}.publishedArtifactCount must be a number`);
+  pushIfInvalid(errors, isNumber(value.publishableArtifactCount), `${path}.publishableArtifactCount must be a number`);
+  pushIfInvalid(errors, isNullableString(value.latestEvidenceAt), `${path}.latestEvidenceAt must be string or null`);
+  pushIfInvalid(errors, isNullableString(value.latestReadinessReportId), `${path}.latestReadinessReportId must be string or null`);
+  pushIfInvalid(errors, typeof value.reassessRecommended === "boolean", `${path}.reassessRecommended must be boolean`);
+  pushIfInvalid(errors, isString(value.message), `${path}.message is required`);
+
+  return { valid: errors.length === 0, errors };
+}
+
+export function validatePublishProofEvidenceResponse(
+  value: unknown,
+  path = "publishProofEvidenceResponse",
+): ValidationResult {
+  const errors = validateProofEvidenceStatusResponse(value, path).errors;
+  if (!isObject(value)) {
+    return { valid: false, errors };
+  }
+
+  pushIfInvalid(errors, isNumber(value.publishedCount), `${path}.publishedCount must be a number`);
+  pushIfInvalid(errors, Array.isArray(value.publishedClaims), `${path}.publishedClaims must be an array`);
+  if (Array.isArray(value.publishedClaims)) {
+    value.publishedClaims.forEach((claim, index) => {
+      errors.push(...validateEvidenceClaim(claim, `${path}.publishedClaims[${index}]`).errors);
+    });
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 export function assertValidRoleMarketProfile(value: unknown): asserts value is RoleMarketProfile {
   const result = validateRoleMarketProfile(value);
   if (!result.valid) {
@@ -957,6 +1108,42 @@ export function assertValidStartUpgradePlanSprintResponse(
   }
 }
 
+export function assertValidTargetRoleDecompositionStatusResponse(
+  value: unknown,
+): asserts value is TargetRoleDecompositionStatusResponse {
+  const result = validateTargetRoleDecompositionStatusResponse(value);
+  if (!result.valid) {
+    throw new Error(`Invalid target-role decomposition status: ${result.errors.join("; ")}`);
+  }
+}
+
+export function assertValidStartTargetRoleDecompositionResponse(
+  value: unknown,
+): asserts value is StartTargetRoleDecompositionResponse {
+  const result = validateStartTargetRoleDecompositionResponse(value);
+  if (!result.valid) {
+    throw new Error(`Invalid target-role decomposition response: ${result.errors.join("; ")}`);
+  }
+}
+
+export function assertValidProofEvidenceStatusResponse(
+  value: unknown,
+): asserts value is ProofEvidenceStatusResponse {
+  const result = validateProofEvidenceStatusResponse(value);
+  if (!result.valid) {
+    throw new Error(`Invalid proof evidence status: ${result.errors.join("; ")}`);
+  }
+}
+
+export function assertValidPublishProofEvidenceResponse(
+  value: unknown,
+): asserts value is PublishProofEvidenceResponse {
+  const result = validatePublishProofEvidenceResponse(value);
+  if (!result.valid) {
+    throw new Error(`Invalid publish proof evidence response: ${result.errors.join("; ")}`);
+  }
+}
+
 export function isRoleMarketProfile(value: unknown): value is RoleMarketProfile {
   return validateRoleMarketProfile(value).valid;
 }
@@ -1003,6 +1190,12 @@ export function isUpgradePlanTopic(value: unknown): value is UpgradePlanTopic {
 
 export function isUpgradePlan(value: unknown): value is UpgradePlan {
   return validateUpgradePlan(value).valid;
+}
+
+export function isTargetRoleDecompositionTopic(
+  value: unknown,
+): value is TargetRoleDecompositionTopic {
+  return validateTargetRoleDecompositionTopic(value).valid;
 }
 
 export function toRoleMarketCards(profiles: RoleMarketProfile[]): RoleMarketCard[] {

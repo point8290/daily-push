@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { ObjectId } from 'mongodb';
 import {
   assertValidCandidateEvidenceProfile,
   type CandidateEvidenceProfile,
@@ -9,6 +10,7 @@ import {
   type EvidenceSourceType,
 } from '@daily-push/shared';
 import { pool } from '../db/postgres';
+import { getDb } from '../db/mongo';
 import { config } from '../config';
 import type { ResumeSummary } from './jobGapAnalysis';
 
@@ -53,6 +55,45 @@ interface ResumeApplicationEvidenceRow {
 interface PersistedClaimRow {
   claim_key: string;
   user_verified: boolean;
+}
+
+interface PersistedEvidenceClaimRow {
+  claim_key: string;
+  normalized_claim: string;
+  skill_labels: unknown;
+  role_labels: unknown;
+  project_name: string | null;
+  company_name: string | null;
+  metric: string | null;
+  seniority_signal: EvidenceClaim['senioritySignal'];
+  source_type: EvidenceSourceType;
+  source_id: string | null;
+  source_section: string | null;
+  original_snippet: string;
+  confidence: number;
+  user_verified: boolean;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ArtifactEvidenceRow {
+  artifact_id: string;
+  session_id: string;
+  node_id: string;
+  goal_id: string | null;
+  node_title: string;
+  node_description: string | null;
+  task_type: string;
+  artifact_type: string;
+  content: string | null;
+  status: 'draft' | 'submitted' | 'evaluated';
+  score: number | null;
+  feedback: string | null;
+  evaluation: Record<string, unknown> | null;
+  evaluated_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 type RoleEntry = CandidateEvidenceProfile['roles'][number];
@@ -190,6 +231,11 @@ function parsePrimaryStack(value: unknown): string[] {
     return uniqueStrings(value.split(/[,;/]/), 40);
   }
   return [];
+}
+
+function parseStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return uniqueStrings(value.map((item) => (typeof item === 'string' ? item : null)), 80);
 }
 
 function buildEvidenceRef(args: {
@@ -632,6 +678,88 @@ async function fetchPersistedVerification(
   }
 }
 
+function mapPersistedClaim(row: PersistedEvidenceClaimRow): EvidenceClaim {
+  const metadataRefs = Array.isArray(row.metadata?.evidenceRefs)
+    ? row.metadata?.evidenceRefs
+    : [];
+  const metadataEvidenceRefs = metadataRefs.filter((ref): ref is EvidenceRef => {
+    if (!ref || typeof ref !== 'object') return false;
+    const maybe = ref as Partial<EvidenceRef>;
+    return Boolean(
+      maybe.id &&
+      maybe.sourceType &&
+      typeof maybe.originalSnippet === 'string' &&
+      typeof maybe.createdAt === 'string',
+    );
+  });
+
+  return {
+    id: row.claim_key,
+    normalizedClaim: row.normalized_claim,
+    skillLabels: parseStringArray(row.skill_labels),
+    roleLabels: parseStringArray(row.role_labels),
+    projectName: row.project_name,
+    companyName: row.company_name,
+    metric: row.metric,
+    senioritySignal: row.seniority_signal,
+    evidenceRefs: metadataEvidenceRefs.length
+      ? metadataEvidenceRefs
+      : [
+          buildEvidenceRef({
+            sourceType: row.source_type,
+            sourceId: row.source_id,
+            sourceSection: row.source_section,
+            snippet: row.original_snippet,
+            createdAt: row.updated_at ?? row.created_at,
+          }),
+        ],
+    confidence: clamp(Math.round(row.confidence), 0, 100),
+    userVerified: row.user_verified,
+  };
+}
+
+async function fetchPersistedClaims(
+  userId: string,
+  warnings: ContractWarning[],
+): Promise<EvidenceClaim[]> {
+  try {
+    const { rows } = await pool.query<PersistedEvidenceClaimRow>(
+      `SELECT claim_key,
+              normalized_claim,
+              skill_labels,
+              role_labels,
+              project_name,
+              company_name,
+              metric,
+              seniority_signal,
+              source_type,
+              source_id,
+              source_section,
+              original_snippet,
+              confidence,
+              user_verified,
+              metadata,
+              created_at::text,
+              updated_at::text
+         FROM candidate_evidence_claims
+        WHERE user_id = $1
+        ORDER BY updated_at DESC
+        LIMIT 120`,
+      [userId],
+    );
+    return rows.map(mapPersistedClaim);
+  } catch (error) {
+    if (isMissingRelationError(error)) {
+      warnings.push({
+        code: 'partial_input',
+        message: 'Evidence claim history is not available until migration 020 is applied.',
+      });
+      return [];
+    }
+    throw error;
+  }
+}
+
 async function persistClaims(
   userId: string,
   claims: EvidenceClaim[],
@@ -712,6 +840,245 @@ async function persistClaims(
   }
 }
 
+async function persistClaimWithMetadata(
+  userId: string,
+  claim: EvidenceClaim,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  const ref = claim.evidenceRefs[0];
+  if (!ref) return;
+  await pool.query(
+    `INSERT INTO candidate_evidence_claims
+       (user_id,
+        claim_key,
+        normalized_claim,
+        skill_labels,
+        role_labels,
+        project_name,
+        company_name,
+        metric,
+        seniority_signal,
+        source_type,
+        source_id,
+        source_section,
+        original_snippet,
+        confidence,
+        user_verified,
+        metadata)
+     VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::jsonb)
+     ON CONFLICT (user_id, claim_key)
+     DO UPDATE SET
+        normalized_claim = EXCLUDED.normalized_claim,
+        skill_labels = EXCLUDED.skill_labels,
+        role_labels = EXCLUDED.role_labels,
+        project_name = EXCLUDED.project_name,
+        company_name = EXCLUDED.company_name,
+        metric = EXCLUDED.metric,
+        seniority_signal = EXCLUDED.seniority_signal,
+        source_type = EXCLUDED.source_type,
+        source_id = EXCLUDED.source_id,
+        source_section = EXCLUDED.source_section,
+        original_snippet = EXCLUDED.original_snippet,
+        confidence = GREATEST(candidate_evidence_claims.confidence, EXCLUDED.confidence),
+        user_verified = candidate_evidence_claims.user_verified OR EXCLUDED.user_verified,
+        metadata = candidate_evidence_claims.metadata || EXCLUDED.metadata,
+        updated_at = NOW()`,
+    [
+      userId,
+      claim.id,
+      claim.normalizedClaim,
+      JSON.stringify(claim.skillLabels),
+      JSON.stringify(claim.roleLabels),
+      claim.projectName,
+      claim.companyName,
+      claim.metric,
+      claim.senioritySignal,
+      ref.sourceType,
+      ref.sourceId,
+      ref.sourceSection,
+      ref.originalSnippet,
+      Math.round(claim.confidence),
+      claim.userVerified,
+      JSON.stringify({
+        evidenceRefs: claim.evidenceRefs,
+        generatedBy: 'proof_artifact_evidence_v1',
+        ...metadata,
+      }),
+    ],
+  );
+}
+
+async function fetchArtifactEvidenceRowsForGoal(
+  userId: string,
+  goalId: string,
+): Promise<ArtifactEvidenceRow[]> {
+  const { rows } = await pool.query<ArtifactEvidenceRow>(
+    `SELECT sa.id::text AS artifact_id,
+            sa.session_id::text,
+            sa.node_id::text,
+            cn.goal_id,
+            cn.title AS node_title,
+            cn.description AS node_description,
+            sa.task_type,
+            sa.artifact_type,
+            sa.content,
+            sa.status,
+            sa.score,
+            sa.feedback,
+            sa.evaluation,
+            sa.evaluated_at::text,
+            sa.created_at::text,
+            sa.updated_at::text
+       FROM session_artifacts sa
+       INNER JOIN concept_nodes cn
+          ON cn.id = sa.node_id
+      WHERE sa.user_id = $1
+        AND cn.goal_id = $2
+        AND sa.content IS NOT NULL
+        AND LENGTH(TRIM(sa.content)) >= 25
+        AND sa.status IN ('submitted', 'evaluated')
+      ORDER BY sa.updated_at DESC
+      LIMIT 30`,
+    [userId, goalId],
+  );
+  return rows;
+}
+
+async function fetchArtifactEvidenceRowForSession(
+  userId: string,
+  sessionId: string,
+): Promise<ArtifactEvidenceRow | null> {
+  const { rows } = await pool.query<ArtifactEvidenceRow>(
+    `SELECT sa.id::text AS artifact_id,
+            sa.session_id::text,
+            sa.node_id::text,
+            cn.goal_id,
+            cn.title AS node_title,
+            cn.description AS node_description,
+            sa.task_type,
+            sa.artifact_type,
+            sa.content,
+            sa.status,
+            sa.score,
+            sa.feedback,
+            sa.evaluation,
+            sa.evaluated_at::text,
+            sa.created_at::text,
+            sa.updated_at::text
+       FROM session_artifacts sa
+       INNER JOIN concept_nodes cn
+          ON cn.id = sa.node_id
+      WHERE sa.user_id = $1
+        AND sa.session_id = $2
+        AND sa.content IS NOT NULL
+        AND LENGTH(TRIM(sa.content)) >= 25
+      LIMIT 1`,
+    [userId, sessionId],
+  );
+  return rows[0] ?? null;
+}
+
+async function getTargetRoleGoalContext(
+  userId: string,
+  goalId: string | null,
+): Promise<{
+  goalId: string;
+  targetRoleId: string;
+  targetRoleTitle: string | null;
+} | null> {
+  if (!goalId || !/^[a-f\d]{24}$/i.test(goalId)) return null;
+  const db = getDb();
+  const goal = await db.collection('goals').findOne({
+    _id: new ObjectId(goalId),
+    userId,
+  });
+  const targetRoleId = trimToNull(goal?.raw?.targetRoleId);
+  if (!goal || goal.raw?.source !== 'target_role' || !targetRoleId) return null;
+  return {
+    goalId,
+    targetRoleId,
+    targetRoleTitle: trimToNull(goal.raw?.targetRoleTitle),
+  };
+}
+
+function buildArtifactClaim(args: {
+  row: ArtifactEvidenceRow;
+  targetRoleTitle: string | null;
+}): EvidenceClaim | null {
+  const content = trimToNull(args.row.content);
+  if (!content) return null;
+  const claimText = `${args.row.node_title}: ${content}`.slice(0, 1400);
+  const score = args.row.score ?? null;
+  const confidence = score !== null
+    ? clamp(45 + score * 10, 50, 95)
+    : args.row.status === 'submitted'
+      ? 62
+      : 70;
+
+  return createClaim({
+    sourceType: 'sprint_artifact',
+    sourceId: args.row.artifact_id,
+    sourceSection: args.row.task_type,
+    snippet: content,
+    normalizedClaim: claimText,
+    knownSkills: detectSkills(`${args.row.node_title} ${args.row.node_description ?? ''} ${content}`),
+    roleLabels: uniqueStrings([args.targetRoleTitle], 5),
+    projectName: args.row.node_title,
+    confidence,
+    userVerified: score !== null ? score >= 3 : false,
+    createdAt: args.row.evaluated_at ?? args.row.updated_at ?? args.row.created_at,
+  });
+}
+
+export async function publishArtifactEvidenceRow(
+  userId: string,
+  row: ArtifactEvidenceRow,
+): Promise<EvidenceClaim | null> {
+  const context = await getTargetRoleGoalContext(userId, row.goal_id);
+  if (!context) return null;
+  const claim = buildArtifactClaim({
+    row,
+    targetRoleTitle: context.targetRoleTitle,
+  });
+  if (!claim) return null;
+
+  await persistClaimWithMetadata(userId, claim, {
+    targetRoleId: context.targetRoleId,
+    goalId: context.goalId,
+    nodeId: row.node_id,
+    sessionId: row.session_id,
+    artifactId: row.artifact_id,
+    artifactStatus: row.status,
+    artifactScore: row.score,
+    artifactType: row.artifact_type,
+    taskType: row.task_type,
+    nodeTitle: row.node_title,
+  });
+  return claim;
+}
+
+export async function publishSessionArtifactAsEvidence(
+  sessionId: string,
+  userId: string,
+): Promise<EvidenceClaim | null> {
+  const row = await fetchArtifactEvidenceRowForSession(userId, sessionId);
+  if (!row) return null;
+  return publishArtifactEvidenceRow(userId, row);
+}
+
+export async function publishGoalArtifactsAsEvidence(
+  userId: string,
+  goalId: string,
+): Promise<EvidenceClaim[]> {
+  const rows = await fetchArtifactEvidenceRowsForGoal(userId, goalId);
+  const claims: EvidenceClaim[] = [];
+  for (const row of rows) {
+    const claim = await publishArtifactEvidenceRow(userId, row);
+    if (claim) claims.push(claim);
+  }
+  return mergeClaims(claims);
+}
+
 export async function getCandidateEvidenceProfile(
   userId: string,
 ): Promise<CandidateEvidenceProfile> {
@@ -769,13 +1136,17 @@ export async function getCandidateEvidenceProfile(
   ];
   const rawResumeClaims = resumes.flatMap((row) => claimsFromRawResume(row, skillNames));
   const profileClaims = claimsFromProfile(profile, userSkills);
-  let claims = mergeClaims([...summaryClaims, ...rawResumeClaims, ...profileClaims]);
+  const persistedClaims = await fetchPersistedClaims(userId, warnings);
+  let generatedClaims = mergeClaims([...summaryClaims, ...rawResumeClaims, ...profileClaims]);
 
-  const verification = await fetchPersistedVerification(userId, claims.map((claim) => claim.id));
-  claims = claims.map((claim) => ({
+  const verification = await fetchPersistedVerification(userId, generatedClaims.map((claim) => claim.id));
+  generatedClaims = generatedClaims.map((claim) => ({
     ...claim,
     userVerified: claim.userVerified || Boolean(verification.get(claim.id)),
   }));
+  await persistClaims(userId, generatedClaims, warnings);
+
+  const claims = mergeClaims([...generatedClaims, ...persistedClaims]);
 
   if (claims.length === 0) {
     warnings.push({
@@ -806,6 +1177,5 @@ export async function getCandidateEvidenceProfile(
   };
 
   assertValidCandidateEvidenceProfile(candidateEvidenceProfile);
-  await persistClaims(userId, claims, warnings);
   return candidateEvidenceProfile;
 }

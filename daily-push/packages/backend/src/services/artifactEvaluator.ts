@@ -1,6 +1,7 @@
 import { pool } from '../db/postgres';
 import { callClaudeWithUsage, parseJSON } from './claude';
 import { recordLlmUsage } from './llmUsage';
+import { publishSessionArtifactAsEvidence } from './candidateEvidence';
 import { buildUserContext } from './userContext';
 import {
   type ArtifactEvaluationResult,
@@ -220,6 +221,8 @@ Return JSON:
       JSON.stringify(evaluation),
     ],
   );
+
+  await publishSessionArtifactAsEvidence(sessionId, userId).catch(() => {});
 
   return evaluation;
 }

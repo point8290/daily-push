@@ -1,19 +1,27 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   createTargetRoleUpgradePlan,
+  decomposeTargetRoleUpgradePlan,
   generateTargetRoleProofRecommendations,
   generateTargetRoleReadiness,
+  getLatestTargetRoleUpgradePlan,
   getTargetRoleReadiness,
+  getTargetRoleDecompositionStatus,
   getTargetRoleEvidence,
+  getTargetRoleProofEvidenceStatus,
   getMarketRole,
   getTargetRole,
+  publishTargetRoleProofEvidence,
+  retryTargetRoleUpgradePlanDecomposition,
   startTargetRoleUpgradeSprint,
   type CandidateEvidenceProfile,
   type GapToProofResponse,
+  type ProofEvidenceStatusResponse,
   type RoleMarketProfile,
   type RoleReadinessReport,
   type TargetRole,
+  type TargetRoleDecompositionStatusResponse,
   type UpgradePlan,
 } from '../api/client';
 import SurfaceCard from '../components/ui/SurfaceCard';
@@ -46,6 +54,23 @@ function coverageTone(status: string): string {
   if (status === 'weak') return 'bg-amber-50 text-amber-700 border-amber-200';
   if (status === 'missing') return 'bg-red-50 text-red-700 border-red-200';
   return 'bg-slate-50 text-slate-600 border-slate-200';
+}
+
+function decompositionTone(status: string): string {
+  if (status === 'completed') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+  if (status === 'failed') return 'bg-red-50 text-red-700 border-red-200';
+  if (status === 'in_progress') return 'bg-sky-50 text-sky-700 border-sky-200';
+  if (status === 'not_started') return 'bg-slate-50 text-slate-500 border-slate-200';
+  return 'bg-amber-50 text-amber-700 border-amber-200';
+}
+
+function pipelineLabel(status: string): string {
+  if (status === 'idle') return 'Proof-task fallback';
+  if (status === 'done') return 'Deeper graph ready';
+  if (status === 'partial') return 'Partially decomposed';
+  if (status === 'failed') return 'Fallback active';
+  if (status === 'running') return 'Breaking down topics';
+  return formatLabel(status);
 }
 
 function ScoreBar({ label, value }: { label: string; value: number }) {
@@ -99,7 +124,6 @@ function WorkspacePlaceholder({
 
 export default function TargetRoleWorkspace() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [targetRole, setTargetRole] = useState<TargetRole | null>(null);
   const [roleProfile, setRoleProfile] = useState<RoleMarketProfile | null>(null);
   const [evidenceProfile, setEvidenceProfile] = useState<CandidateEvidenceProfile | null>(null);
@@ -115,6 +139,13 @@ export default function TargetRoleWorkspace() {
   const [planError, setPlanError] = useState('');
   const [sprintBusy, setSprintBusy] = useState(false);
   const [sprintError, setSprintError] = useState('');
+  const [sprintSuccess, setSprintSuccess] = useState('');
+  const [decompositionStatus, setDecompositionStatus] = useState<TargetRoleDecompositionStatusResponse | null>(null);
+  const [decompositionBusy, setDecompositionBusy] = useState(false);
+  const [decompositionError, setDecompositionError] = useState('');
+  const [proofEvidenceStatus, setProofEvidenceStatus] = useState<ProofEvidenceStatusResponse | null>(null);
+  const [proofEvidenceBusy, setProofEvidenceBusy] = useState(false);
+  const [proofEvidenceError, setProofEvidenceError] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -124,16 +155,25 @@ export default function TargetRoleWorkspace() {
     setLoading(true);
     getTargetRole(id)
       .then(async (role) => {
-        const [profile, evidence, readiness] = await Promise.all([
+        const [profile, evidence, readiness, latestPlan, proofEvidence] = await Promise.all([
           getMarketRole(role.roleProfileId),
           getTargetRoleEvidence(role.id).catch(() => null),
           getTargetRoleReadiness(role.id).catch(() => null),
+          getLatestTargetRoleUpgradePlan(role.id).catch(() => null),
+          getTargetRoleProofEvidenceStatus(role.id).catch(() => null),
         ]);
+        const plan = latestPlan?.upgradePlan ?? null;
+        const decomposition = plan
+          ? await getTargetRoleDecompositionStatus(role.id, plan.id).catch(() => null)
+          : null;
         if (!cancelled) {
           setTargetRole(role);
           setRoleProfile(profile);
           setEvidenceProfile(evidence);
           setReadinessReport(readiness?.report ?? null);
+          setUpgradePlan(plan);
+          setDecompositionStatus(decomposition);
+          setProofEvidenceStatus(proofEvidence);
           setError('');
         }
       })
@@ -155,6 +195,20 @@ export default function TargetRoleWorkspace() {
     };
   }, [id]);
 
+  useEffect(() => {
+    if (!targetRole || !upgradePlan || decompositionStatus?.pipelineStatus !== 'running') {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      getTargetRoleDecompositionStatus(targetRole.id, upgradePlan.id)
+        .then((status) => {
+          setDecompositionStatus(status);
+        })
+        .catch(() => {});
+    }, 2500);
+    return () => window.clearInterval(interval);
+  }, [targetRole, upgradePlan, decompositionStatus?.pipelineStatus]);
+
   const handleGenerateReadiness = async () => {
     if (!targetRole) return;
     setReadinessBusy(true);
@@ -169,6 +223,7 @@ export default function TargetRoleWorkspace() {
       setProofError('');
       setUpgradePlan(null);
       setPlanError('');
+      setProofEvidenceStatus(await getTargetRoleProofEvidenceStatus(targetRole.id).catch(() => null));
       setTargetRole((current) =>
         current
           ? {
@@ -233,6 +288,7 @@ export default function TargetRoleWorkspace() {
         proofRecommendations: result.upgradePlan.proofTasks,
         meta: result.upgradePlan.meta,
       });
+      setDecompositionStatus(await getTargetRoleDecompositionStatus(targetRole.id, result.upgradePlan.id).catch(() => null));
       setTargetRole((current) =>
         current
           ? {
@@ -261,6 +317,7 @@ export default function TargetRoleWorkspace() {
     if (!targetRole || !upgradePlan) return;
     setSprintBusy(true);
     setSprintError('');
+    setSprintSuccess('');
     try {
       const result = await startTargetRoleUpgradeSprint(targetRole.id, upgradePlan.id);
       setUpgradePlan((current) =>
@@ -282,7 +339,9 @@ export default function TargetRoleWorkspace() {
             }
           : current,
       );
-      navigate(result.todayUrl);
+      setSprintSuccess('Execution sprint is ready. Proof tasks are available today, and you can add a deeper topic breakdown from this workspace.');
+      setDecompositionStatus(await getTargetRoleDecompositionStatus(targetRole.id, upgradePlan.id).catch(() => null));
+      setProofEvidenceStatus(await getTargetRoleProofEvidenceStatus(targetRole.id).catch(() => null));
     } catch (err: any) {
       const status = err?.response?.status;
       const apiError = err?.response?.data?.error;
@@ -297,6 +356,71 @@ export default function TargetRoleWorkspace() {
       setSprintError(message);
     } finally {
       setSprintBusy(false);
+    }
+  };
+
+  const handleDecomposeUpgradePlan = async (retryMode = false) => {
+    if (!targetRole || !upgradePlan) return;
+    setDecompositionBusy(true);
+    setDecompositionError('');
+    try {
+      const result = retryMode
+        ? await retryTargetRoleUpgradePlanDecomposition(targetRole.id, upgradePlan.id)
+        : await decomposeTargetRoleUpgradePlan(targetRole.id, upgradePlan.id);
+      setDecompositionStatus(result);
+      if (result.goalId) {
+        setUpgradePlan((current) =>
+          current
+            ? {
+                ...current,
+                linkedGoalId: result.goalId,
+              }
+            : current,
+        );
+        setTargetRole((current) =>
+          current
+            ? {
+                ...current,
+                linkedGoalId: result.goalId,
+              }
+            : current,
+        );
+      }
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const apiError = err?.response?.data?.error;
+      const message =
+        typeof apiError === 'string'
+          ? apiError
+          : apiError?.message ?? (
+              status === 402
+                ? 'Deeper topic breakdowns are available on the Sprint plan.'
+                : 'Could not start topic breakdown right now.'
+            );
+      setDecompositionError(message);
+    } finally {
+      setDecompositionBusy(false);
+    }
+  };
+
+  const handlePublishProofEvidence = async () => {
+    if (!targetRole) return;
+    setProofEvidenceBusy(true);
+    setProofEvidenceError('');
+    try {
+      const result = await publishTargetRoleProofEvidence(targetRole.id);
+      setProofEvidenceStatus(result);
+      const evidence = await getTargetRoleEvidence(targetRole.id).catch(() => null);
+      if (evidence) setEvidenceProfile(evidence);
+    } catch (err: any) {
+      const apiError = err?.response?.data?.error;
+      const message =
+        typeof apiError === 'string'
+          ? apiError
+          : apiError?.message ?? 'Could not add proof to Evidence Vault right now.';
+      setProofEvidenceError(message);
+    } finally {
+      setProofEvidenceBusy(false);
     }
   };
 
@@ -429,6 +553,88 @@ export default function TargetRoleWorkspace() {
           </div>
         </SurfaceCard>
       </section>
+
+      <SurfaceCard p={{ base: 5, md: 6 }} className="relative overflow-hidden">
+        <div className="absolute -right-20 -bottom-20 h-56 w-56 rounded-full bg-emerald-100 blur-3xl" />
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                Evidence Vault
+              </p>
+              {proofEvidenceStatus?.reassessRecommended && (
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+                  Reassess recommended
+                </span>
+              )}
+            </div>
+            <h2 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+              Turn completed proof work into readiness evidence.
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
+              {proofEvidenceStatus?.message ?? 'Complete proof tasks in Today, then add them here so the next readiness report can judge your improved evidence.'}
+            </p>
+            {proofEvidenceStatus?.latestEvidenceAt && (
+              <p className="mt-2 text-xs font-bold text-slate-400">
+                Latest proof evidence: {formatDate(proofEvidenceStatus.latestEvidenceAt)}
+              </p>
+            )}
+            {proofEvidenceError && (
+              <p className="mt-3 rounded-2xl border border-red-100 bg-red-50 p-3 text-sm font-bold leading-6 text-red-700">
+                {proofEvidenceError}
+              </p>
+            )}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[420px]">
+            <div className="rounded-3xl bg-slate-950 p-4 text-white">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-white/45">
+                Evidence claims
+              </p>
+              <p className="mt-2 text-3xl font-black">{proofEvidenceStatus?.evidenceClaimCount ?? 0}</p>
+            </div>
+            <div className="rounded-3xl bg-sky-50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
+                Ready to add
+              </p>
+              <p className="mt-2 text-3xl font-black text-slate-950">{proofEvidenceStatus?.publishableArtifactCount ?? 0}</p>
+            </div>
+            <div className="rounded-3xl bg-emerald-50 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+                Published
+              </p>
+              <p className="mt-2 text-3xl font-black text-slate-950">{proofEvidenceStatus?.publishedArtifactCount ?? 0}</p>
+            </div>
+          </div>
+        </div>
+        <div className="relative mt-5 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={handlePublishProofEvidence}
+            disabled={proofEvidenceBusy || proofEvidenceStatus?.publishableArtifactCount === 0}
+            className="inline-flex rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {proofEvidenceBusy ? 'Adding proof...' : 'Add proof to Evidence Vault'}
+          </button>
+          {proofEvidenceStatus?.reassessRecommended && (
+            <button
+              type="button"
+              onClick={handleGenerateReadiness}
+              disabled={readinessBusy}
+              className="inline-flex rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {readinessBusy ? 'Refreshing...' : 'Refresh readiness with new proof'}
+            </button>
+          )}
+          {proofEvidenceStatus?.linkedGoalId && (
+            <Link
+              to={`/goals/${proofEvidenceStatus.linkedGoalId}?source=target-role`}
+              className="inline-flex rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:-translate-y-0.5"
+            >
+              Review proof tasks
+            </Link>
+          )}
+        </div>
+      </SurfaceCard>
 
       {readinessReport ? (
         <section className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
@@ -671,6 +877,14 @@ export default function TargetRoleWorkspace() {
                 </Link>
               </div>
             )}
+            {sprintSuccess && (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-800">
+                <span>{sprintSuccess}</span>
+                <Link to="/today" className="rounded-full bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+                  Go to Today
+                </Link>
+              </div>
+            )}
             <div className="mt-5 grid gap-4 lg:grid-cols-3">
               <div className="rounded-3xl bg-slate-950 p-5 text-white">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-white/45">
@@ -694,6 +908,112 @@ export default function TargetRoleWorkspace() {
                   {upgradePlan.proofTasks.length}
                 </p>
               </div>
+            </div>
+            <div className="mt-5 rounded-[28px] border border-slate-100 bg-white/88 p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                      Topic breakdown
+                    </p>
+                    <span className={`rounded-full border px-3 py-1 text-xs font-black ${
+                      decompositionStatus
+                        ? decompositionTone(decompositionStatus.pipelineStatus === 'done' ? 'completed' : decompositionStatus.pipelineStatus)
+                        : decompositionTone('not_started')
+                    }`}>
+                      {pipelineLabel(decompositionStatus?.pipelineStatus ?? 'idle')}
+                    </span>
+                  </div>
+                  <h3 className="mt-2 text-xl font-black tracking-[-0.04em] text-slate-950">
+                    Keep fallback proof tasks, add deeper study nodes when needed.
+                  </h3>
+                  <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
+                    {decompositionStatus?.message ?? 'Your proof tasks work immediately. Topic Engine can turn the plan into a richer concept graph without blocking the sprint.'}
+                  </p>
+                  {decompositionStatus && (
+                    <p className="mt-2 text-xs font-bold text-slate-400">
+                      Timeout {decompositionStatus.config.requestTimeoutMs}ms · {decompositionStatus.config.maxAttempts} attempt{decompositionStatus.config.maxAttempts === 1 ? '' : 's'} · {decompositionStatus.config.topicConcurrency} topic{decompositionStatus.config.topicConcurrency === 1 ? '' : 's'} at a time
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleDecomposeUpgradePlan(false)}
+                    disabled={decompositionBusy || decompositionStatus?.pipelineStatus === 'running' || decompositionStatus?.canStart === false}
+                    className="inline-flex rounded-2xl bg-sky-600 px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {decompositionBusy && !decompositionStatus?.canRetry ? 'Starting...' : 'Build topic graph'}
+                  </button>
+                  {decompositionStatus?.canRetry && (
+                    <button
+                      type="button"
+                      onClick={() => handleDecomposeUpgradePlan(true)}
+                      disabled={decompositionBusy}
+                      className="inline-flex rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-black text-amber-800 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {decompositionBusy ? 'Retrying...' : 'Retry failed topics'}
+                    </button>
+                  )}
+                  {decompositionStatus?.goalId && (
+                    <Link
+                      to={`/goals/${decompositionStatus.goalId}?source=target-role`}
+                      className="inline-flex rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:-translate-y-0.5"
+                    >
+                      Open goal
+                    </Link>
+                  )}
+                </div>
+              </div>
+              {decompositionError && (
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-800">
+                  {decompositionError}{' '}
+                  <Link to="/pricing?source=career-market-topic-breakdown" className="underline">
+                    See Sprint plan
+                  </Link>
+                </div>
+              )}
+              {decompositionStatus && (
+                <div className="mt-5 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                      Study nodes
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-slate-950">{decompositionStatus.nodesCreated}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                      Fallback tasks
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-slate-950">{decompositionStatus.fallbackTaskCount}</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                      Topics ready
+                    </p>
+                    <p className="mt-2 text-2xl font-black text-slate-950">
+                      {decompositionStatus.topics.filter((topic) => topic.status === 'completed').length}/{decompositionStatus.topics.length}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {decompositionStatus?.topics.length ? (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {decompositionStatus.topics.map((topic) => (
+                    <div key={`${topic.topicId ?? topic.title}-${topic.status}`} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <p className="text-sm font-black leading-6 text-slate-800">{topic.title}</p>
+                        <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${decompositionTone(topic.status)}`}>
+                          {topic.usingFallback ? 'fallback active' : formatLabel(topic.status)}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs font-bold text-slate-500">
+                        {topic.nodesCreated} node{topic.nodesCreated === 1 ? '' : 's'} {topic.error ? `· ${topic.error}` : ''}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
             <div className="mt-5 grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
               <div className="space-y-3">

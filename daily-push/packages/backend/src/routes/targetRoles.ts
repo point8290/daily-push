@@ -14,11 +14,22 @@ import {
   persistRoleReadinessReport,
 } from '../services/roleReadiness';
 import { buildGapToProofRecommendations } from '../services/gapToProof';
-import { createUpgradePlanForTargetRole } from '../services/upgradePlans';
+import {
+  createUpgradePlanForTargetRole,
+  getLatestUpgradePlanForTargetRole,
+} from '../services/upgradePlans';
 import {
   createGoalFromTargetRoleUpgradePlan,
   startSprintFromTargetRoleUpgradePlan,
 } from '../services/targetRoleExecutionAdapter';
+import {
+  getTargetRoleDecompositionStatus,
+  startTargetRoleDecomposition,
+} from '../services/targetRoleDecomposition';
+import {
+  getTargetRoleProofEvidenceStatus,
+  publishTargetRoleProofEvidence,
+} from '../services/proofEvidence';
 import {
   assertEntitlementEnabled,
   assertQuotaAvailable,
@@ -220,6 +231,26 @@ router.post(
   },
 );
 
+router.get(
+  '/:id/upgrade-plan',
+  requireAuth,
+  requireRoleMarketFeature('role_readiness_report'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const targetRoleId = assertUuid(String(req.params.id));
+      const upgradePlan = await getLatestUpgradePlanForTargetRole(userId, targetRoleId);
+      if (!upgradePlan) {
+        res.status(404).json({ error: 'Upgrade plan not found', code: 'not_found' });
+        return;
+      }
+      res.json({ upgradePlan });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 router.post(
   '/:id/create-goal',
   requireAuth,
@@ -260,6 +291,72 @@ router.post(
   },
 );
 
+router.get(
+  '/:id/upgrade-plans/:planId/decomposition',
+  requireAuth,
+  requireRoleMarketFeature('role_readiness_report'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const targetRoleId = assertUuid(String(req.params.id));
+      const upgradePlanId = assertUuid(String(req.params.planId));
+      res.json(await getTargetRoleDecompositionStatus({
+        userId,
+        targetRoleId,
+        upgradePlanId,
+      }));
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.post(
+  '/:id/upgrade-plans/:planId/decompose',
+  requireAuth,
+  requireRoleMarketFeature('role_readiness_report'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const targetRoleId = assertUuid(String(req.params.id));
+      const upgradePlanId = assertUuid(String(req.params.planId));
+      await assertEntitlementEnabled(userId, 'premium_sprints.enabled');
+      const response = await startTargetRoleDecomposition({
+        userId,
+        targetRoleId,
+        upgradePlanId,
+        retryMode: false,
+      });
+      res.status(response.accepted ? 202 : 200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.post(
+  '/:id/upgrade-plans/:planId/decompose/retry',
+  requireAuth,
+  requireRoleMarketFeature('role_readiness_report'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const targetRoleId = assertUuid(String(req.params.id));
+      const upgradePlanId = assertUuid(String(req.params.planId));
+      await assertEntitlementEnabled(userId, 'premium_sprints.enabled');
+      const response = await startTargetRoleDecomposition({
+        userId,
+        targetRoleId,
+        upgradePlanId,
+        retryMode: true,
+      });
+      res.status(response.accepted ? 202 : 200).json(response);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 router.post(
   '/:id/upgrade-plans/:planId/start-sprint',
   requireAuth,
@@ -291,6 +388,49 @@ router.post(
       });
 
       res.status(result.reusedSprint ? 200 : 201).json(result);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/:id/proof-evidence',
+  requireAuth,
+  requireRoleMarketFeature('role_readiness_report'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const targetRoleId = assertUuid(String(req.params.id));
+      res.json(await getTargetRoleProofEvidenceStatus(userId, targetRoleId));
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.post(
+  '/:id/proof-evidence/publish',
+  requireAuth,
+  requireRoleMarketFeature('role_readiness_report'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const targetRoleId = assertUuid(String(req.params.id));
+      const response = await publishTargetRoleProofEvidence(userId, targetRoleId);
+
+      void trackProductEvent({
+        userId,
+        eventKey: 'role_proof_evidence_added',
+        properties: {
+          targetRoleId,
+          publishedCount: response.publishedCount,
+          evidenceClaimCount: response.evidenceClaimCount,
+          reassessRecommended: response.reassessRecommended,
+        },
+      });
+
+      res.status(response.publishedCount > 0 ? 201 : 200).json(response);
     } catch (error) {
       next(error);
     }

@@ -7,6 +7,8 @@ import type {
   GapToProofResponse,
   ListRolesQuery,
   ListRolesResponse,
+  ProofEvidenceStatusResponse,
+  PublishProofEvidenceResponse,
   CreateTargetRoleRequest,
   CreateTargetRoleResponse,
   GenerateReadinessResponse,
@@ -14,6 +16,8 @@ import type {
   RoleReadinessReport,
   RoleRecommendationResponse,
   StartUpgradePlanSprintResponse,
+  StartTargetRoleDecompositionResponse,
+  TargetRoleDecompositionStatusResponse,
   TargetRole,
   UpgradePlan,
 } from "@daily-push/shared";
@@ -26,13 +30,18 @@ export type {
   GapToProofResponse,
   GenerateReadinessResponse,
   ListRolesResponse,
+  ProofEvidenceStatusResponse,
   ProofRecommendation,
+  PublishProofEvidenceResponse,
   RoleMarketCard,
   RoleMarketProfile,
   RoleReadinessReport,
   RoleRecommendation,
   RoleRecommendationResponse,
   StartUpgradePlanSprintResponse,
+  StartTargetRoleDecompositionResponse,
+  TargetRoleDecompositionStatusResponse,
+  TargetRoleDecompositionTopic,
   TargetRole,
   UpgradePlan,
 } from "@daily-push/shared";
@@ -683,6 +692,10 @@ export const createTargetRoleUpgradePlan = (
   api
     .post(`/target-roles/${id}/create-upgrade-plan`, data)
     .then((r) => r.data as CreateUpgradePlanResponse);
+export const getLatestTargetRoleUpgradePlan = (id: string) =>
+  api
+    .get(`/target-roles/${id}/upgrade-plan`)
+    .then((r) => r.data as { upgradePlan: UpgradePlan });
 export const createTargetRoleGoal = (
   id: string,
   data: { upgradePlanId?: string } = {},
@@ -697,6 +710,35 @@ export const startTargetRoleUpgradeSprint = (
   api
     .post(`/target-roles/${id}/upgrade-plans/${upgradePlanId}/start-sprint`)
     .then((r) => r.data as StartUpgradePlanSprintResponse);
+export const getTargetRoleProofEvidenceStatus = (id: string) =>
+  api
+    .get(`/target-roles/${id}/proof-evidence`)
+    .then((r) => r.data as ProofEvidenceStatusResponse);
+export const publishTargetRoleProofEvidence = (id: string) =>
+  api
+    .post(`/target-roles/${id}/proof-evidence/publish`)
+    .then((r) => r.data as PublishProofEvidenceResponse);
+export const getTargetRoleDecompositionStatus = (
+  id: string,
+  upgradePlanId: string,
+) =>
+  api
+    .get(`/target-roles/${id}/upgrade-plans/${upgradePlanId}/decomposition`)
+    .then((r) => r.data as TargetRoleDecompositionStatusResponse);
+export const decomposeTargetRoleUpgradePlan = (
+  id: string,
+  upgradePlanId: string,
+) =>
+  api
+    .post(`/target-roles/${id}/upgrade-plans/${upgradePlanId}/decompose`)
+    .then((r) => r.data as StartTargetRoleDecompositionResponse);
+export const retryTargetRoleUpgradePlanDecomposition = (
+  id: string,
+  upgradePlanId: string,
+) =>
+  api
+    .post(`/target-roles/${id}/upgrade-plans/${upgradePlanId}/decompose/retry`)
+    .then((r) => r.data as StartTargetRoleDecompositionResponse);
 export const saveTargetRole = (data: CreateTargetRoleRequest) =>
   api
     .post("/target-roles", data)

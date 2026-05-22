@@ -21,7 +21,8 @@ export interface ContractWarning {
     | "ai_summary_unavailable"
     | "partial_input"
     | "entitlement_limited"
-    | "feature_flag_disabled";
+    | "feature_flag_disabled"
+    | "dependency_unavailable";
   message: string;
 }
 
@@ -483,6 +484,70 @@ export interface StartUpgradePlanSprintResponse {
   todayUrl: string;
   reusedGoal: boolean;
   reusedSprint: boolean;
+}
+
+export type TargetRoleDecompositionTopicStatus =
+  | "not_started"
+  | "pending"
+  | "in_progress"
+  | "completed"
+  | "failed";
+
+export type TargetRoleDecompositionPipelineStatus =
+  | "idle"
+  | "running"
+  | "done"
+  | "partial"
+  | "failed";
+
+export interface TargetRoleDecompositionTopic {
+  topicId: string | null;
+  title: string;
+  status: TargetRoleDecompositionTopicStatus;
+  nodesCreated: number;
+  usingFallback: boolean;
+  error: string | null;
+}
+
+export interface TargetRoleDecompositionStatusResponse {
+  targetRoleId: string;
+  upgradePlanId: string;
+  goalId: string | null;
+  pipelineStatus: TargetRoleDecompositionPipelineStatus;
+  topics: TargetRoleDecompositionTopic[];
+  nodesCreated: number;
+  fallbackTaskCount: number;
+  canStart: boolean;
+  canRetry: boolean;
+  message: string;
+  config: {
+    requestTimeoutMs: number;
+    maxAttempts: number;
+    topicConcurrency: number;
+  };
+}
+
+export interface StartTargetRoleDecompositionResponse
+  extends TargetRoleDecompositionStatusResponse {
+  accepted: boolean;
+  retryMode: boolean;
+}
+
+export interface ProofEvidenceStatusResponse {
+  targetRoleId: string;
+  linkedGoalId: string | null;
+  evidenceClaimCount: number;
+  publishedArtifactCount: number;
+  publishableArtifactCount: number;
+  latestEvidenceAt: ISODateString | null;
+  latestReadinessReportId: string | null;
+  reassessRecommended: boolean;
+  message: string;
+}
+
+export interface PublishProofEvidenceResponse extends ProofEvidenceStatusResponse {
+  publishedCount: number;
+  publishedClaims: EvidenceClaim[];
 }
 
 export interface ApplicationWorkspace {
