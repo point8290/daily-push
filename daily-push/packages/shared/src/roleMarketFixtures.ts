@@ -75,6 +75,6 @@ export const roleRecommendationResponseFixture: RoleRecommendationResponse = {
   ],
   interpretedInput: fullStackCandidateInputFixture,
   marketCaveat:
-    "These recommendations are based on curated market signals and should be treated as directional, not guaranteed predictions.",
+    "These recommendations are based on curated market signals and should be treated as directional guidance, not a promise of hiring outcomes.",
   meta: roleMarketFixtureMeta,
 };

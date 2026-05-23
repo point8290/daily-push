@@ -1,16 +1,19 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   getMarketRoles,
   recommendMarketRoles,
   saveTargetRole,
   trackEvent,
+  trackPublicEvent,
   type CandidateRoleInput,
   type RoleMarketCard,
   type RoleRecommendation,
   type RoleRecommendationResponse,
 } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
+import { useEntitlements } from '../contexts/EntitlementsContext';
+import RoleMarketPilotFeedback from '../components/RoleMarketPilotFeedback';
 import SurfaceCard from '../components/ui/SurfaceCard';
 
 type Direction = CandidateRoleInput['preferredDirections'][number];
@@ -139,6 +142,26 @@ function formatLabel(value: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function formatDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Recently updated';
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function confidenceLabel(confidence: number): string {
+  if (confidence >= 0.8) return 'High confidence';
+  if (confidence >= 0.65) return 'Medium confidence';
+  return 'Low confidence';
+}
+
+function confidencePercent(confidence: number): string {
+  return `${Math.round(confidence * 100)}%`;
+}
+
 export function CareerMarketHeader() {
   const { user, signOut } = useAuth();
 
@@ -242,6 +265,11 @@ function RoleCard({ role }: { role: RoleMarketCard }) {
           </span>
         ))}
       </div>
+      <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
+        <span>Updated {formatDate(role.lastUpdated)}</span>
+        <span className="h-1 w-1 rounded-full bg-slate-300" />
+        <span>{confidenceLabel(role.confidence)}</span>
+      </div>
     </Link>
   );
 }
@@ -287,6 +315,9 @@ function RecommendationCard({
           </p>
           <p className="mt-1 text-xs font-bold text-white/60">
             directional
+          </p>
+          <p className="mt-3 border-t border-white/10 pt-3 text-[10px] font-black uppercase tracking-[0.14em] text-white/45">
+            {confidencePercent(recommendation.confidence)} confidence
           </p>
         </div>
       </div>
@@ -343,8 +374,10 @@ function RecommendationCard({
 }
 
 export default function CareerMarket() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { entitlements, refreshEntitlements } = useEntitlements();
   const navigate = useNavigate();
+  const landingTrackedRef = useRef(false);
   const [roles, setRoles] = useState<RoleMarketCard[]>([]);
   const [rolesLoading, setRolesLoading] = useState(true);
   const [rolesError, setRolesError] = useState('');
@@ -360,6 +393,7 @@ export default function CareerMarket() {
   const [freeTextContext, setFreeTextContext] = useState('');
   const [recommendationResponse, setRecommendationResponse] = useState<RoleRecommendationResponse | null>(null);
   const [recommendationError, setRecommendationError] = useState('');
+  const [recommendationUpgradePlan, setRecommendationUpgradePlan] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [savingRoleId, setSavingRoleId] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<StoredSelectedRole | null>(null);
@@ -386,15 +420,38 @@ export default function CareerMarket() {
   }, []);
 
   useEffect(() => {
+    if (authLoading || landingTrackedRef.current) return;
+    landingTrackedRef.current = true;
+    void trackPublicEvent({
+      eventKey: 'career_market_landing_viewed',
+      properties: {
+        source: 'career_market',
+        ctaLocation: 'page_load',
+        authenticated: Boolean(user),
+      },
+    }).catch(() => {});
+  }, [authLoading, user]);
+
+  useEffect(() => {
     if (!user) return;
     const rawIntent = sessionStorage.getItem(MARKET_SAVE_INTENT_KEY);
     if (!rawIntent) return;
     sessionStorage.removeItem(MARKET_SAVE_INTENT_KEY);
+    let intent: Record<string, unknown> = {};
+    try {
+      intent = JSON.parse(rawIntent) as Record<string, unknown>;
+    } catch {
+      intent = {};
+    }
     void trackEvent({
       eventKey: 'target_role_save_clicked',
       properties: {
-        source: 'career_market',
+        source: typeof intent.source === 'string' ? intent.source : 'career_market',
+        ctaLocation: typeof intent.roleProfileId === 'string'
+          ? 'recommendation_card_after_login'
+          : 'next_step_after_login',
         continuation: 'after_login',
+        ...(typeof intent.roleProfileId === 'string' ? { roleProfileId: intent.roleProfileId } : {}),
       },
     }).catch(() => {});
   }, [user]);
@@ -426,6 +483,10 @@ export default function CareerMarket() {
     () => currentRole.trim().length > 1 || splitList(skillsText).length > 0 || freeTextContext.trim().length > 12,
     [currentRole, freeTextContext, skillsText],
   );
+  const marketRecommendationQuota = useMemo(
+    () => entitlements.find((entry) => entry.featureKey === 'market_recommendations.daily'),
+    [entitlements],
+  );
 
   const buildInput = (): CandidateRoleInput => ({
     currentRole: currentRole.trim() || null,
@@ -444,6 +505,7 @@ export default function CareerMarket() {
     populateFromInput(input);
     setRecommendationResponse(null);
     setRecommendationError('');
+    setRecommendationUpgradePlan(null);
   };
 
   const toggleDirection = (direction: Direction) => {
@@ -471,6 +533,7 @@ export default function CareerMarket() {
 
     setSubmitting(true);
     setRecommendationError('');
+    setRecommendationUpgradePlan(null);
     try {
       const response = await recommendMarketRoles({ input: buildInput(), limit: 3 });
       setRecommendationResponse(response);
@@ -479,10 +542,30 @@ export default function CareerMarket() {
         response,
         createdAt: new Date().toISOString(),
       });
+      if (user) {
+        void refreshEntitlements().catch(() => {});
+      } else {
+        void trackPublicEvent({
+          eventKey: 'role_recommendation_generated',
+          properties: {
+            source: 'career_market',
+            ctaLocation: 'analyzer_form',
+            recommendationCount: response.recommendations.length,
+            topRoleProfileId: response.recommendations[0]?.roleProfileId ?? null,
+            targetSeniority,
+            skillCount: splitList(skillsText).length,
+            preferredDirectionCount: preferredDirections.length,
+            workStyleCount: workStyle.length,
+          },
+        }).catch(() => {});
+      }
     } catch (error: any) {
       const status = error?.response?.status;
+      setRecommendationUpgradePlan(error?.response?.data?.upgradePlan ?? null);
       setRecommendationError(
-        status === 429
+        status === 402
+          ? "You have used today's role direction checks on your current plan."
+          : status === 429
           ? 'Too many checks in a short time. Give it a minute and try again.'
           : 'Could not generate recommendations right now. Try again in a moment.',
       );
@@ -502,6 +585,7 @@ export default function CareerMarket() {
         eventKey: 'target_role_save_clicked',
         properties: {
           source: 'career_market',
+          ctaLocation: 'next_step_card',
           continuation: 'same_session',
           recommendationCount: recommendationResponse?.recommendations.length ?? 0,
         },
@@ -511,6 +595,15 @@ export default function CareerMarket() {
         source: 'career_market',
         recommendationCount: recommendationResponse?.recommendations.length ?? 0,
       }));
+      void trackPublicEvent({
+        eventKey: 'target_role_save_clicked',
+        properties: {
+          source: 'career_market',
+          ctaLocation: 'next_step_card',
+          continuation: 'signup_required',
+          recommendationCount: recommendationResponse?.recommendations.length ?? 0,
+        },
+      }).catch(() => {});
     }
   };
 
@@ -527,9 +620,27 @@ export default function CareerMarket() {
         source: 'career_market_recommendation',
         roleProfileId: recommendation.roleProfileId,
       }));
+      void trackPublicEvent({
+        eventKey: 'target_role_save_clicked',
+        properties: {
+          source: 'career_market',
+          ctaLocation: 'recommendation_card',
+          continuation: 'signup_required',
+          roleProfileId: recommendation.roleProfileId,
+        },
+      }).catch(() => {});
       navigate('/login?mode=register&next=/career-market');
       return;
     }
+
+    void trackEvent({
+      eventKey: 'target_role_save_clicked',
+      properties: {
+        source: 'career_market',
+        ctaLocation: 'recommendation_card',
+        roleProfileId: recommendation.roleProfileId,
+      },
+    }).catch(() => {});
 
     setSavingRoleId(recommendation.roleProfileId);
     setRecommendationError('');
@@ -552,6 +663,25 @@ export default function CareerMarket() {
       );
     } finally {
       setSavingRoleId(null);
+    }
+  };
+
+  const handleMarketUpgradeClick = (ctaLocation: string) => {
+    const payload = {
+      source: 'career_market',
+      ctaLocation,
+      upgradePlan: recommendationUpgradePlan,
+    };
+    if (user) {
+      void trackEvent({
+        eventKey: 'market_upgrade_clicked',
+        properties: payload,
+      }).catch(() => {});
+    } else {
+      void trackPublicEvent({
+        eventKey: 'market_upgrade_clicked',
+        properties: payload,
+      }).catch(() => {});
     }
   };
 
@@ -657,6 +787,19 @@ export default function CareerMarket() {
             <p className="mt-3 text-sm leading-7 text-slate-600">
               You do not need a job description. Add enough context for a useful first direction check.
             </p>
+
+            {user && marketRecommendationQuota && (
+              <div className="mt-4 rounded-3xl border border-slate-100 bg-slate-50 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                  Daily direction checks
+                </p>
+                <p className="mt-2 text-sm font-bold leading-7 text-slate-700">
+                  {marketRecommendationQuota.limitValue === null
+                    ? 'Unlimited checks are available on your plan.'
+                    : `${marketRecommendationQuota.remaining ?? 0} of ${marketRecommendationQuota.limitValue} checks left today.`}
+                </p>
+              </div>
+            )}
 
             {selectedRole && (
               <div className="mt-5 rounded-3xl border border-sky-100 bg-sky-50 p-4">
@@ -808,6 +951,15 @@ export default function CareerMarket() {
               {recommendationError && (
                 <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-sm font-bold text-red-700">
                   {recommendationError}
+                  {recommendationUpgradePlan && (
+                    <Link
+                      to="/pricing?source=career-market-recommendation"
+                      onClick={() => handleMarketUpgradeClick('recommendation_quota_error')}
+                      className="ml-2 underline"
+                    >
+                      Upgrade to {recommendationUpgradePlan}
+                    </Link>
+                  )}
                 </div>
               )}
 
@@ -834,6 +986,18 @@ export default function CareerMarket() {
                   <p className="mt-3 max-w-2xl text-sm leading-7 text-white/70">
                     {recommendationResponse.marketCaveat}
                   </p>
+                  <div className="mt-4 flex flex-wrap gap-2 text-xs font-black uppercase tracking-[0.14em] text-white/50">
+                    <span>Updated {formatDate(recommendationResponse.meta.generatedAt)}</span>
+                    <span className="hidden sm:inline">/</span>
+                    <span>{formatLabel(recommendationResponse.meta.sourceMode)} signals</span>
+                  </div>
+                  {recommendationResponse.quota && (
+                    <p className="mt-4 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-black text-white/70">
+                      {recommendationResponse.quota.limitValue === null
+                        ? 'Unlimited direction checks'
+                        : `${recommendationResponse.quota.remaining ?? 0} checks left today`}
+                    </p>
+                  )}
                 </SurfaceCard>
                 {recommendationResponse.recommendations.map((recommendation, index) => (
                   <RecommendationCard
@@ -845,6 +1009,11 @@ export default function CareerMarket() {
                     onSave={() => handleSaveRecommendation(recommendation)}
                   />
                 ))}
+                <RoleMarketPilotFeedback
+                  source="career_market_recommendations"
+                  ctaLocation="recommendation_results"
+                  roleProfileId={recommendationResponse.recommendations[0]?.roleProfileId ?? null}
+                />
                 <SurfaceCard p={{ base: 5, md: 6 }} className="bg-white/90">
                   <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
                     <div>

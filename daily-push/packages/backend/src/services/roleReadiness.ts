@@ -8,6 +8,8 @@ import {
   type RequirementCoverage,
   type RequirementPriority,
   type RoleMarketProfile,
+  type RoleReadinessHistoryItem,
+  type RoleReadinessHistoryResponse,
   type RoleReadinessReport,
   type RoleReadinessScoreBreakdown,
   type RoleRequirement,
@@ -27,6 +29,14 @@ interface GeneratedReadiness {
 
 interface AssessmentReportRow {
   report: RoleReadinessReport | Record<string, unknown>;
+}
+
+interface ReadinessHistoryRow {
+  assessment_id: string;
+  overall_score: number;
+  readiness_label: RoleReadinessReport['label'];
+  verdict: RoleReadinessReport['verdict'];
+  created_at: string;
 }
 
 interface AiSummaryPatch {
@@ -698,4 +708,54 @@ export async function getRoleReadinessReportById(
   if (!rows[0]?.report) return null;
   assertValidRoleReadinessReport(rows[0].report);
   return rows[0].report;
+}
+
+export async function listRoleReadinessHistory(
+  userId: string,
+  targetRoleId: string,
+  limit = 8,
+): Promise<RoleReadinessHistoryResponse> {
+  const targetRole = await getTargetRole(userId, targetRoleId);
+  if (!targetRole) {
+    const error = new Error('Target Role not found');
+    (error as Error & { statusCode?: number; code?: string }).statusCode = 404;
+    (error as Error & { statusCode?: number; code?: string }).code = 'not_found';
+    throw error;
+  }
+
+  const normalizedLimit = Math.max(1, Math.min(Math.round(limit), 20));
+  const { rows } = await pool.query<ReadinessHistoryRow>(
+    `SELECT assessment_id::text,
+            overall_score,
+            readiness_label,
+            verdict,
+            created_at::text
+       FROM candidate_readiness_history
+      WHERE user_id = $1
+        AND target_role_id = $2
+      ORDER BY created_at DESC
+      LIMIT $3`,
+    [userId, targetRoleId, normalizedLimit],
+  );
+
+  const chronological = rows.slice().reverse();
+  const withDeltas: RoleReadinessHistoryItem[] = chronological.map((row, index) => {
+    const previous = chronological[index - 1];
+    return {
+      readinessReportId: row.assessment_id,
+      score: Number(row.overall_score),
+      label: row.readiness_label,
+      verdict: row.verdict,
+      generatedAt: row.created_at,
+      scoreDeltaFromPrevious: previous
+        ? Number(row.overall_score) - Number(previous.overall_score)
+        : null,
+    };
+  });
+
+  return {
+    targetRoleId,
+    latestReadinessReportId: rows[0]?.assessment_id ?? null,
+    history: withDeltas.reverse(),
+  };
 }

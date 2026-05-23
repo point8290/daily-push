@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { pool } from '../db/postgres';
 import { config } from '../config';
-import { requireAuth, AuthRequest } from '../middleware/auth';
+import { requireAuth, AuthRequest, isOperatorEmail } from '../middleware/auth';
 import { createRateLimit } from '../middleware/rateLimit';
 import { assertBodyObject, readEmail, readRequiredString } from '../utils/requestValidation';
 
@@ -48,7 +48,15 @@ router.post('/register', authRateLimit, async (req: Request, res: Response, next
       expiresIn: '30d',
     });
 
-    res.status(201).json({ token, user: { id: user.id, email: user.email, name: user.name } });
+    res.status(201).json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        isOperator: isOperatorEmail(user.email),
+      },
+    });
   } catch (err) { next(err); }
 });
 
@@ -83,7 +91,15 @@ router.post('/login', authRateLimit, async (req: Request, res: Response, next: N
       expiresIn: '30d',
     });
 
-    res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        isOperator: isOperatorEmail(user.email),
+      },
+    });
   } catch (err) { next(err); }
 });
 
@@ -99,7 +115,10 @@ router.get('/me', requireAuth, async (req: Request, res: Response, next: NextFun
       res.status(404).json({ error: 'User not found' });
       return;
     }
-    res.json(rows[0]);
+    res.json({
+      ...rows[0],
+      isOperator: isOperatorEmail(rows[0].email),
+    });
   } catch (err) { next(err); }
 });
 

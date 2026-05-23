@@ -9,6 +9,7 @@ import {
   type ProductMetricsPremiumEvent,
   type ProductMetricsStage,
   type ProductMetricsSummary,
+  type RoleMarketPilotFeedbackSummary,
 } from '../api/client';
 import EmptyState from '../components/ui/EmptyState';
 import PageHeader from '../components/ui/PageHeader';
@@ -19,6 +20,15 @@ const WINDOW_OPTIONS = [7, 30, 60, 90];
 function formatPct(value: number | null): string {
   if (value == null) return '--';
   return `${value.toFixed(1)}%`;
+}
+
+function formatLabel(value: string): string {
+  if (!value || value === 'unknown') return 'Unknown';
+  return value
+    .split('_')
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(' ');
 }
 
 function MetricStat({
@@ -89,6 +99,152 @@ function MetricsTable({
         </table>
       </div>
     </SurfaceCard>
+  );
+}
+
+function RoleMarketPilotFeedbackPanel({
+  feedback,
+  windowDays,
+}: {
+  feedback: RoleMarketPilotFeedbackSummary;
+  windowDays: number;
+}) {
+  const hasFeedback = feedback.totalResponses > 0;
+
+  return (
+    <div className="space-y-4">
+      <SurfaceCard p={5}>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+              Role Market pilot signal
+            </p>
+            <h2
+              className="font-display text-2xl text-slate-900"
+              style={{ letterSpacing: '-0.03em' }}
+            >
+              Are candidates finding the market analyzer useful?
+            </h2>
+            <p className="max-w-3xl text-sm leading-relaxed text-slate-500">
+              Aggregated feedback from the Career Market and Target Role workspace. This avoids raw
+              user notes and focuses on decision signals for the pilot.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+            {feedback.latestFeedbackAt
+              ? `Latest feedback: ${new Date(feedback.latestFeedbackAt).toLocaleString()}`
+              : `No feedback in the last ${windowDays} days`}
+          </div>
+        </div>
+      </SurfaceCard>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricStat
+          label="Feedback responses"
+          value={feedback.totalResponses}
+          detail={`${feedback.uniqueRespondents} unique respondents`}
+        />
+        <MetricStat
+          label="Avg usefulness"
+          value={hasFeedback ? `${feedback.averageUsefulnessScore.toFixed(1)} / 5` : '--'}
+          detail="1 means low value, 5 means high value"
+        />
+        <MetricStat
+          label="Positive responses"
+          value={hasFeedback ? `${feedback.positiveResponsePct.toFixed(1)}%` : '--'}
+          detail="Scores of 4 or 5"
+        />
+        <MetricStat
+          label="Low-score responses"
+          value={hasFeedback ? `${feedback.lowScoreResponsePct.toFixed(1)}%` : '--'}
+          detail="Scores of 1 or 2"
+        />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <UsageTable
+          title="Usefulness scores"
+          subtitle="Distribution of 1-5 ratings."
+          columns={['Score', 'Responses', 'Share']}
+          rows={
+            hasFeedback ? (
+              feedback.scoreDistribution.map((row) => (
+                <tr key={row.score}>
+                  <td className="py-3 font-medium text-slate-700">{row.score} / 5</td>
+                  <td className="py-3 text-slate-600">{row.totalResponses}</td>
+                  <td className="py-3 text-slate-600">{row.responsePct.toFixed(1)}%</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={3} className="py-4 text-sm text-slate-400">
+                  No pilot feedback yet.
+                </td>
+              </tr>
+            )
+          }
+        />
+
+        <UsageTable
+          title="Feedback reasons"
+          subtitle="What users say is helping or missing."
+          columns={['Reason', 'Responses', 'Avg score']}
+          rows={
+            feedback.reasonDistribution.length > 0 ? (
+              feedback.reasonDistribution.map((row) => (
+                <tr key={row.reason}>
+                  <td className="py-3 font-medium text-slate-700">{row.label}</td>
+                  <td className="py-3 text-slate-600">
+                    {row.totalResponses} ({row.responsePct.toFixed(1)}%)
+                  </td>
+                  <td className="py-3 text-slate-600">
+                    {row.averageUsefulnessScore.toFixed(1)} / 5
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={3} className="py-4 text-sm text-slate-400">
+                  No reason data yet.
+                </td>
+              </tr>
+            )
+          }
+        />
+
+        <UsageTable
+          title="Feedback source"
+          subtitle="Where the feedback is coming from."
+          columns={['Surface', 'Responses', 'Avg score']}
+          rows={
+            feedback.sourceBreakdown.length > 0 ? (
+              feedback.sourceBreakdown.map((row) => (
+                <tr key={`${row.source}-${row.ctaLocation}`}>
+                  <td className="py-3 font-medium text-slate-700">
+                    {formatLabel(row.source)}
+                    <span className="block text-xs font-normal text-slate-400">
+                      {formatLabel(row.ctaLocation)}
+                    </span>
+                  </td>
+                  <td className="py-3 text-slate-600">
+                    {row.totalResponses} ({row.uniqueRespondents} users)
+                  </td>
+                  <td className="py-3 text-slate-600">
+                    {row.averageUsefulnessScore.toFixed(1)} / 5
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={3} className="py-4 text-sm text-slate-400">
+                  No source data yet.
+                </td>
+              </tr>
+            )
+          }
+        />
+      </div>
+    </div>
   );
 }
 
@@ -298,6 +454,11 @@ export default function ProductMetrics() {
             title="Plan feature usage"
             subtitle={`Plan-related feature events for the last ${summary.windowDays} days.`}
             rows={summary.premiumEvents}
+          />
+
+          <RoleMarketPilotFeedbackPanel
+            feedback={summary.roleMarketPilotFeedback}
+            windowDays={summary.windowDays}
           />
         </>
       ) : null}

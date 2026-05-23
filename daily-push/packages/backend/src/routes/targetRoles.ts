@@ -7,12 +7,15 @@ import {
   listTargetRoles,
   saveTargetRole,
 } from '../services/targetRoles';
+import { listResumeApplications } from '../services/jobGapAnalysis';
 import { getCandidateEvidenceProfile } from '../services/candidateEvidence';
 import {
   buildRoleReadinessReport,
   getLatestRoleReadinessReport,
+  listRoleReadinessHistory,
   persistRoleReadinessReport,
 } from '../services/roleReadiness';
+import { reassessTargetRoleReadiness } from '../services/roleReassessment';
 import { buildGapToProofRecommendations } from '../services/gapToProof';
 import {
   createUpgradePlanForTargetRole,
@@ -138,6 +141,8 @@ router.post(
           label: report.label,
           verdict: report.verdict,
           remainingReports: quota.remaining,
+          source: 'target_role_workspace',
+          ctaLocation: 'readiness_card',
         },
       });
 
@@ -171,6 +176,91 @@ router.get(
         return;
       }
       res.json({ report });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/:id/readiness-history',
+  requireAuth,
+  requireRoleMarketFeature('role_readiness_report'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const targetRoleId = assertUuid(String(req.params.id));
+      const limit = typeof req.query.limit === 'string'
+        ? Number.parseInt(req.query.limit, 10)
+        : 8;
+      res.json(await listRoleReadinessHistory(userId, targetRoleId, limit));
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.post(
+  '/:id/reassess',
+  requireAuth,
+  requireRoleMarketFeature('role_readiness_report'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const targetRoleId = assertUuid(String(req.params.id));
+      const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body)
+        ? assertBodyObject(req.body)
+        : {};
+      const previousReadinessReportId = assertUuid(
+        readRequiredString(body.previousReadinessReportId, 'previousReadinessReportId', {
+          maxLength: 80,
+        }),
+      );
+      const includeAiSummary = body.includeAiSummary === true;
+
+      await assertQuotaAvailable(userId, 'readiness_reassessments.monthly');
+      const response = await reassessTargetRoleReadiness({
+        userId,
+        targetRoleId,
+        previousReadinessReportId,
+        includeAiSummary,
+      });
+      const quota = await consumeQuota(userId, 'readiness_reassessments.monthly', {
+        source: 'target_role_reassessment',
+        properties: {
+          targetRoleId,
+          previousReadinessReportId: response.result.previousReadinessReportId,
+          newReadinessReportId: response.result.newReadinessReportId,
+          scoreDelta: response.result.scoreDelta,
+          score: response.report.score.overall,
+          label: response.report.label,
+        },
+      });
+
+      void trackProductEvent({
+        userId,
+        eventKey: 'role_reassessment_generated',
+        properties: {
+          targetRoleId,
+          previousReadinessReportId: response.result.previousReadinessReportId,
+          newReadinessReportId: response.result.newReadinessReportId,
+          scoreDelta: response.result.scoreDelta,
+          score: response.report.score.overall,
+          verdict: response.report.verdict,
+          improvedRequirementCount: response.result.improvedRequirements.length,
+          stillWeakRequirementCount: response.result.stillWeakRequirements.length,
+          remainingReassessments: quota.remaining,
+        },
+      });
+
+      res.status(201).json({
+        ...response,
+        quota: {
+          featureKey: 'readiness_reassessments.monthly',
+          remaining: quota.remaining,
+          limitValue: quota.limitValue,
+        },
+      });
     } catch (error) {
       next(error);
     }
@@ -221,6 +311,25 @@ router.post(
           topicCount: result.upgradePlan.topics.length,
           proofTaskCount: result.upgradePlan.proofTasks.length,
           nextAction: result.nextAction,
+          source: 'target_role_workspace',
+          ctaLocation: 'upgrade_plan_card',
+        },
+      });
+
+      void trackProductEvent({
+        userId,
+        eventKey: 'upgrade_plan_created',
+        properties: {
+          targetRoleId,
+          upgradePlanId: result.upgradePlan.id,
+          readinessReportId: result.upgradePlan.readinessReportId,
+          durationWeeks: result.upgradePlan.durationWeeks,
+          weeklyCommitmentHours: result.upgradePlan.weeklyCommitmentHours,
+          topicCount: result.upgradePlan.topics.length,
+          proofTaskCount: result.upgradePlan.proofTasks.length,
+          nextAction: result.nextAction,
+          source: 'target_role_workspace',
+          ctaLocation: 'upgrade_plan_card',
         },
       });
 
@@ -384,6 +493,23 @@ router.post(
           sprintId: result.sprintId,
           reusedGoal: result.reusedGoal,
           reusedSprint: result.reusedSprint,
+          source: 'target_role_workspace',
+          ctaLocation: 'upgrade_plan_card',
+        },
+      });
+
+      void trackProductEvent({
+        userId,
+        goalId: result.goalId,
+        eventKey: 'upgrade_sprint_started',
+        properties: {
+          targetRoleId,
+          upgradePlanId,
+          sprintId: result.sprintId,
+          reusedGoal: result.reusedGoal,
+          reusedSprint: result.reusedSprint,
+          source: 'target_role_workspace',
+          ctaLocation: 'upgrade_plan_card',
         },
       });
 
@@ -483,6 +609,27 @@ router.post(
 );
 
 router.get(
+  '/:id/applications',
+  requireAuth,
+  requireRoleMarketFeature('target_role_save'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const targetRoleId = assertUuid(String(req.params.id));
+      const targetRole = await getTargetRole(userId, targetRoleId);
+      if (!targetRole) {
+        res.status(404).json({ error: 'Target Role not found', code: 'not_found' });
+        return;
+      }
+
+      res.json(await listResumeApplications(userId, { targetRoleId }));
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.get(
   '/:id',
   requireAuth,
   requireRoleMarketFeature('target_role_save'),
@@ -541,6 +688,8 @@ router.post(
           roleProfileId: result.targetRole.roleProfileId,
           created: result.created,
           nextAction: result.nextAction,
+          source: 'career_market',
+          ctaLocation: 'recommendation_card',
         },
       });
 

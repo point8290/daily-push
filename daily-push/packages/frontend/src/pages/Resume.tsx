@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@chakra-ui/react';
 import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import {
@@ -8,10 +8,12 @@ import {
   createSprintFromResumeApplication,
   generateResumeApplicationTailoredResume,
   getResumeApplications,
+  getTargetRole,
   previewResumeFit,
   trackEvent,
   type ResumeApplicationWorkspace,
   type ResumeFitSnapshot,
+  type TargetRole,
 } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import { useEntitlements } from '../contexts/EntitlementsContext';
@@ -276,7 +278,9 @@ export default function Resume() {
   const { user, loading: authLoading } = useAuth();
   const { currentPlan } = useEntitlements();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const toast = useToast();
+  const targetRoleIdParam = searchParams.get('targetRoleId');
   const [resumeText, setResumeText] = useState('');
   const [jdText, setJdText] = useState('');
   const [resumeMode, setResumeMode] = useState<InputMode>('upload');
@@ -286,6 +290,7 @@ export default function Resume() {
   const [snapshot, setSnapshot] = useState<ResumeFitSnapshot | null>(null);
   const [applications, setApplications] = useState<ResumeApplicationWorkspace[]>([]);
   const [activeApplication, setActiveApplication] = useState<ResumeApplicationWorkspace | null>(null);
+  const [selectedTargetRole, setSelectedTargetRole] = useState<TargetRole | null>(null);
   const [loadingApps, setLoadingApps] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -300,6 +305,7 @@ export default function Resume() {
   const savedStatusItems = activeApplication
     ? ([
       ['Snapshot', true],
+      ['Target Role', !!activeApplication.targetRoleId],
       ['Full report', !!activeApplication.gapReport],
       ['Tailored resume', !!activeApplication.tailoredResume],
       ['Goal', !!activeApplication.linkedGoalId],
@@ -345,6 +351,24 @@ export default function Resume() {
     }).catch(() => {});
     void loadApplications();
   }, [user]);
+
+  useEffect(() => {
+    if (!user || !targetRoleIdParam) {
+      setSelectedTargetRole(null);
+      return;
+    }
+    let cancelled = false;
+    getTargetRole(targetRoleIdParam)
+      .then((role) => {
+        if (!cancelled) setSelectedTargetRole(role);
+      })
+      .catch(() => {
+        if (!cancelled) setSelectedTargetRole(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [targetRoleIdParam, user]);
 
   const handleDocumentFile = async (file: File, kind: DocumentKind) => {
     setBusy(kind === 'resume' ? 'resume-upload' : 'jd-upload');
@@ -419,6 +443,7 @@ export default function Resume() {
         jdText: normalizedJdText,
         source: resumeFileName ? 'upload' : 'manual',
         title: snapshot?.targetRole ? `${snapshot.targetRole} application` : null,
+        targetRoleId: selectedTargetRole?.id ?? null,
       });
       setActiveApplication(result.application);
       await loadApplications();
@@ -541,9 +566,9 @@ export default function Resume() {
           </div>
 
           <SurfaceCard p={{ base: 5, md: 6 }} className="bg-white/90">
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
                     Step 1
                   </p>
@@ -551,12 +576,26 @@ export default function Resume() {
                     Add your documents
                   </h2>
                 </div>
-                <p className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
-                  {user ? 'Signed in' : 'No account required'}
-                </p>
-              </div>
+                  <p className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
+                    {user ? 'Signed in' : 'No account required'}
+                  </p>
+                </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
+                {selectedTargetRole && (
+                  <div className="rounded-3xl border border-sky-100 bg-sky-50/80 p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">
+                      Linked Target Role
+                    </p>
+                    <p className="mt-2 text-sm font-black text-slate-950">
+                      {selectedTargetRole.title}
+                    </p>
+                    <p className="mt-1 text-xs leading-6 text-slate-600">
+                      This application will stay company-specific, while the Target Role keeps your broader market preparation and readiness history.
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <div className="mb-3 flex rounded-full bg-slate-100 p-1 text-xs font-black text-slate-500">
                     {(['upload', 'paste'] as const).map((mode) => (
@@ -995,7 +1034,7 @@ export default function Resume() {
                   >
                     <p className="text-sm font-black text-slate-900">{application.title}</p>
                     <p className="mt-1 text-xs text-slate-500">
-                      {application.targetRole ?? 'Target role'} - {application.linkedSprintCreatedAt ? 'Sprint created' : application.linkedGoalId ? 'Goal created' : 'Resume analysis'}
+                      {application.targetRole ?? 'Target role'} - {application.targetRoleTitle ? `Linked to ${application.targetRoleTitle}` : application.linkedSprintCreatedAt ? 'Sprint created' : application.linkedGoalId ? 'Goal created' : 'Resume analysis'}
                     </p>
                   </Link>
                 ))}

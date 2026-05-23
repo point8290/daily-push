@@ -9,10 +9,12 @@ import type {
   ListRolesResponse,
   ProofEvidenceStatusResponse,
   PublishProofEvidenceResponse,
+  ReassessmentResponse,
   CreateTargetRoleRequest,
   CreateTargetRoleResponse,
   GenerateReadinessResponse,
   RoleMarketProfile,
+  RoleReadinessHistoryResponse,
   RoleReadinessReport,
   RoleRecommendationResponse,
   StartUpgradePlanSprintResponse,
@@ -33,8 +35,10 @@ export type {
   ProofEvidenceStatusResponse,
   ProofRecommendation,
   PublishProofEvidenceResponse,
+  ReassessmentResponse,
   RoleMarketCard,
   RoleMarketProfile,
+  RoleReadinessHistoryResponse,
   RoleReadinessReport,
   RoleRecommendation,
   RoleRecommendationResponse,
@@ -47,6 +51,7 @@ export type {
 } from "@daily-push/shared";
 
 const api = axios.create({ baseURL: "/api" });
+const ANONYMOUS_EVENT_ID_KEY = "dp_anonymous_event_id";
 
 // Inject JWT on every request
 api.interceptors.request.use((config) => {
@@ -70,12 +75,44 @@ api.interceptors.response.use(
 
 export default api;
 
+function createAnonymousEventId(): string {
+  const randomId =
+    typeof globalThis.crypto?.randomUUID === "function"
+      ? globalThis.crypto.randomUUID()
+      : `anon-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  return randomId.replace(/[^a-zA-Z0-9_.:-]/g, "");
+}
+
+export function getAnonymousEventId(): string {
+  try {
+    const existing = localStorage.getItem(ANONYMOUS_EVENT_ID_KEY);
+    if (existing) return existing;
+    const created = createAnonymousEventId();
+    localStorage.setItem(ANONYMOUS_EVENT_ID_KEY, created);
+    return created;
+  } catch {
+    return createAnonymousEventId();
+  }
+}
+
 export const trackEvent = (data: {
   eventKey: string;
   goalId?: string;
   sessionId?: string;
   properties?: Record<string, unknown>;
 }) => api.post('/events', data).then((r) => r.data);
+
+export const trackPublicEvent = (data: {
+  eventKey: string;
+  properties?: Record<string, unknown>;
+  anonymousId?: string;
+}) =>
+  api
+    .post('/events/public', {
+      ...data,
+      anonymousId: data.anonymousId ?? getAnonymousEventId(),
+    })
+    .then((r) => r.data);
 
 // Auth
 export const register = (data: {
@@ -329,6 +366,8 @@ export interface GoalGapReportRecord {
 
 export interface ResumeApplicationWorkspace extends GoalGapReportRecord {
   id: string;
+  targetRoleId: string | null;
+  targetRoleTitle: string | null;
   title: string;
   linkedGoalId: string | null;
   linkedSprintCreatedAt: string | null;
@@ -667,6 +706,10 @@ export const getTargetRoleReadiness = (id: string) =>
   api
     .get(`/target-roles/${id}/readiness`)
     .then((r) => r.data as { report: RoleReadinessReport });
+export const getTargetRoleReadinessHistory = (id: string, limit = 8) =>
+  api
+    .get(`/target-roles/${id}/readiness-history`, { params: { limit } })
+    .then((r) => r.data as RoleReadinessHistoryResponse);
 export const generateTargetRoleReadiness = (
   id: string,
   data: { includeAiSummary?: boolean } = {},
@@ -674,6 +717,13 @@ export const generateTargetRoleReadiness = (
   api
     .post(`/target-roles/${id}/readiness`, data)
     .then((r) => r.data as GenerateReadinessResponse);
+export const reassessTargetRoleReadiness = (
+  id: string,
+  data: { previousReadinessReportId: string; includeAiSummary?: boolean },
+) =>
+  api
+    .post(`/target-roles/${id}/reassess`, data)
+    .then((r) => r.data as ReassessmentResponse);
 export const generateTargetRoleProofRecommendations = (
   id: string,
   data: { readinessReportId?: string; maxItems?: number } = {},
@@ -718,6 +768,10 @@ export const publishTargetRoleProofEvidence = (id: string) =>
   api
     .post(`/target-roles/${id}/proof-evidence/publish`)
     .then((r) => r.data as PublishProofEvidenceResponse);
+export const getTargetRoleApplications = (id: string) =>
+  api
+    .get(`/target-roles/${id}/applications`)
+    .then((r) => r.data as ResumeApplicationWorkspace[]);
 export const getTargetRoleDecompositionStatus = (
   id: string,
   upgradePlanId: string,
@@ -756,6 +810,7 @@ export const createResumeApplication = (data: {
   jdText: string;
   source?: "upload" | "linkedin_paste" | "manual";
   title?: string | null;
+  targetRoleId?: string | null;
 }) =>
   api
     .post("/resume/applications", data)
@@ -923,6 +978,40 @@ export interface ProductMetricsPremiumEvent {
   uniqueUsers: number;
 }
 
+export interface RoleMarketPilotFeedbackScoreBucket {
+  score: number;
+  totalResponses: number;
+  responsePct: number;
+}
+
+export interface RoleMarketPilotFeedbackReasonBucket {
+  reason: string;
+  label: string;
+  totalResponses: number;
+  responsePct: number;
+  averageUsefulnessScore: number;
+}
+
+export interface RoleMarketPilotFeedbackSourceBucket {
+  source: string;
+  ctaLocation: string;
+  totalResponses: number;
+  uniqueRespondents: number;
+  averageUsefulnessScore: number;
+}
+
+export interface RoleMarketPilotFeedbackSummary {
+  totalResponses: number;
+  uniqueRespondents: number;
+  averageUsefulnessScore: number;
+  positiveResponsePct: number;
+  lowScoreResponsePct: number;
+  latestFeedbackAt: string | null;
+  scoreDistribution: RoleMarketPilotFeedbackScoreBucket[];
+  reasonDistribution: RoleMarketPilotFeedbackReasonBucket[];
+  sourceBreakdown: RoleMarketPilotFeedbackSourceBucket[];
+}
+
 export interface ProductMetricsSummary {
   generatedAt: string;
   windowDays: number;
@@ -947,6 +1036,7 @@ export interface ProductMetricsSummary {
   };
   funnel: ProductMetricsStage[];
   premiumEvents: ProductMetricsPremiumEvent[];
+  roleMarketPilotFeedback: RoleMarketPilotFeedbackSummary;
 }
 
 export interface LlmUsageFeatureSummary {
@@ -1188,8 +1278,9 @@ export const getBillingPlanState = () =>
 export const createCheckoutSession = (
   planKey: "pro" | "sprint",
   intervalKey: "month" | "year" = "month",
+  source?: string | null,
 ) =>
-  api.post("/billing/checkout-session", { planKey, intervalKey }).then(
+  api.post("/billing/checkout-session", { planKey, intervalKey, source }).then(
     (r) =>
       r.data as {
         checkoutSessionId: string;

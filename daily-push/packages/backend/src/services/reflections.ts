@@ -72,13 +72,17 @@ export async function isReflectionDue(goalId: string): Promise<boolean> {
 
   const goal = await db.collection('goals').findOne(
     { _id: id },
-    { projection: { reflections: { $slice: -1 } } }
+    { projection: { status: 1, createdAt: 1, updatedAt: 1, reflections: { $slice: -1 } } }
   );
 
   if (!goal || goal.status !== 'active') return false;
 
   const reflections = goal.reflections ?? [];
-  if (reflections.length === 0) return true;
+  if (reflections.length === 0) {
+    const createdAt = new Date(goal.createdAt ?? goal.updatedAt ?? 0);
+    const daysSinceCreated = (Date.now() - createdAt.getTime()) / (24 * 60 * 60 * 1000);
+    return Number.isFinite(daysSinceCreated) && daysSinceCreated >= 7;
+  }
 
   const lastReflection = reflections[reflections.length - 1];
   const lastAt = new Date(lastReflection.createdAt ?? 0);

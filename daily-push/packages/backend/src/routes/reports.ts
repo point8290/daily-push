@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { requireAuth, AuthRequest } from '../middleware/auth';
+import { requireAuth, requireOperator, AuthRequest } from '../middleware/auth';
 import { requireEntitlement } from '../middleware/requireEntitlement';
 import { getLlmUsageSummary } from '../services/llmUsage';
 import { getProductMetricsSummary } from '../services/productMetrics';
@@ -45,6 +45,7 @@ router.get(
 router.get(
   '/product-metrics',
   requireAuth,
+  requireOperator,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { userId } = req as AuthRequest;
@@ -77,6 +78,7 @@ router.get(
 router.get(
   '/ai-usage',
   requireAuth,
+  requireOperator,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { userId } = req as AuthRequest;

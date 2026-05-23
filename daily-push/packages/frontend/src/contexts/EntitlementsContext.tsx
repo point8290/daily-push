@@ -16,6 +16,7 @@ interface EntitlementsContextValue {
   startCheckout: (
     planKey: "pro" | "sprint",
     intervalKey?: "month" | "year",
+    source?: string | null,
   ) => Promise<{ mode: "manual" | "external"; url: string }>;
   openBillingPortal: () => Promise<{ url: string; mode: "manual" | "external" }>;
 }
@@ -54,8 +55,9 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
   const startCheckout = async (
     planKey: "pro" | "sprint",
     intervalKey: "month" | "year" = "month",
+    source?: string | null,
   ) => {
-    const result = await createCheckoutSession(planKey, intervalKey);
+    const result = await createCheckoutSession(planKey, intervalKey, source);
     if (result.mode === 'manual') {
       await refreshEntitlements();
     }

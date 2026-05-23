@@ -41,9 +41,9 @@ import {
 
 const router = Router();
 
-function assertUuid(value: string): string {
+function assertUuid(value: string, message = "Invalid resume application id"): string {
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
-    const error = new Error("Invalid resume application id");
+    const error = new Error(message);
     (error as Error & { statusCode?: number }).statusCode = 400;
     throw error;
   }
@@ -280,6 +280,12 @@ router.post(
               "linkedin_paste",
             ] as const);
       const title = readOptionalString(body.title, "title", { maxLength: 255 });
+      const targetRoleId = body.targetRoleId === undefined || body.targetRoleId === null
+        ? null
+        : assertUuid(
+            readOptionalString(body.targetRoleId, "targetRoleId", { maxLength: 80 }) ?? "",
+            "Invalid Target Role id",
+          );
 
       const currentApplications = await listResumeApplications(userId);
       await assertBelowStateLimit(
@@ -295,6 +301,7 @@ router.post(
         jdText,
         source,
         title,
+        targetRoleId,
       });
 
       void trackProductEvent({
@@ -302,6 +309,7 @@ router.post(
         eventKey: "resume_analysis_saved",
         properties: {
           applicationId: application.id,
+          targetRoleId: application.targetRoleId,
           targetRole: application.targetRole,
           remainingReports: quota.remaining,
         },

@@ -61,6 +61,7 @@ export default function ResumeApplication() {
   const statusItems = useMemo(() => {
     if (!application) return [];
     return [
+      ['Target Role', !!application.targetRoleId],
       ['Full report', !!application.gapReport],
       ['Tailored resume', !!application.tailoredResume],
       ['Goal', !!application.linkedGoalId],
@@ -213,6 +214,11 @@ export default function ResumeApplication() {
                 Open goal
               </Link>
             ) : null}
+            {application.targetRoleId ? (
+              <Link to={`/target-roles/${application.targetRoleId}`} className="rounded-full border border-black/10 px-4 py-2 text-sm font-black text-slate-700 hover:border-sky-200 hover:text-sky-700">
+                Open Target Role
+              </Link>
+            ) : null}
           </>
         )}
       />
@@ -227,6 +233,30 @@ export default function ResumeApplication() {
               </Link>
             ) : null}
           </p>
+        </SurfaceCard>
+      )}
+
+      {application.targetRoleId && (
+        <SurfaceCard p={5} className="border-sky-100 bg-sky-50/80">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">
+                Linked Target Role
+              </p>
+              <h2 className="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-950">
+                {application.targetRoleTitle ?? application.targetRole ?? 'Target Role'}
+              </h2>
+              <p className="mt-2 text-sm leading-7 text-slate-600">
+                This workspace is for one company/job description. The linked Target Role tracks the broader market direction, proof work, and readiness over time.
+              </p>
+            </div>
+            <Link
+              to={`/target-roles/${application.targetRoleId}`}
+              className="inline-flex rounded-full bg-white px-4 py-2 text-sm font-black text-sky-700 shadow-sm"
+            >
+              View role workspace
+            </Link>
+          </div>
         </SurfaceCard>
       )}
 

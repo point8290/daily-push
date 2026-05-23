@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   getMarketRole,
   trackEvent,
+  trackPublicEvent,
   type RoleMarketProfile,
 } from '../api/client';
 import SurfaceCard from '../components/ui/SurfaceCard';
@@ -55,7 +56,8 @@ function DetailSection({
 
 export default function RoleMarketDetail() {
   const { roleId } = useParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const viewedRoleIdRef = useRef<string | null>(null);
   const [role, setRole] = useState<RoleMarketProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -73,6 +75,7 @@ export default function RoleMarketDetail() {
         eventKey: 'target_role_save_clicked',
         properties: {
           source: 'role_detail',
+          ctaLocation: 'hero_save_direction',
           roleProfileId: role.id,
         },
       }).catch(() => {});
@@ -81,6 +84,15 @@ export default function RoleMarketDetail() {
         source: 'role_detail',
         roleProfileId: role.id,
       }));
+      void trackPublicEvent({
+        eventKey: 'target_role_save_clicked',
+        properties: {
+          source: 'role_detail',
+          ctaLocation: 'hero_save_direction',
+          continuation: 'signup_required',
+          roleProfileId: role.id,
+        },
+      }).catch(() => {});
     }
   };
 
@@ -105,6 +117,24 @@ export default function RoleMarketDetail() {
       cancelled = true;
     };
   }, [roleId]);
+
+  useEffect(() => {
+    if (authLoading || !role || viewedRoleIdRef.current === role.id) return;
+    viewedRoleIdRef.current = role.id;
+    void trackPublicEvent({
+      eventKey: 'role_profile_viewed',
+      properties: {
+        source: 'role_detail',
+        ctaLocation: 'page_load',
+        authenticated: Boolean(user),
+        roleProfileId: role.id,
+        slug: role.slug,
+        category: role.category,
+        roleType: role.roleType,
+        aiImpact: role.aiImpact,
+      },
+    }).catch(() => {});
+  }, [authLoading, role, user]);
 
   return (
     <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_12%_8%,rgba(14,165,233,0.18),transparent_28%),radial-gradient(circle_at_88%_8%,rgba(16,185,129,0.14),transparent_24%),linear-gradient(180deg,#f8fbff_0%,#edf6ff_100%)] text-slate-950">

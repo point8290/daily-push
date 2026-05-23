@@ -206,6 +206,11 @@ export interface RoleRecommendationResponse {
   recommendations: RoleRecommendation[];
   interpretedInput: CandidateRoleInput;
   marketCaveat: string;
+  quota?: {
+    featureKey: "market_recommendations.daily";
+    remaining: number | null;
+    limitValue: number | null;
+  };
   meta: ContractMeta;
 }
 
@@ -389,6 +394,21 @@ export interface GenerateReadinessResponse {
     remaining: number | null;
     limitValue: number | null;
   };
+}
+
+export interface RoleReadinessHistoryItem {
+  readinessReportId: string;
+  score: number;
+  label: RoleReadinessReport["label"];
+  verdict: ReadinessVerdict;
+  generatedAt: ISODateString;
+  scoreDeltaFromPrevious: number | null;
+}
+
+export interface RoleReadinessHistoryResponse {
+  targetRoleId: string;
+  latestReadinessReportId: string | null;
+  history: RoleReadinessHistoryItem[];
 }
 
 export type ProofTaskType =
@@ -588,4 +608,14 @@ export interface ReassessmentResult {
   newRecommendedActions: string[];
   summary: string;
   meta: ContractMeta;
+}
+
+export interface ReassessmentResponse {
+  result: ReassessmentResult;
+  report: RoleReadinessReport;
+  quota?: {
+    featureKey: "readiness_reassessments.monthly";
+    remaining: number | null;
+    limitValue: number | null;
+  };
 }

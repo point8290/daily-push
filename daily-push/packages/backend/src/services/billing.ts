@@ -494,6 +494,7 @@ export async function createCheckoutSession(
     planKey: string;
     intervalKey?: string;
     email?: string | null;
+    source?: string | null;
   },
 ): Promise<CheckoutSessionResult> {
   if (!isBillingPlanKey(input.planKey) || input.planKey === 'free') {
@@ -531,7 +532,8 @@ export async function createCheckoutSession(
       planKey: input.planKey,
       intervalKey,
       successUrl: `${config.app.frontendUrl}/settings?checkout=success&provider=stripe&session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${config.app.frontendUrl}/pricing?checkout=cancelled`,
+      cancelUrl: `${config.app.frontendUrl}/pricing?checkout=cancelled${input.source ? `&source=${encodeURIComponent(input.source)}` : ''}`,
+      source: input.source ?? null,
     });
 
     providerSessionId = session.id;
@@ -554,6 +556,7 @@ export async function createCheckoutSession(
       JSON.stringify({
         requestedPlanKey: input.planKey,
         requestedIntervalKey: intervalKey,
+        source: input.source ?? null,
       }),
     ],
   );

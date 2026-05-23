@@ -5,7 +5,10 @@ import { pool } from '../db/postgres';
 import { callClaudeWithUsage, parseJSON } from './claude';
 import { recordLlmUsage } from './llmUsage';
 import { analyzeRepoEvidence, type RepoSummary } from './repoAnalysis';
+import { getRoleMarketProfile } from './roleMarketCatalog';
+import { getTargetRole } from './targetRoles';
 import { buildUserContext } from './userContext';
+import type { RoleMarketProfile, RoleRequirement } from '@daily-push/shared';
 
 export interface ResumeSummary {
   headline: string | null;
@@ -150,6 +153,8 @@ export interface GoalJobTargetRecord {
 
 export interface ResumeApplicationWorkspace extends GoalJobTargetRecord {
   id: string;
+  targetRoleId: string | null;
+  targetRoleTitle: string | null;
   title: string;
   linkedGoalId: string | null;
   linkedSprintCreatedAt: string | null;
@@ -188,6 +193,8 @@ interface GlobalResumeWorkspaceRow {
 interface ResumeApplicationRow {
   id: string;
   title: string | null;
+  target_role_id: string | null;
+  target_role_title: string | null;
   resume_id: string | null;
   raw_text: string | null;
   target_role: string | null;
@@ -209,6 +216,34 @@ interface ResumeRow {
   id: string;
   raw_text: string;
   parsed_data: ResumeSummary | Record<string, unknown> | null;
+}
+
+interface ApplicationTargetRoleContext {
+  id: string;
+  title: string;
+  roleProfile: RoleMarketProfile;
+}
+
+async function getApplicationTargetRoleContext(
+  userId: string,
+  targetRoleId?: string | null,
+): Promise<ApplicationTargetRoleContext | null> {
+  const normalizedTargetRoleId = trimToNull(targetRoleId);
+  if (!normalizedTargetRoleId) return null;
+
+  const targetRole = await getTargetRole(userId, normalizedTargetRoleId);
+  if (!targetRole) {
+    const error = new Error('Target Role not found');
+    (error as Error & { statusCode?: number; code?: string }).statusCode = 404;
+    (error as Error & { statusCode?: number; code?: string }).code = 'not_found';
+    throw error;
+  }
+
+  return {
+    id: targetRole.id,
+    title: targetRole.title,
+    roleProfile: getRoleMarketProfile(targetRole.roleProfileId),
+  };
 }
 
 const SKILL_PATTERNS: Array<{ label: string; patterns: RegExp[] }> = [
@@ -516,6 +551,94 @@ function normalizeJdRequirements(
     evidenceNeeded: trimToNull(item?.evidenceNeeded) ?? 'Add concrete resume evidence for this requirement.',
   }));
   return normalized.length > 0 ? normalized : buildRequirementsFromParsedJd(parsed);
+}
+
+function roleRequirementType(requirement: RoleRequirement): JdRequirement['type'] {
+  if (requirement.category === 'skill') return 'skill';
+  if (requirement.category === 'tool') return 'tool';
+  if (requirement.category === 'domain' || requirement.category === 'business_context') return 'domain';
+  if (requirement.category === 'communication') return 'soft_skill';
+  if (requirement.category === 'production' || requirement.category === 'system_design') return 'experience';
+  return 'responsibility';
+}
+
+function roleRequirementPriority(requirement: RoleRequirement): JdRequirement['priority'] {
+  if (requirement.priority === 'must_have') return 'required';
+  if (requirement.priority === 'important') return 'preferred';
+  return 'nice_to_have';
+}
+
+function roleRequirementToJdRequirement(requirement: RoleRequirement): JdRequirement {
+  return {
+    requirement: requirement.label,
+    type: roleRequirementType(requirement),
+    priority: roleRequirementPriority(requirement),
+    keywords: uniqueStrings([requirement.label, ...requirement.keywords]).slice(0, 8),
+    evidenceNeeded:
+      requirement.proofExpected[0] ??
+      `Resume evidence showing ${requirement.label.toLowerCase()}.`,
+  };
+}
+
+function mergeTargetRoleContextIntoParsedJd(
+  parsedJd: ParsedJobDescription,
+  roleProfile: RoleMarketProfile | null,
+): ParsedJobDescription {
+  if (!roleProfile) return parsedJd;
+
+  const roleRequirements = roleProfile.requirements;
+  const mustHaveRoleRequirements = roleRequirements.filter((requirement) =>
+    requirement.priority === 'must_have' &&
+    ['skill', 'tool', 'domain'].includes(requirement.category),
+  );
+  const preferredRoleRequirements = roleRequirements.filter((requirement) =>
+    requirement.priority !== 'must_have' &&
+    ['skill', 'tool', 'domain', 'ai_leverage'].includes(requirement.category),
+  );
+  const proofRoleRequirements = roleRequirements.filter((requirement) =>
+    ['production', 'system_design', 'business_context', 'communication', 'ai_leverage'].includes(requirement.category),
+  );
+  const mergedBase: ParsedJobDescription = {
+    targetRole: parsedJd.targetRole ?? roleProfile.title,
+    senioritySignal: parsedJd.senioritySignal,
+    mustHaveSkills: uniqueStrings([
+      ...parsedJd.mustHaveSkills,
+      ...mustHaveRoleRequirements.flatMap((requirement) => [
+        requirement.label,
+        ...requirement.keywords.slice(0, 3),
+      ]),
+    ]).slice(0, 18),
+    preferredSkills: uniqueStrings([
+      ...parsedJd.preferredSkills,
+      ...preferredRoleRequirements.flatMap((requirement) => [
+        requirement.label,
+        ...requirement.keywords.slice(0, 3),
+      ]),
+    ]).slice(0, 18),
+    evidenceSignals: uniqueStrings([
+      ...parsedJd.evidenceSignals,
+      ...proofRoleRequirements.map((requirement) => requirement.label),
+      ...proofRoleRequirements.flatMap((requirement) => requirement.proofExpected.slice(0, 1)),
+    ]).slice(0, 12),
+    responsibilities: uniqueStrings([
+      ...parsedJd.responsibilities,
+      ...proofRoleRequirements.map((requirement) => requirement.description),
+    ]).slice(0, 12),
+    hiringGoals: uniqueStrings([
+      ...parsedJd.hiringGoals,
+      `Match broader ${roleProfile.title} market expectations, not only this company posting.`,
+      ...roleProfile.trendSignals.slice(0, 2).map((signal) => signal.label),
+    ]).slice(0, 10),
+  };
+  const mergedRequirements = [
+    ...(parsedJd.jdRequirements ?? []),
+    ...roleRequirements.slice(0, 14).map(roleRequirementToJdRequirement),
+  ];
+
+  return {
+    ...mergedBase,
+    jdRequirements: normalizeJdRequirements(mergedRequirements, mergedBase),
+  };
 }
 
 function priorityToCoveragePriority(priority: JdRequirement['priority']): RequirementCoverageItem['priority'] {
@@ -1706,6 +1829,8 @@ function mapResumeApplicationRow(row: ResumeApplicationRow): ResumeApplicationWo
 
   return {
     id: row.id,
+    targetRoleId: trimToNull(row.target_role_id),
+    targetRoleTitle: trimToNull(row.target_role_title),
     title:
       trimToNull(row.title) ??
       `${trimToNull(row.target_role) ?? parsedJd?.targetRole ?? 'Target job'} application`,
@@ -1738,6 +1863,8 @@ async function getResumeApplicationRow(
     `SELECT
        ra.id,
        ra.title,
+       ra.target_role_id::text,
+       ctr.title AS target_role_title,
        ra.resume_id,
        ur.raw_text,
        ra.target_role,
@@ -1754,6 +1881,9 @@ async function getResumeApplicationRow(
        ra.created_at::text,
        ra.updated_at::text
      FROM resume_applications ra
+     LEFT JOIN candidate_target_roles ctr
+       ON ctr.id = ra.target_role_id
+      AND ctr.user_id = ra.user_id
      LEFT JOIN user_resume ur
        ON ur.id = ra.resume_id
      WHERE ra.user_id = $1
@@ -1766,11 +1896,15 @@ async function getResumeApplicationRow(
 
 export async function listResumeApplications(
   userId: string,
+  filters: { targetRoleId?: string | null } = {},
 ): Promise<ResumeApplicationWorkspace[]> {
+  const targetRoleId = trimToNull(filters.targetRoleId);
   const { rows } = await pool.query<ResumeApplicationRow>(
     `SELECT
        ra.id,
        ra.title,
+       ra.target_role_id::text,
+       ctr.title AS target_role_title,
        ra.resume_id,
        ur.raw_text,
        ra.target_role,
@@ -1787,12 +1921,16 @@ export async function listResumeApplications(
        ra.created_at::text,
        ra.updated_at::text
      FROM resume_applications ra
-     LEFT JOIN user_resume ur
-       ON ur.id = ra.resume_id
-     WHERE ra.user_id = $1
-     ORDER BY ra.created_at DESC
-     LIMIT 25`,
-    [userId],
+     LEFT JOIN candidate_target_roles ctr
+       ON ctr.id = ra.target_role_id
+      AND ctr.user_id = ra.user_id
+      LEFT JOIN user_resume ur
+        ON ur.id = ra.resume_id
+      WHERE ra.user_id = $1
+        AND ($2::uuid IS NULL OR ra.target_role_id = $2::uuid)
+      ORDER BY ra.created_at DESC
+      LIMIT 25`,
+    [userId, targetRoleId],
   );
   return rows.map(mapResumeApplicationRow);
 }
@@ -1812,6 +1950,7 @@ export async function createResumeApplication(
     jdText: string;
     source?: 'upload' | 'linkedin_paste' | 'manual';
     title?: string | null;
+    targetRoleId?: string | null;
   },
 ): Promise<ResumeApplicationWorkspace> {
   const rawText = input.rawText.trim();
@@ -1824,6 +1963,7 @@ export async function createResumeApplication(
   }
 
   const analysisScope = 'resume-app';
+  const targetRoleContext = await getApplicationTargetRoleContext(userId, input.targetRoleId);
   const resumeSummary = await parseResume(userId, analysisScope, rawText);
   const { rows: resumeRows } = await pool.query<{ id: string }>(
     `INSERT INTO user_resume
@@ -1834,12 +1974,20 @@ export async function createResumeApplication(
     [userId, rawText, JSON.stringify(resumeSummary), input.source ?? 'manual'],
   );
   const resumeId = resumeRows[0].id;
-  const parsedJd = await parseJobDescription(userId, analysisScope, jdText, null);
+  const parsedJd = mergeTargetRoleContextIntoParsedJd(
+    await parseJobDescription(
+      userId,
+      analysisScope,
+      jdText,
+      targetRoleContext?.title ?? null,
+    ),
+    targetRoleContext?.roleProfile ?? null,
+  );
   const gapReport = await buildGapReport({
     userId,
     goalId: analysisScope,
     goalTitle: null,
-    sprintTargetRole: parsedJd.targetRole,
+    sprintTargetRole: targetRoleContext?.title ?? parsedJd.targetRole,
     sprintTargetCompany: null,
     resumeSummary,
     parsedJd,
@@ -1848,13 +1996,14 @@ export async function createResumeApplication(
   });
   const title =
     trimToNull(input.title) ??
-    `${parsedJd.targetRole ?? 'Target job'} application`;
+    `${parsedJd.targetRole ?? targetRoleContext?.title ?? 'Target job'} application`;
 
   const { rows } = await pool.query<{ id: string }>(
     `INSERT INTO resume_applications
        (
-         user_id,
-         resume_id,
+          user_id,
+          target_role_id,
+          resume_id,
          title,
          target_role,
          target_company,
@@ -1867,10 +2016,11 @@ export async function createResumeApplication(
          updated_at
        )
      VALUES
-       ($1, $2, $3, $4, NULL, $5, $6::jsonb, $7::jsonb, $8::jsonb, NOW(), NOW(), NOW())
-     RETURNING id`,
+        ($1, $2, $3, $4, $5, NULL, $6, $7::jsonb, $8::jsonb, $9::jsonb, NOW(), NOW(), NOW())
+      RETURNING id`,
     [
       userId,
+      targetRoleContext?.id ?? null,
       resumeId,
       title,
       parsedJd.targetRole,

@@ -13,6 +13,7 @@
     "migrate": "npm run migrate --workspace=packages/backend",
     "build": "npm run build --workspace=packages/shared && npm run build --workspace=packages/backend && npm run build --workspace=packages/frontend",
     "validate:role-market-golden-fixtures": "npm run validate:golden-fixtures --workspace=packages/shared",
+    "validate:role-market-copy-safety": "npm run validate:copy-safety --workspace=packages/shared",
     "validate:role-market-recommendations": "npm run build --workspace=packages/shared && npm run validate:role-market-recommendations --workspace=packages/backend"
   }
 }

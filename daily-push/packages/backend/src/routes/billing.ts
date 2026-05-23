@@ -49,11 +49,16 @@ router.post('/checkout-session', requireAuth, async (req: Request, res: Response
     ) as BillingIntervalKey;
     const rawEmail = readOptionalString(body.email, 'email', { maxLength: 255 });
     const email = rawEmail ? readEmail(rawEmail) : null;
+    const source = readOptionalString(body.source, 'source', {
+      maxLength: 80,
+      pattern: /^[a-z0-9_.:-]+$/i,
+    });
 
     const result = await createCheckoutSession(userId, {
       planKey,
       intervalKey,
       email,
+      source,
     });
 
     void trackProductEvent({
@@ -64,8 +69,24 @@ router.post('/checkout-session', requireAuth, async (req: Request, res: Response
         intervalKey: intervalKey ?? 'month',
         provider: result.provider,
         autoActivated: result.autoActivated,
+        source,
       },
     });
+
+    if (source?.startsWith('career-market')) {
+      void trackProductEvent({
+        userId,
+        eventKey: 'checkout_started_from_market',
+        properties: {
+          planKey,
+          intervalKey: intervalKey ?? 'month',
+          provider: result.provider,
+          autoActivated: result.autoActivated,
+          source,
+          ctaLocation: source,
+        },
+      });
+    }
 
     const entitlements = await getEntitlementSummaries(userId);
     res.status(201).json({ ...result, entitlements });

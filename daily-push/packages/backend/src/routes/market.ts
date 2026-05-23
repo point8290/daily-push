@@ -8,6 +8,7 @@ import type {
   RoleType,
 } from '@daily-push/shared';
 import { config } from '../config';
+import { optionalAuth, OptionalAuthRequest } from '../middleware/auth';
 import { requireRoleMarketFeature } from '../middleware/roleMarketFeature';
 import { createRateLimit } from '../middleware/rateLimit';
 import {
@@ -15,6 +16,11 @@ import {
   listRoleMarketProfiles,
 } from '../services/roleMarketCatalog';
 import { generateRoleRecommendations } from '../services/roleMarketRecommendation';
+import {
+  assertQuotaAvailable,
+  consumeQuota,
+} from '../services/entitlements';
+import { trackProductEvent } from '../services/productEvents';
 import { assertBodyObject, ValidationError } from '../utils/requestValidation';
 
 const router = Router();
@@ -162,11 +168,55 @@ router.get(
 router.post(
   '/recommend-roles',
   requireRoleMarketFeature('role_market_public'),
+  optionalAuth,
   recommendRoleRateLimit,
-  (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const userId = (req as OptionalAuthRequest).userId;
       const request = readRecommendationRequest(req.body);
-      res.json(generateRoleRecommendations(request.input, request.limit));
+      if (userId) {
+        await assertQuotaAvailable(userId, 'market_recommendations.daily');
+      }
+
+      const response = generateRoleRecommendations(request.input, request.limit);
+      const quota = userId
+        ? await consumeQuota(userId, 'market_recommendations.daily', {
+            source: 'career_market_recommendation',
+            properties: {
+              targetSeniority: request.input.targetSeniority,
+              skillCount: request.input.skills.length,
+              preferredDirections: request.input.preferredDirections,
+              recommendationCount: response.recommendations.length,
+              topRoleProfileId: response.recommendations[0]?.roleProfileId ?? null,
+            },
+          })
+        : null;
+
+      if (userId) {
+        void trackProductEvent({
+          userId,
+          eventKey: 'role_recommendation_generated',
+          properties: {
+            source: 'career_market',
+            recommendationCount: response.recommendations.length,
+            topRoleProfileId: response.recommendations[0]?.roleProfileId ?? null,
+            remainingRecommendations: quota?.remaining ?? null,
+          },
+        });
+      }
+
+      res.json({
+        ...response,
+        ...(quota
+          ? {
+              quota: {
+                featureKey: 'market_recommendations.daily',
+                remaining: quota.remaining,
+                limitValue: quota.limitValue,
+              },
+            }
+          : {}),
+      });
     } catch (error) {
       next(error);
     }

@@ -1,4 +1,6 @@
 import {
+  collectRoleMarketProfileCopyBlocks,
+  evaluateRoleMarketCopySafety,
   assertValidRoleMarketProfile,
   roleMarketProfileFixtures,
 } from '@daily-push/shared';
@@ -7,6 +9,8 @@ import { pool } from '../db/postgres';
 import { KNOWN_ENTITLEMENT_KEYS } from './billingPlans';
 
 const ALLOWED_SOURCE_MODES = new Set(['curated', 'hybrid', 'live']);
+const MAX_MARKET_DATA_AGE_DAYS = 180;
+const MAX_MARKET_DATA_FUTURE_SKEW_DAYS = 7;
 
 interface StartupCheckFailure {
   code: string;
@@ -70,6 +74,8 @@ async function requireTables(
 function validatePublicMarketConfig(failures: StartupCheckFailure[]): void {
   if (!config.roleMarket.featurePublic) return;
 
+  requireKnownEntitlement('market_recommendations.daily', failures);
+
   if (!config.roleMarket.seedVersion.trim()) {
     failures.push({
       code: 'missing_seed_version',
@@ -82,6 +88,30 @@ function validatePublicMarketConfig(failures: StartupCheckFailure[]): void {
       code: 'missing_last_updated',
       message: 'FEATURE_ROLE_MARKET_PUBLIC=true requires ROLE_MARKET_LAST_UPDATED.',
     });
+  } else {
+    const lastUpdated = new Date(config.roleMarket.lastUpdated);
+    if (Number.isNaN(lastUpdated.getTime())) {
+      failures.push({
+        code: 'invalid_last_updated',
+        message: 'ROLE_MARKET_LAST_UPDATED must be a valid ISO timestamp.',
+      });
+    } else {
+      const ageDays = (Date.now() - lastUpdated.getTime()) / (24 * 60 * 60 * 1000);
+      if (ageDays > MAX_MARKET_DATA_AGE_DAYS) {
+        failures.push({
+          code: 'stale_market_dataset',
+          message:
+            `ROLE_MARKET_LAST_UPDATED is older than ${MAX_MARKET_DATA_AGE_DAYS} days. Refresh curated market signals before public launch.`,
+        });
+      }
+      if (ageDays < -MAX_MARKET_DATA_FUTURE_SKEW_DAYS) {
+        failures.push({
+          code: 'future_dated_market_dataset',
+          message:
+            `ROLE_MARKET_LAST_UPDATED is more than ${MAX_MARKET_DATA_FUTURE_SKEW_DAYS} days in the future. Check the configured timestamp.`,
+        });
+      }
+    }
   }
 
   if (!ALLOWED_SOURCE_MODES.has(config.roleMarket.sourceMode)) {
@@ -113,10 +143,45 @@ function validatePublicMarketConfig(failures: StartupCheckFailure[]): void {
       });
     }
   }
+
+  const copySafety = evaluateRoleMarketCopySafety(
+    roleMarketProfileFixtures.flatMap((profile) =>
+      collectRoleMarketProfileCopyBlocks(profile),
+    ),
+  );
+  if (!copySafety.valid) {
+    failures.push({
+      code: 'unsafe_market_copy',
+      message:
+        `Role Market seed copy failed safety checks: ${copySafety.findings
+          .slice(0, 5)
+          .map((finding) => `${finding.source}: ${finding.message}`)
+          .join('; ')}`,
+    });
+  }
 }
 
 export async function validateRoleMarketStartupConfig(): Promise<void> {
   const failures: StartupCheckFailure[] = [];
+
+  if (
+    !config.roleMarket.featurePublic &&
+    (config.roleMarket.featureTargetRoleSave || config.roleMarket.featureReadinessReport)
+  ) {
+    failures.push({
+      code: 'invalid_role_market_feature_dependency',
+      message:
+        'FEATURE_TARGET_ROLE_SAVE and FEATURE_ROLE_READINESS_REPORT require FEATURE_ROLE_MARKET_PUBLIC=true because they depend on curated role profiles.',
+    });
+  }
+
+  if (config.roleMarket.featureReadinessReport && !config.roleMarket.featureTargetRoleSave) {
+    failures.push({
+      code: 'invalid_role_market_feature_dependency',
+      message:
+        'FEATURE_ROLE_READINESS_REPORT=true requires FEATURE_TARGET_ROLE_SAVE=true so users can create Target Role workspaces.',
+    });
+  }
 
   validatePublicMarketConfig(failures);
 
@@ -135,6 +200,8 @@ export async function validateRoleMarketStartupConfig(): Promise<void> {
 
   if (config.roleMarket.featureReadinessReport) {
     requireKnownEntitlement('role_readiness_reports.monthly', failures);
+    requireKnownEntitlement('role_comparisons.monthly', failures);
+    requireKnownEntitlement('readiness_reassessments.monthly', failures);
     await requireTables(
       [
         'candidate_target_roles',

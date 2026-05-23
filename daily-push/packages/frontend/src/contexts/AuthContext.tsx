@@ -1,6 +1,12 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { getMe } from '../api/client';
 
-interface User { id: string; email: string; name: string; }
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  isOperator?: boolean;
+}
 
 interface AuthContextValue {
   user: User | null;
@@ -21,8 +27,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const t = localStorage.getItem('dp_token');
     const u = localStorage.getItem('dp_user');
     if (t && u) {
+      const cachedUser = JSON.parse(u) as User;
       setToken(t);
-      setUser(JSON.parse(u));
+      setUser(cachedUser);
+      getMe()
+        .then((freshUser: User) => {
+          localStorage.setItem('dp_user', JSON.stringify(freshUser));
+          setUser(freshUser);
+        })
+        .catch(() => {});
     }
     setLoading(false);
   }, []);

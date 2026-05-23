@@ -3,6 +3,7 @@ import type {
   RoleRecommendation,
   RoleTransitionPath,
 } from "./roleMarketContracts";
+import { ROLE_MARKET_BANNED_CERTAINTY_PHRASES } from "./roleMarketCopySafety";
 import { roleMarketSeedProfiles } from "./roleMarketSeedProfiles";
 import { validateCandidateRoleInput } from "./roleMarketValidation";
 
@@ -62,18 +63,6 @@ export interface GoldenRecommendationEvaluationResult {
   checks: GoldenRecommendationCheck[];
 }
 
-const defaultBannedCertaintyPhrases = [
-  "guaranteed",
-  "guarantee",
-  "certain to",
-  "will get hired",
-  "future-proof",
-  "recession-proof",
-  "cannot be automated",
-  "will not be impacted",
-  "safe forever",
-];
-
 const defaultPracticalActionVerbs = [
   "build",
   "ship",
@@ -101,7 +90,7 @@ function rubric(input: {
     requireSignalLanguageInWhyNow: true,
     personalizationRequiredTerms: input.personalizationRequiredTerms,
     practicalActionVerbs: defaultPracticalActionVerbs,
-    bannedCertaintyPhrases: defaultBannedCertaintyPhrases,
+    bannedCertaintyPhrases: ROLE_MARKET_BANNED_CERTAINTY_PHRASES,
   };
 }
 

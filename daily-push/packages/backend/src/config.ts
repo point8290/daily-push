@@ -19,6 +19,13 @@ function readBool(value: string | undefined, fallback: boolean): boolean {
   return !['false', '0', 'off', 'no'].includes(value.trim().toLowerCase());
 }
 
+function readCsv(value: string | undefined): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 export const config = {
   postgres: {
     url: process.env.POSTGRES_URL || 'postgresql://daily_push_user:daily_push_pass@localhost:5434/daily_push_v2',
@@ -65,6 +72,9 @@ export const config = {
       60 * 1000,
     ),
     eventRateLimitMax: readInt(process.env.EVENT_RATE_LIMIT_MAX, 180),
+  },
+  operators: {
+    emails: readCsv(process.env.OPERATOR_EMAILS),
   },
   billing: {
     provider: (process.env.BILLING_PROVIDER || 'manual') as 'manual' | 'stripe',

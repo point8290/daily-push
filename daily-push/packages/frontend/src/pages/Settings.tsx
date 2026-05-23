@@ -16,6 +16,7 @@ import {
   VStack,
 } from '@chakra-ui/react';
 import { getSettings, updateSettings } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
 import { useEntitlements } from '../contexts/EntitlementsContext';
 import PageHeader from '../components/ui/PageHeader';
 import SurfaceCard from '../components/ui/SurfaceCard';
@@ -61,6 +62,7 @@ function MetricCard({
 }
 
 export default function Settings() {
+  const { user } = useAuth();
   const {
     currentPlan,
     entitlements,
@@ -210,6 +212,30 @@ export default function Settings() {
             detail="Controls email summaries, recovery plans, and manager-style reporting."
           />
         </SimpleGrid>
+
+        {user?.isOperator ? (
+          <SurfaceCard p={{ base: 5, md: 6 }}>
+            <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={4}>
+              <VStack align="flex-start" spacing={1}>
+                <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+                  Operator tools
+                </Text>
+                <Text fontSize="sm" color="ink.500" lineHeight="1.7">
+                  Review product metrics, AI usage, and Role Market pilot feedback signals.
+                </Text>
+              </VStack>
+              <Button
+                as={RouterLink}
+                to="/metrics"
+                colorScheme="blue"
+                variant="outline"
+                borderColor="brand.200"
+              >
+                Open metrics
+              </Button>
+            </HStack>
+          </SurfaceCard>
+        ) : null}
 
         <SurfaceCard p={{ base: 5, md: 6 }}>
           <Stack spacing={5}>

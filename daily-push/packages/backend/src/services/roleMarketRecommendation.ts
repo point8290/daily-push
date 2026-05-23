@@ -463,7 +463,7 @@ export function generateRoleRecommendations(
     recommendations,
     interpretedInput: input,
     marketCaveat:
-      'These recommendations use curated market signals and your stated background. Treat them as directional guidance, not a guaranteed prediction.',
+      'These recommendations use curated market signals and your stated background. Treat them as directional guidance, not a promise of hiring outcomes.',
     meta: buildMeta(),
   };
 

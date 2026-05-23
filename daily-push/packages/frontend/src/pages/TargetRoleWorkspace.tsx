@@ -7,23 +7,31 @@ import {
   generateTargetRoleReadiness,
   getLatestTargetRoleUpgradePlan,
   getTargetRoleReadiness,
+  getTargetRoleReadinessHistory,
   getTargetRoleDecompositionStatus,
   getTargetRoleEvidence,
   getTargetRoleProofEvidenceStatus,
+  getTargetRoleApplications,
   getMarketRole,
   getTargetRole,
   publishTargetRoleProofEvidence,
+  reassessTargetRoleReadiness,
   retryTargetRoleUpgradePlanDecomposition,
   startTargetRoleUpgradeSprint,
+  trackEvent,
   type CandidateEvidenceProfile,
   type GapToProofResponse,
   type ProofEvidenceStatusResponse,
+  type ReassessmentResponse,
+  type ResumeApplicationWorkspace,
+  type RoleReadinessHistoryResponse,
   type RoleMarketProfile,
   type RoleReadinessReport,
   type TargetRole,
   type TargetRoleDecompositionStatusResponse,
   type UpgradePlan,
 } from '../api/client';
+import RoleMarketPilotFeedback from '../components/RoleMarketPilotFeedback';
 import SurfaceCard from '../components/ui/SurfaceCard';
 
 function formatLabel(value: string): string {
@@ -47,6 +55,18 @@ function scoreTone(score: number): string {
   if (score >= 68) return 'text-sky-700 bg-sky-50 border-sky-200';
   if (score >= 45) return 'text-amber-700 bg-amber-50 border-amber-200';
   return 'text-red-700 bg-red-50 border-red-200';
+}
+
+function deltaTone(delta: number): string {
+  if (delta > 0) return 'text-emerald-700 bg-emerald-50 border-emerald-200';
+  if (delta < 0) return 'text-red-700 bg-red-50 border-red-200';
+  return 'text-slate-600 bg-slate-50 border-slate-200';
+}
+
+function formatDelta(delta: number | null): string {
+  if (delta === null) return 'baseline';
+  if (delta > 0) return `+${delta}`;
+  return String(delta);
 }
 
 function coverageTone(status: string): string {
@@ -131,6 +151,11 @@ export default function TargetRoleWorkspace() {
   const [readinessBusy, setReadinessBusy] = useState(false);
   const [readinessError, setReadinessError] = useState('');
   const [readinessQuota, setReadinessQuota] = useState('');
+  const [readinessHistory, setReadinessHistory] = useState<RoleReadinessHistoryResponse | null>(null);
+  const [reassessment, setReassessment] = useState<ReassessmentResponse | null>(null);
+  const [reassessmentBusy, setReassessmentBusy] = useState(false);
+  const [reassessmentError, setReassessmentError] = useState('');
+  const [reassessmentQuota, setReassessmentQuota] = useState('');
   const [proofResponse, setProofResponse] = useState<GapToProofResponse | null>(null);
   const [proofBusy, setProofBusy] = useState(false);
   const [proofError, setProofError] = useState('');
@@ -144,10 +169,24 @@ export default function TargetRoleWorkspace() {
   const [decompositionBusy, setDecompositionBusy] = useState(false);
   const [decompositionError, setDecompositionError] = useState('');
   const [proofEvidenceStatus, setProofEvidenceStatus] = useState<ProofEvidenceStatusResponse | null>(null);
+  const [linkedApplications, setLinkedApplications] = useState<ResumeApplicationWorkspace[]>([]);
   const [proofEvidenceBusy, setProofEvidenceBusy] = useState(false);
   const [proofEvidenceError, setProofEvidenceError] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const trackMarketUpgradeClick = (ctaLocation: string, upgradePlanKey?: string) => {
+    void trackEvent({
+      eventKey: 'market_upgrade_clicked',
+      properties: {
+        source: 'target_role_workspace',
+        ctaLocation,
+        upgradePlan: upgradePlanKey ?? null,
+        targetRoleId: targetRole?.id ?? null,
+        roleProfileId: targetRole?.roleProfileId ?? null,
+      },
+    }).catch(() => {});
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -155,12 +194,14 @@ export default function TargetRoleWorkspace() {
     setLoading(true);
     getTargetRole(id)
       .then(async (role) => {
-        const [profile, evidence, readiness, latestPlan, proofEvidence] = await Promise.all([
+        const [profile, evidence, readiness, history, latestPlan, proofEvidence, applications] = await Promise.all([
           getMarketRole(role.roleProfileId),
           getTargetRoleEvidence(role.id).catch(() => null),
           getTargetRoleReadiness(role.id).catch(() => null),
+          getTargetRoleReadinessHistory(role.id).catch(() => null),
           getLatestTargetRoleUpgradePlan(role.id).catch(() => null),
           getTargetRoleProofEvidenceStatus(role.id).catch(() => null),
+          getTargetRoleApplications(role.id).catch(() => []),
         ]);
         const plan = latestPlan?.upgradePlan ?? null;
         const decomposition = plan
@@ -171,9 +212,11 @@ export default function TargetRoleWorkspace() {
           setRoleProfile(profile);
           setEvidenceProfile(evidence);
           setReadinessReport(readiness?.report ?? null);
+          setReadinessHistory(history);
           setUpgradePlan(plan);
           setDecompositionStatus(decomposition);
           setProofEvidenceStatus(proofEvidence);
+          setLinkedApplications(applications);
           setError('');
         }
       })
@@ -214,6 +257,9 @@ export default function TargetRoleWorkspace() {
     setReadinessBusy(true);
     setReadinessError('');
     setReadinessQuota('');
+    setReassessment(null);
+    setReassessmentError('');
+    setReassessmentQuota('');
     try {
       const result = await generateTargetRoleReadiness(targetRole.id, {
         includeAiSummary: false,
@@ -224,6 +270,7 @@ export default function TargetRoleWorkspace() {
       setUpgradePlan(null);
       setPlanError('');
       setProofEvidenceStatus(await getTargetRoleProofEvidenceStatus(targetRole.id).catch(() => null));
+      setReadinessHistory(await getTargetRoleReadinessHistory(targetRole.id).catch(() => null));
       setTargetRole((current) =>
         current
           ? {
@@ -246,6 +293,56 @@ export default function TargetRoleWorkspace() {
       setReadinessError(message);
     } finally {
       setReadinessBusy(false);
+    }
+  };
+
+  const handleReassessReadiness = async () => {
+    if (!targetRole || !readinessReport) return;
+    setReassessmentBusy(true);
+    setReassessmentError('');
+    setReassessmentQuota('');
+    setReadinessError('');
+    try {
+      const result = await reassessTargetRoleReadiness(targetRole.id, {
+        previousReadinessReportId: readinessReport.id,
+        includeAiSummary: false,
+      });
+      setReassessment(result);
+      setReadinessReport(result.report);
+      setProofResponse(null);
+      setProofError('');
+      setUpgradePlan(null);
+      setPlanError('');
+      setDecompositionStatus(null);
+      setProofEvidenceStatus(await getTargetRoleProofEvidenceStatus(targetRole.id).catch(() => null));
+      setReadinessHistory(await getTargetRoleReadinessHistory(targetRole.id).catch(() => null));
+      setTargetRole((current) =>
+        current
+          ? {
+              ...current,
+              status: current.status === 'saved' ? 'assessed' : current.status,
+              latestAssessmentId: result.report.id,
+              updatedAt: result.report.generatedAt,
+            }
+          : current,
+      );
+      if (result.quota?.remaining !== null && result.quota?.remaining !== undefined) {
+        setReassessmentQuota(`${result.quota.remaining} reassessment${result.quota.remaining === 1 ? '' : 's'} left this month.`);
+      }
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const apiError = err?.response?.data?.error;
+      const message =
+        typeof apiError === 'string'
+          ? apiError
+          : apiError?.message ?? (
+              status === 402
+                ? 'Reassessment is limited on your current plan.'
+                : 'Could not reassess readiness right now.'
+            );
+      setReassessmentError(message);
+    } finally {
+      setReassessmentBusy(false);
     }
   };
 
@@ -504,26 +601,35 @@ export default function TargetRoleWorkspace() {
             </p>
             <button
               type="button"
-              onClick={handleGenerateReadiness}
-              disabled={readinessBusy}
+              onClick={readinessReport ? handleReassessReadiness : handleGenerateReadiness}
+              disabled={readinessBusy || reassessmentBusy}
               className="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {readinessBusy
-                ? 'Generating readiness...'
-                : readinessReport
-                  ? 'Refresh readiness'
-                  : 'Generate readiness report'}
+              {reassessmentBusy
+                ? 'Reassessing readiness...'
+                : readinessBusy
+                  ? 'Generating readiness...'
+                  : readinessReport
+                    ? 'Reassess readiness'
+                    : 'Generate readiness report'}
             </button>
-            {readinessError && (
+            {(readinessError || reassessmentError) && (
               <div className="mt-3 rounded-2xl border border-red-300/30 bg-red-400/10 p-3 text-sm font-bold leading-6 text-red-100">
-                {readinessError}
-                <Link to="/pricing?source=career-market" className="ml-2 underline">
+                {readinessError || reassessmentError}
+                <Link
+                  to="/pricing?source=career-market"
+                  onClick={() => trackMarketUpgradeClick('readiness_error')}
+                  className="ml-2 underline"
+                >
                   View plans
                 </Link>
               </div>
             )}
             {readinessQuota && (
               <p className="mt-3 text-xs font-bold text-white/50">{readinessQuota}</p>
+            )}
+            {reassessmentQuota && (
+              <p className="mt-3 text-xs font-bold text-white/50">{reassessmentQuota}</p>
             )}
             <div className="mt-6 grid gap-3">
               <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
@@ -618,11 +724,11 @@ export default function TargetRoleWorkspace() {
           {proofEvidenceStatus?.reassessRecommended && (
             <button
               type="button"
-              onClick={handleGenerateReadiness}
-              disabled={readinessBusy}
+              onClick={handleReassessReadiness}
+              disabled={reassessmentBusy || !readinessReport}
               className="inline-flex rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {readinessBusy ? 'Refreshing...' : 'Refresh readiness with new proof'}
+              {reassessmentBusy ? 'Reassessing...' : 'Reassess with new proof'}
             </button>
           )}
           {proofEvidenceStatus?.linkedGoalId && (
@@ -763,6 +869,155 @@ export default function TargetRoleWorkspace() {
         </SurfaceCard>
       )}
 
+      {readinessReport && (
+        <section className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">
+          <SurfaceCard p={{ base: 5, md: 6 }} className="relative overflow-hidden">
+            <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-emerald-100 blur-3xl" />
+            <div className="relative">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                    Reassessment
+                  </p>
+                  <h2 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+                    Prove that your work improved readiness.
+                  </h2>
+                  <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
+                    After adding proof to the Evidence Vault, reassess to see the score delta, upgraded requirements, and whether you should apply now or keep upgrading.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleReassessReadiness}
+                  disabled={reassessmentBusy}
+                  className="inline-flex rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {reassessmentBusy ? 'Reassessing...' : 'Run reassessment'}
+                </button>
+              </div>
+              {reassessmentError && (
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-800">
+                  {reassessmentError}{' '}
+                  <Link
+                    to="/pricing?source=career-market-reassessment"
+                    onClick={() => trackMarketUpgradeClick('reassessment_error')}
+                    className="underline"
+                  >
+                    View plans
+                  </Link>
+                </div>
+              )}
+              {reassessmentQuota && (
+                <p className="mt-3 text-xs font-bold text-slate-400">{reassessmentQuota}</p>
+              )}
+              {reassessment ? (
+                <div className="mt-5 grid gap-4 xl:grid-cols-[0.45fr_0.55fr]">
+                  <div className={`rounded-[28px] border p-5 ${deltaTone(reassessment.result.scoreDelta)}`}>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] opacity-70">
+                      Score change
+                    </p>
+                    <p className="mt-2 text-5xl font-black tracking-[-0.08em]">
+                      {formatDelta(reassessment.result.scoreDelta)}
+                    </p>
+                    <p className="mt-3 text-sm font-bold leading-6">
+                      {reassessment.result.summary}
+                    </p>
+                  </div>
+                  <div className="grid gap-3">
+                    <div className="rounded-3xl bg-emerald-50 p-4">
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+                        Improved
+                      </p>
+                      <div className="mt-3 space-y-2">
+                        {(reassessment.result.improvedRequirements.length
+                          ? reassessment.result.improvedRequirements
+                          : ['No requirement moved yet. Add stronger proof and reassess again.']
+                        ).slice(0, 3).map((item) => (
+                          <p key={item} className="text-sm font-bold leading-6 text-slate-700">
+                            {item}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rounded-3xl bg-amber-50 p-4">
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-700">
+                        Next actions
+                      </p>
+                      <div className="mt-3 space-y-2">
+                        {reassessment.result.newRecommendedActions.slice(0, 3).map((item) => (
+                          <p key={item} className="text-sm font-bold leading-6 text-slate-700">
+                            {item}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-5 rounded-3xl border border-slate-100 bg-slate-50 p-4 text-sm font-bold leading-7 text-slate-600">
+                  Your first reassessment will appear here with before/after evidence movement.
+                </div>
+              )}
+              {reassessment?.result.stillWeakRequirements.length ? (
+                <div className="mt-4 rounded-3xl bg-red-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-red-600">
+                    Still weak
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    {reassessment.result.stillWeakRequirements.slice(0, 4).map((item) => (
+                      <p key={item} className="text-sm font-bold leading-6 text-slate-700">
+                        {item}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </SurfaceCard>
+
+          <SurfaceCard p={{ base: 5, md: 6 }}>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+              Readiness history
+            </p>
+            <h2 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+              Your score over time
+            </h2>
+            <div className="mt-5 space-y-3">
+              {(readinessHistory?.history ?? []).length > 0 ? (
+                readinessHistory!.history.slice(0, 6).map((item) => (
+                  <div key={item.readinessReportId} className="flex items-center justify-between gap-4 rounded-3xl border border-slate-100 bg-white/82 p-4">
+                    <div>
+                      <p className="text-sm font-black text-slate-950">
+                        {item.score}/100 - {formatLabel(item.label)}
+                      </p>
+                      <p className="mt-1 text-xs font-bold text-slate-400">
+                        {formatDate(item.generatedAt)} - {formatLabel(item.verdict)}
+                      </p>
+                    </div>
+                    <span className={`rounded-full border px-3 py-1 text-xs font-black ${item.scoreDeltaFromPrevious === null ? deltaTone(0) : deltaTone(item.scoreDeltaFromPrevious)}`}>
+                      {formatDelta(item.scoreDeltaFromPrevious)}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="rounded-3xl bg-slate-50 p-4 text-sm font-bold leading-7 text-slate-500">
+                  Generate readiness to start your history.
+                </p>
+              )}
+            </div>
+          </SurfaceCard>
+        </section>
+      )}
+
+      {readinessReport && !upgradePlan && targetRole && (
+        <RoleMarketPilotFeedback
+          source="target_role_workspace"
+          ctaLocation="readiness_report"
+          roleProfileId={targetRole.roleProfileId}
+          targetRoleId={targetRole.id}
+        />
+      )}
+
       {proofResponse && (
         <SurfaceCard p={{ base: 5, md: 6 }} className="relative overflow-hidden">
           <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-amber-100 blur-3xl" />
@@ -872,7 +1127,11 @@ export default function TargetRoleWorkspace() {
             {sprintError && (
               <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-800">
                 {sprintError}{' '}
-                <Link to="/pricing?source=career-market-sprint" className="underline">
+                <Link
+                  to="/pricing?source=career-market-sprint"
+                  onClick={() => trackMarketUpgradeClick('sprint_error', 'sprint')}
+                  className="underline"
+                >
                   See Sprint plan
                 </Link>
               </div>
@@ -968,7 +1227,11 @@ export default function TargetRoleWorkspace() {
               {decompositionError && (
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-800">
                   {decompositionError}{' '}
-                  <Link to="/pricing?source=career-market-topic-breakdown" className="underline">
+                  <Link
+                    to="/pricing?source=career-market-topic-breakdown"
+                    onClick={() => trackMarketUpgradeClick('topic_breakdown_error', 'sprint')}
+                    className="underline"
+                  >
                     See Sprint plan
                   </Link>
                 </div>
@@ -1067,6 +1330,15 @@ export default function TargetRoleWorkspace() {
         </SurfaceCard>
       )}
 
+      {upgradePlan && targetRole && (
+        <RoleMarketPilotFeedback
+          source="upgrade_plan"
+          ctaLocation="upgrade_plan_card"
+          roleProfileId={targetRole.roleProfileId}
+          targetRoleId={targetRole.id}
+        />
+      )}
+
       {readinessReport && (
         <section className="grid gap-5 lg:grid-cols-3">
           <SurfaceCard p={5}>
@@ -1109,13 +1381,45 @@ export default function TargetRoleWorkspace() {
       )}
 
       <section className="grid gap-5 lg:grid-cols-2">
-        <WorkspacePlaceholder
-          eyebrow="Applications"
-          title="Company-specific applications"
-          body="Applications stay separate from the Target Role. Use Resume Fit when you have a real job description for a specific company."
-          cta="Compare resume to a job"
-          to="/resume"
-        />
+        <SurfaceCard p={5} className="bg-white/88">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                Applications
+              </p>
+              <h3 className="mt-2 text-xl font-black tracking-[-0.04em] text-slate-950">
+                Company-specific applications
+              </h3>
+              <p className="mt-3 text-sm leading-7 text-slate-600">
+                Use this Target Role for broad preparation, then link each company/JD-specific resume analysis here.
+              </p>
+            </div>
+            <Link
+              to={`/resume?targetRoleId=${targetRole.id}`}
+              className="inline-flex rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-sky-300 hover:text-sky-700"
+            >
+              Compare a company JD
+            </Link>
+          </div>
+          <div className="mt-5 space-y-3">
+            {linkedApplications.length === 0 ? (
+              <p className="rounded-2xl bg-slate-50 p-4 text-sm font-bold leading-7 text-slate-500">
+                No linked applications yet. Start one when you have a specific company job description.
+              </p>
+            ) : linkedApplications.slice(0, 4).map((application) => (
+              <Link
+                key={application.id}
+                to={`/resume/applications/${application.id}`}
+                className="block rounded-2xl border border-slate-100 bg-slate-50 p-4 transition hover:border-sky-200 hover:bg-sky-50"
+              >
+                <p className="text-sm font-black text-slate-950">{application.title}</p>
+                <p className="mt-1 text-xs font-bold text-slate-500">
+                  {application.targetCompany ?? application.targetRole ?? 'Company application'} - {application.linkedSprintCreatedAt ? 'Sprint created' : application.linkedGoalId ? 'Goal created' : 'Resume report saved'}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </SurfaceCard>
         <WorkspacePlaceholder
           eyebrow="Sprint"
           title="Gap-closing execution"

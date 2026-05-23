@@ -139,6 +139,7 @@ export async function createStripeCheckoutSession(params: {
   intervalKey: BillingIntervalKey;
   successUrl: string;
   cancelUrl: string;
+  source?: string | null;
 }): Promise<StripeCheckoutSessionResponse> {
   const priceId = getStripePriceId(params.planKey, params.intervalKey);
   return postStripeForm<StripeCheckoutSessionResponse>(
@@ -154,9 +155,11 @@ export async function createStripeCheckoutSession(params: {
       'metadata[userId]': params.userId,
       'metadata[planKey]': params.planKey,
       'metadata[intervalKey]': params.intervalKey,
+      'metadata[source]': params.source ?? null,
       'subscription_data[metadata][userId]': params.userId,
       'subscription_data[metadata][planKey]': params.planKey,
       'subscription_data[metadata][intervalKey]': params.intervalKey,
+      'subscription_data[metadata][source]': params.source ?? null,
       'subscription_data[metadata][checkoutTraceId]': randomUUID(),
       allow_promotion_codes: true,
     },

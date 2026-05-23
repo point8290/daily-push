@@ -7,6 +7,8 @@ import type {
   CreateUpgradePlanResponse,
   GenerateReadinessResponse,
   GapToProofResponse,
+  ReassessmentResponse,
+  ReassessmentResult,
   StartTargetRoleDecompositionResponse,
   StartUpgradePlanSprintResponse,
   ContractMeta,
@@ -15,6 +17,7 @@ import type {
   ProofRecommendation,
   PublishProofEvidenceResponse,
   RequirementCoverage,
+  RoleReadinessHistoryResponse,
   UpgradePlan,
   UpgradePlanTopic,
   RoleReadinessReport,
@@ -46,6 +49,10 @@ function isNullableString(value: unknown): value is string | null {
 
 function isNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
+}
+
+function isNullableNumber(value: unknown): value is number | null {
+  return value === null || isNumber(value);
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -333,6 +340,27 @@ export function validateRoleRecommendationResponse(
 
   errors.push(...validateCandidateRoleInput(value.interpretedInput, `${path}.interpretedInput`).errors);
   pushIfInvalid(errors, isString(value.marketCaveat), `${path}.marketCaveat is required`);
+  if (value.quota !== undefined) {
+    if (!isObject(value.quota)) {
+      errors.push(`${path}.quota must be an object`);
+    } else {
+      pushIfInvalid(
+        errors,
+        value.quota.featureKey === "market_recommendations.daily",
+        `${path}.quota.featureKey must be market_recommendations.daily`,
+      );
+      pushIfInvalid(
+        errors,
+        isNullableNumber(value.quota.remaining),
+        `${path}.quota.remaining must be a number or null`,
+      );
+      pushIfInvalid(
+        errors,
+        isNullableNumber(value.quota.limitValue),
+        `${path}.quota.limitValue must be a number or null`,
+      );
+    }
+  }
   errors.push(...validateContractMeta(value.meta, `${path}.meta`).errors);
 
   return { valid: errors.length === 0, errors };
@@ -609,6 +637,58 @@ export function validateGenerateReadinessResponse(
   errors.push(...validateRoleReadinessReport(value.report, `${path}.report`).errors);
   if (value.quota !== undefined) {
     pushIfInvalid(errors, isObject(value.quota), `${path}.quota must be an object`);
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+export function validateRoleReadinessHistoryResponse(
+  value: unknown,
+  path = "roleReadinessHistoryResponse",
+): ValidationResult {
+  const errors: string[] = [];
+  if (!isObject(value)) {
+    return { valid: false, errors: [`${path} must be an object`] };
+  }
+
+  pushIfInvalid(errors, isString(value.targetRoleId), `${path}.targetRoleId is required`);
+  pushIfInvalid(
+    errors,
+    isNullableString(value.latestReadinessReportId),
+    `${path}.latestReadinessReportId must be string or null`,
+  );
+  pushIfInvalid(errors, Array.isArray(value.history), `${path}.history must be an array`);
+  if (Array.isArray(value.history)) {
+    value.history.forEach((item, index) => {
+      const itemPath = `${path}.history[${index}]`;
+      if (!isObject(item)) {
+        errors.push(`${itemPath} must be an object`);
+        return;
+      }
+      pushIfInvalid(errors, isString(item.readinessReportId), `${itemPath}.readinessReportId is required`);
+      pushIfInvalid(errors, isNumber(item.score), `${itemPath}.score must be a number`);
+      pushIfInvalid(
+        errors,
+        item.label === "early" ||
+          item.label === "building" ||
+          item.label === "close" ||
+          item.label === "ready",
+        `${itemPath}.label is invalid`,
+      );
+      pushIfInvalid(
+        errors,
+        item.verdict === "apply_now" ||
+          item.verdict === "apply_after_edits" ||
+          item.verdict === "upgrade_first",
+        `${itemPath}.verdict is invalid`,
+      );
+      pushIfInvalid(errors, isString(item.generatedAt), `${itemPath}.generatedAt is required`);
+      pushIfInvalid(
+        errors,
+        item.scoreDeltaFromPrevious === null || isNumber(item.scoreDeltaFromPrevious),
+        `${itemPath}.scoreDeltaFromPrevious must be number or null`,
+      );
+    });
   }
 
   return { valid: errors.length === 0, errors };
@@ -1015,6 +1095,66 @@ export function validatePublishProofEvidenceResponse(
   return { valid: errors.length === 0, errors };
 }
 
+export function validateReassessmentResult(
+  value: unknown,
+  path = "reassessmentResult",
+): ValidationResult {
+  const errors: string[] = [];
+  if (!isObject(value)) {
+    return { valid: false, errors: [`${path} must be an object`] };
+  }
+
+  pushIfInvalid(errors, isString(value.targetRoleId), `${path}.targetRoleId is required`);
+  pushIfInvalid(
+    errors,
+    isString(value.previousReadinessReportId),
+    `${path}.previousReadinessReportId is required`,
+  );
+  pushIfInvalid(
+    errors,
+    isString(value.newReadinessReportId),
+    `${path}.newReadinessReportId is required`,
+  );
+  pushIfInvalid(errors, isNumber(value.scoreDelta), `${path}.scoreDelta must be a number`);
+  pushIfInvalid(
+    errors,
+    isStringArray(value.improvedRequirements),
+    `${path}.improvedRequirements must be a string array`,
+  );
+  pushIfInvalid(
+    errors,
+    isStringArray(value.stillWeakRequirements),
+    `${path}.stillWeakRequirements must be a string array`,
+  );
+  pushIfInvalid(
+    errors,
+    isStringArray(value.newRecommendedActions),
+    `${path}.newRecommendedActions must be a string array`,
+  );
+  pushIfInvalid(errors, isString(value.summary), `${path}.summary is required`);
+  errors.push(...validateContractMeta(value.meta, `${path}.meta`).errors);
+
+  return { valid: errors.length === 0, errors };
+}
+
+export function validateReassessmentResponse(
+  value: unknown,
+  path = "reassessmentResponse",
+): ValidationResult {
+  const errors: string[] = [];
+  if (!isObject(value)) {
+    return { valid: false, errors: [`${path} must be an object`] };
+  }
+
+  errors.push(...validateReassessmentResult(value.result, `${path}.result`).errors);
+  errors.push(...validateRoleReadinessReport(value.report, `${path}.report`).errors);
+  if (value.quota !== undefined) {
+    pushIfInvalid(errors, isObject(value.quota), `${path}.quota must be an object`);
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 export function assertValidRoleMarketProfile(value: unknown): asserts value is RoleMarketProfile {
   const result = validateRoleMarketProfile(value);
   if (!result.valid) {
@@ -1062,6 +1202,15 @@ export function assertValidGenerateReadinessResponse(
   const result = validateGenerateReadinessResponse(value);
   if (!result.valid) {
     throw new Error(`Invalid readiness response: ${result.errors.join("; ")}`);
+  }
+}
+
+export function assertValidRoleReadinessHistoryResponse(
+  value: unknown,
+): asserts value is RoleReadinessHistoryResponse {
+  const result = validateRoleReadinessHistoryResponse(value);
+  if (!result.valid) {
+    throw new Error(`Invalid role readiness history response: ${result.errors.join("; ")}`);
   }
 }
 
@@ -1141,6 +1290,24 @@ export function assertValidPublishProofEvidenceResponse(
   const result = validatePublishProofEvidenceResponse(value);
   if (!result.valid) {
     throw new Error(`Invalid publish proof evidence response: ${result.errors.join("; ")}`);
+  }
+}
+
+export function assertValidReassessmentResult(
+  value: unknown,
+): asserts value is ReassessmentResult {
+  const result = validateReassessmentResult(value);
+  if (!result.valid) {
+    throw new Error(`Invalid reassessment result: ${result.errors.join("; ")}`);
+  }
+}
+
+export function assertValidReassessmentResponse(
+  value: unknown,
+): asserts value is ReassessmentResponse {
+  const result = validateReassessmentResponse(value);
+  if (!result.valid) {
+    throw new Error(`Invalid reassessment response: ${result.errors.join("; ")}`);
   }
 }
 
