@@ -21,6 +21,7 @@ import type {
   UpgradePlan,
   UpgradePlanTopic,
   RoleReadinessReport,
+  RoleMarketCardMeta,
   RoleMarketCard,
   RoleMarketProfile,
   RoleRecommendation,
@@ -28,6 +29,10 @@ import type {
   SourceReference,
   TargetRoleDecompositionStatusResponse,
   TargetRoleDecompositionTopic,
+  TargetRoleMarketChangeResponse,
+  TargetRoleMarketChangeSignals,
+  TargetRoleMarketChangeSummary,
+  TargetRoleMarketRequirementChange,
 } from "./roleMarketContracts";
 
 export interface ValidationResult {
@@ -63,6 +68,140 @@ function pushIfInvalid(errors: string[], condition: boolean, message: string): v
   if (!condition) errors.push(message);
 }
 
+function validateContractWarning(value: unknown, path: string): ValidationResult {
+  const errors: string[] = [];
+  if (!isObject(value)) {
+    return { valid: false, errors: [`${path} must be an object`] };
+  }
+
+  pushIfInvalid(
+    errors,
+    value.code === "source_stale" ||
+      value.code === "low_confidence" ||
+      value.code === "ai_summary_unavailable" ||
+      value.code === "partial_input" ||
+      value.code === "entitlement_limited" ||
+      value.code === "feature_flag_disabled" ||
+      value.code === "dependency_unavailable" ||
+      value.code === "region_unavailable",
+    `${path}.code is invalid`,
+  );
+  pushIfInvalid(errors, isString(value.message), `${path}.message is required`);
+
+  return { valid: errors.length === 0, errors };
+}
+
+function validateRoleMarketProfileVersionMeta(
+  value: unknown,
+  path: string,
+): ValidationResult {
+  const errors: string[] = [];
+  if (!isObject(value)) {
+    return { valid: false, errors: [`${path} must be an object`] };
+  }
+
+  pushIfInvalid(errors, isString(value.profileVersionId), `${path}.profileVersionId is required`);
+  pushIfInvalid(errors, isString(value.roleProfileId), `${path}.roleProfileId is required`);
+  pushIfInvalid(errors, isNumber(value.version), `${path}.version must be a number`);
+  pushIfInvalid(
+    errors,
+    value.status === "draft" ||
+      value.status === "in_review" ||
+      value.status === "published" ||
+      value.status === "rejected" ||
+      value.status === "archived",
+    `${path}.status is invalid`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableString(value.publishedAt),
+    `${path}.publishedAt must be string or null`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableString(value.aggregateId),
+    `${path}.aggregateId must be string or null`,
+  );
+  if (value.changeSummary !== undefined) {
+    pushIfInvalid(
+      errors,
+      isNullableString(value.changeSummary),
+      `${path}.changeSummary must be string or null`,
+    );
+  }
+  if (value.diffMateriality !== undefined && value.diffMateriality !== null) {
+    pushIfInvalid(
+      errors,
+      value.diffMateriality === "low" ||
+        value.diffMateriality === "medium" ||
+        value.diffMateriality === "high",
+      `${path}.diffMateriality must be low, medium, high, or null`,
+    );
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+function validateRoleMarketSourceSummary(value: unknown, path: string): ValidationResult {
+  const errors: string[] = [];
+  if (!isObject(value)) {
+    return { valid: false, errors: [`${path} must be an object`] };
+  }
+
+  pushIfInvalid(
+    errors,
+    value.sourceMode === "curated" || value.sourceMode === "hybrid" || value.sourceMode === "live",
+    `${path}.sourceMode must be curated, hybrid, or live`,
+  );
+  if (value.region !== undefined) {
+    pushIfInvalid(
+      errors,
+      isNullableString(value.region),
+      `${path}.region must be string or null`,
+    );
+  }
+  pushIfInvalid(
+    errors,
+    isNullableNumber(value.sourceCount),
+    `${path}.sourceCount must be number or null`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableNumber(value.sampleSize),
+    `${path}.sampleSize must be number or null`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableNumber(value.freshnessHours),
+    `${path}.freshnessHours must be number or null`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableString(value.windowStart),
+    `${path}.windowStart must be string or null`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableString(value.windowEnd),
+    `${path}.windowEnd must be string or null`,
+  );
+
+  return { valid: errors.length === 0, errors };
+}
+
+function validateOptionalProfileVersionMeta(
+  value: unknown,
+  path: string,
+): string[] {
+  if (value === undefined || value === null) return [];
+  return validateRoleMarketProfileVersionMeta(value, path).errors;
+}
+
+function validateOptionalSourceSummary(value: unknown, path: string): string[] {
+  if (value === undefined || value === null) return [];
+  return validateRoleMarketSourceSummary(value, path).errors;
+}
+
 export function validateContractMeta(value: unknown, path = "meta"): ValidationResult {
   const errors: string[] = [];
   if (!isObject(value)) {
@@ -82,6 +221,39 @@ export function validateContractMeta(value: unknown, path = "meta"): ValidationR
   );
   pushIfInvalid(errors, isString(value.seedVersion), `${path}.seedVersion is required`);
   pushIfInvalid(errors, Array.isArray(value.warnings), `${path}.warnings must be an array`);
+  if (Array.isArray(value.warnings)) {
+    value.warnings.forEach((warning, index) => {
+      errors.push(...validateContractWarning(warning, `${path}.warnings[${index}]`).errors);
+    });
+  }
+  errors.push(...validateOptionalProfileVersionMeta(value.profileVersion, `${path}.profileVersion`));
+  errors.push(...validateOptionalSourceSummary(value.sourceSummary, `${path}.sourceSummary`));
+
+  return { valid: errors.length === 0, errors };
+}
+
+function validateRoleMarketCardMeta(
+  value: unknown,
+  path = "role.meta",
+): ValidationResult {
+  const errors: string[] = [];
+  if (!isObject(value)) {
+    return { valid: false, errors: [`${path} must be an object`] };
+  }
+
+  pushIfInvalid(
+    errors,
+    value.sourceMode === "curated" || value.sourceMode === "hybrid" || value.sourceMode === "live",
+    `${path}.sourceMode must be curated, hybrid, or live`,
+  );
+  pushIfInvalid(errors, Array.isArray(value.warnings), `${path}.warnings must be an array`);
+  if (Array.isArray(value.warnings)) {
+    value.warnings.forEach((warning, index) => {
+      errors.push(...validateContractWarning(warning, `${path}.warnings[${index}]`).errors);
+    });
+  }
+  errors.push(...validateOptionalProfileVersionMeta(value.profileVersion, `${path}.profileVersion`));
+  errors.push(...validateOptionalSourceSummary(value.sourceSummary, `${path}.sourceSummary`));
 
   return { valid: errors.length === 0, errors };
 }
@@ -258,6 +430,9 @@ export function validateRoleMarketCard(value: unknown, path = "role"): Validatio
   );
   pushIfInvalid(errors, isString(value.lastUpdated), `${path}.lastUpdated is required`);
   pushIfInvalid(errors, isNumber(value.confidence), `${path}.confidence must be a number`);
+  if (value.meta !== undefined) {
+    errors.push(...validateRoleMarketCardMeta(value.meta, `${path}.meta`).errors);
+  }
 
   return { valid: errors.length === 0, errors };
 }
@@ -279,6 +454,166 @@ export function validateListRolesResponse(
   }
 
   errors.push(...validateContractMeta(value.meta, `${path}.meta`).errors);
+
+  return { valid: errors.length === 0, errors };
+}
+
+function validateRoleRequirementCoverage(
+  value: unknown,
+  path = "requirementCoverage",
+): ValidationResult {
+  const errors: string[] = [];
+  if (!isObject(value)) {
+    return { valid: false, errors: [`${path} must be an object`] };
+  }
+
+  pushIfInvalid(errors, isString(value.requirementId), `${path}.requirementId is required`);
+  pushIfInvalid(errors, isString(value.label), `${path}.label is required`);
+  pushIfInvalid(
+    errors,
+    value.priority === "must_have" ||
+      value.priority === "important" ||
+      value.priority === "nice_to_have",
+    `${path}.priority is invalid`,
+  );
+  pushIfInvalid(
+    errors,
+    value.status === "matched" || value.status === "weak" || value.status === "missing",
+    `${path}.status is invalid`,
+  );
+  pushIfInvalid(
+    errors,
+    isStringArray(value.matchedTerms),
+    `${path}.matchedTerms must be a string array`,
+  );
+  pushIfInvalid(
+    errors,
+    isStringArray(value.candidateSignals),
+    `${path}.candidateSignals must be a string array`,
+  );
+  pushIfInvalid(errors, isString(value.suggestedAction), `${path}.suggestedAction is required`);
+  pushIfInvalid(errors, isNumber(value.confidence), `${path}.confidence must be a number`);
+
+  return { valid: errors.length === 0, errors };
+}
+
+function validateRoleRecommendationScoreBreakdown(
+  value: unknown,
+  path = "scoreBreakdown",
+): ValidationResult {
+  const errors: string[] = [];
+  if (!isObject(value)) {
+    return { valid: false, errors: [`${path} must be an object`] };
+  }
+
+  (["matchedRequirements", "weakRequirements", "missingRequirements"] as const).forEach((key) => {
+    pushIfInvalid(errors, Array.isArray(value[key]), `${path}.${key} must be an array`);
+    if (Array.isArray(value[key])) {
+      value[key].forEach((item, index) => {
+        errors.push(...validateRoleRequirementCoverage(item, `${path}.${key}[${index}]`).errors);
+      });
+    }
+  });
+  pushIfInvalid(
+    errors,
+    isStringArray(value.matchedSkills),
+    `${path}.matchedSkills must be a string array`,
+  );
+  pushIfInvalid(
+    errors,
+    isStringArray(value.matchedDirections),
+    `${path}.matchedDirections must be a string array`,
+  );
+  pushIfInvalid(
+    errors,
+    value.seniorityFit === "aligned" ||
+      value.seniorityFit === "stretch" ||
+      value.seniorityFit === "mismatch" ||
+      value.seniorityFit === "unknown",
+    `${path}.seniorityFit is invalid`,
+  );
+  const scoreInputs = value.scoreInputs;
+  if (!isObject(scoreInputs)) {
+    errors.push(`${path}.scoreInputs must be an object`);
+  } else {
+    [
+      "requirementMatch",
+      "directionMatch",
+      "currentRoleMatch",
+      "seniorityMatch",
+      "workStyleMatch",
+      "marketConfidence",
+    ].forEach((key) => {
+      pushIfInvalid(
+        errors,
+        isNumber(scoreInputs[key]),
+        `${path}.scoreInputs.${key} must be a number`,
+      );
+    });
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+function validateRoleRecommendationMarketSignal(
+  value: unknown,
+  path = "marketSignal",
+): ValidationResult {
+  const errors: string[] = [];
+  if (!isObject(value)) {
+    return { valid: false, errors: [`${path} must be an object`] };
+  }
+
+  pushIfInvalid(
+    errors,
+    value.sourceMode === "curated" || value.sourceMode === "hybrid" || value.sourceMode === "live",
+    `${path}.sourceMode is invalid`,
+  );
+  pushIfInvalid(errors, isNullableString(value.region), `${path}.region must be string or null`);
+  pushIfInvalid(
+    errors,
+    isNullableNumber(value.sourceCount),
+    `${path}.sourceCount must be number or null`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableNumber(value.sampleSize),
+    `${path}.sampleSize must be number or null`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableNumber(value.freshnessHours),
+    `${path}.freshnessHours must be number or null`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableString(value.profileVersionId),
+    `${path}.profileVersionId must be string or null`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableString(value.publishedAt),
+    `${path}.publishedAt must be string or null`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableString(value.changeSummary),
+    `${path}.changeSummary must be string or null`,
+  );
+  pushIfInvalid(
+    errors,
+    value.diffMateriality === null ||
+      value.diffMateriality === "low" ||
+      value.diffMateriality === "medium" ||
+      value.diffMateriality === "high",
+    `${path}.diffMateriality is invalid`,
+  );
+  pushIfInvalid(errors, Array.isArray(value.warnings), `${path}.warnings must be an array`);
+  if (Array.isArray(value.warnings)) {
+    value.warnings.forEach((warning, index) => {
+      errors.push(...validateContractWarning(warning, `${path}.warnings[${index}]`).errors);
+    });
+  }
 
   return { valid: errors.length === 0, errors };
 }
@@ -309,6 +644,18 @@ export function validateRoleRecommendation(
   );
   pushIfInvalid(errors, isStringArray(value.whyNow), `${path}.whyNow must be an array`);
   pushIfInvalid(errors, isNumber(value.confidence), `${path}.confidence must be a number`);
+  errors.push(
+    ...validateRoleRecommendationScoreBreakdown(
+      value.scoreBreakdown,
+      `${path}.scoreBreakdown`,
+    ).errors,
+  );
+  errors.push(
+    ...validateRoleRecommendationMarketSignal(
+      value.marketSignal,
+      `${path}.marketSignal`,
+    ).errors,
+  );
 
   return { valid: errors.length === 0, errors };
 }
@@ -322,6 +669,16 @@ export function validateRoleRecommendationResponse(
     return { valid: false, errors: [`${path} must be an object`] };
   }
 
+  pushIfInvalid(
+    errors,
+    value.recommendationMode === "discovery" || value.recommendationMode === "target_fit",
+    `${path}.recommendationMode is invalid`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableString(value.targetRoleProfileId),
+    `${path}.targetRoleProfileId must be string or null`,
+  );
   pushIfInvalid(
     errors,
     Array.isArray(value.recommendations),
@@ -1095,6 +1452,194 @@ export function validatePublishProofEvidenceResponse(
   return { valid: errors.length === 0, errors };
 }
 
+function validateTargetRoleMarketRequirementChange(
+  value: unknown,
+  path = "targetRoleMarketRequirementChange",
+): ValidationResult {
+  const errors: string[] = [];
+  if (!isObject(value)) {
+    return { valid: false, errors: [`${path} must be an object`] };
+  }
+
+  pushIfInvalid(errors, isString(value.label), `${path}.label is required`);
+  pushIfInvalid(
+    errors,
+    value.changeType === "added" ||
+      value.changeType === "removed" ||
+      value.changeType === "changed",
+    `${path}.changeType is invalid`,
+  );
+  pushIfInvalid(
+    errors,
+    value.beforePriority === null ||
+      value.beforePriority === "must_have" ||
+      value.beforePriority === "important" ||
+      value.beforePriority === "nice_to_have",
+    `${path}.beforePriority is invalid`,
+  );
+  pushIfInvalid(
+    errors,
+    value.afterPriority === null ||
+      value.afterPriority === "must_have" ||
+      value.afterPriority === "important" ||
+      value.afterPriority === "nice_to_have",
+    `${path}.afterPriority is invalid`,
+  );
+  pushIfInvalid(
+    errors,
+    isStringArray(value.beforeKeywords),
+    `${path}.beforeKeywords must be a string array`,
+  );
+  pushIfInvalid(
+    errors,
+    isStringArray(value.afterKeywords),
+    `${path}.afterKeywords must be a string array`,
+  );
+  pushIfInvalid(errors, isString(value.summary), `${path}.summary is required`);
+
+  return { valid: errors.length === 0, errors };
+}
+
+function validateTargetRoleMarketChangeSignals(
+  value: unknown,
+  path = "targetRoleMarketChangeSignals",
+): ValidationResult {
+  const errors: string[] = [];
+  if (!isObject(value)) {
+    return { valid: false, errors: [`${path} must be an object`] };
+  }
+
+  pushIfInvalid(
+    errors,
+    isStringArray(value.addedMustHaveRequirements),
+    `${path}.addedMustHaveRequirements must be a string array`,
+  );
+  pushIfInvalid(
+    errors,
+    isStringArray(value.removedMustHaveRequirements),
+    `${path}.removedMustHaveRequirements must be a string array`,
+  );
+  pushIfInvalid(
+    errors,
+    Array.isArray(value.changedRequirements),
+    `${path}.changedRequirements must be an array`,
+  );
+  if (Array.isArray(value.changedRequirements)) {
+    value.changedRequirements.forEach((item, index) => {
+      errors.push(
+        ...validateTargetRoleMarketRequirementChange(
+          item,
+          `${path}.changedRequirements[${index}]`,
+        ).errors,
+      );
+    });
+  }
+  pushIfInvalid(
+    errors,
+    isStringArray(value.highConfidenceTrendChanges),
+    `${path}.highConfidenceTrendChanges must be a string array`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableNumber(value.confidenceDrop),
+    `${path}.confidenceDrop must be number or null`,
+  );
+  pushIfInvalid(
+    errors,
+    isNumber(value.requirementChangeCount),
+    `${path}.requirementChangeCount must be a number`,
+  );
+
+  return { valid: errors.length === 0, errors };
+}
+
+export function validateTargetRoleMarketChangeSummary(
+  value: unknown,
+  path = "targetRoleMarketChangeSummary",
+): ValidationResult {
+  const errors: string[] = [];
+  if (!isObject(value)) {
+    return { valid: false, errors: [`${path} must be an object`] };
+  }
+
+  pushIfInvalid(errors, isString(value.targetRoleId), `${path}.targetRoleId is required`);
+  pushIfInvalid(errors, isString(value.roleProfileId), `${path}.roleProfileId is required`);
+  pushIfInvalid(
+    errors,
+    isNullableString(value.latestReadinessReportId),
+    `${path}.latestReadinessReportId must be string or null`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableString(value.latestReadinessGeneratedAt),
+    `${path}.latestReadinessGeneratedAt must be string or null`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableString(value.reportProfileVersionId),
+    `${path}.reportProfileVersionId must be string or null`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableString(value.reportProfilePublishedAt),
+    `${path}.reportProfilePublishedAt must be string or null`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableString(value.currentProfileVersionId),
+    `${path}.currentProfileVersionId must be string or null`,
+  );
+  pushIfInvalid(
+    errors,
+    isNullableString(value.currentProfilePublishedAt),
+    `${path}.currentProfilePublishedAt must be string or null`,
+  );
+  pushIfInvalid(
+    errors,
+    value.status === "not_assessed" ||
+      value.status === "up_to_date" ||
+      value.status === "no_current_published_profile" ||
+      value.status === "version_unpinned" ||
+      value.status === "report_version_unavailable" ||
+      value.status === "low_change" ||
+      value.status === "material_change",
+    `${path}.status is invalid`,
+  );
+  pushIfInvalid(
+    errors,
+    value.materiality === "none" ||
+      value.materiality === "low" ||
+      value.materiality === "medium" ||
+      value.materiality === "high",
+    `${path}.materiality is invalid`,
+  );
+  pushIfInvalid(errors, typeof value.hasMaterialChange === "boolean", `${path}.hasMaterialChange must be boolean`);
+  pushIfInvalid(
+    errors,
+    typeof value.shouldPromptReassessment === "boolean",
+    `${path}.shouldPromptReassessment must be boolean`,
+  );
+  pushIfInvalid(errors, isString(value.summary), `${path}.summary is required`);
+  pushIfInvalid(errors, isStringArray(value.reasons), `${path}.reasons must be a string array`);
+  errors.push(...validateTargetRoleMarketChangeSignals(value.signals, `${path}.signals`).errors);
+  errors.push(...validateContractMeta(value.meta, `${path}.meta`).errors);
+
+  return { valid: errors.length === 0, errors };
+}
+
+export function validateTargetRoleMarketChangeResponse(
+  value: unknown,
+  path = "targetRoleMarketChangeResponse",
+): ValidationResult {
+  const errors: string[] = [];
+  if (!isObject(value)) {
+    return { valid: false, errors: [`${path} must be an object`] };
+  }
+
+  errors.push(...validateTargetRoleMarketChangeSummary(value.summary, `${path}.summary`).errors);
+  return { valid: errors.length === 0, errors };
+}
+
 export function validateReassessmentResult(
   value: unknown,
   path = "reassessmentResult",
@@ -1293,6 +1838,24 @@ export function assertValidPublishProofEvidenceResponse(
   }
 }
 
+export function assertValidTargetRoleMarketChangeSummary(
+  value: unknown,
+): asserts value is TargetRoleMarketChangeSummary {
+  const result = validateTargetRoleMarketChangeSummary(value);
+  if (!result.valid) {
+    throw new Error(`Invalid target-role market change summary: ${result.errors.join("; ")}`);
+  }
+}
+
+export function assertValidTargetRoleMarketChangeResponse(
+  value: unknown,
+): asserts value is TargetRoleMarketChangeResponse {
+  const result = validateTargetRoleMarketChangeResponse(value);
+  if (!result.valid) {
+    throw new Error(`Invalid target-role market change response: ${result.errors.join("; ")}`);
+  }
+}
+
 export function assertValidReassessmentResult(
   value: unknown,
 ): asserts value is ReassessmentResult {
@@ -1359,6 +1922,18 @@ export function isUpgradePlan(value: unknown): value is UpgradePlan {
   return validateUpgradePlan(value).valid;
 }
 
+export function isTargetRoleMarketChangeSignals(
+  value: unknown,
+): value is TargetRoleMarketChangeSignals {
+  return validateTargetRoleMarketChangeSignals(value).valid;
+}
+
+export function isTargetRoleMarketRequirementChange(
+  value: unknown,
+): value is TargetRoleMarketRequirementChange {
+  return validateTargetRoleMarketRequirementChange(value).valid;
+}
+
 export function isTargetRoleDecompositionTopic(
   value: unknown,
 ): value is TargetRoleDecompositionTopic {
@@ -1377,5 +1952,15 @@ export function toRoleMarketCards(profiles: RoleMarketProfile[]): RoleMarketCard
     topRequirements: profile.requirements.slice(0, 3).map((requirement) => requirement.label),
     lastUpdated: profile.lastUpdated,
     confidence: profile.confidence,
+    meta: toRoleMarketCardMeta(profile.meta),
   }));
+}
+
+function toRoleMarketCardMeta(meta: ContractMeta): RoleMarketCardMeta {
+  return {
+    sourceMode: meta.sourceMode,
+    warnings: meta.warnings,
+    profileVersion: meta.profileVersion ?? null,
+    sourceSummary: meta.sourceSummary ?? null,
+  };
 }

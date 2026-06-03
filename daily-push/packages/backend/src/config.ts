@@ -137,10 +137,74 @@ export const config = {
       process.env.FEATURE_ROLE_MARKET_AI_SUMMARY,
       false,
     ),
+    featureLiveIngestion: readBool(
+      process.env.FEATURE_ROLE_MARKET_LIVE_INGESTION,
+      false,
+    ),
+    featureOperatorReview: readBool(
+      process.env.FEATURE_ROLE_MARKET_OPERATOR_REVIEW,
+      false,
+    ),
     seedVersion: process.env.ROLE_MARKET_SEED_VERSION || 'role-market-seed.v1',
     lastUpdated:
       process.env.ROLE_MARKET_LAST_UPDATED || '2026-05-18T00:00:00.000Z',
     sourceMode: (process.env.ROLE_MARKET_SOURCE_MODE || 'curated') as SourceMode,
+    liveProfileFreshnessMaxHours: readInt(
+      process.env.ROLE_MARKET_LIVE_PROFILE_MAX_AGE_HOURS,
+      168,
+    ),
+    liveSourceStaleAfterHours: readInt(
+      process.env.ROLE_MARKET_SOURCE_STALE_AFTER_HOURS,
+      72,
+    ),
+    liveMinimumSampleSize: readInt(
+      process.env.ROLE_MARKET_LIVE_MIN_SAMPLE_SIZE,
+      25,
+    ),
+    liveMinimumSourceCount: readInt(
+      process.env.ROLE_MARKET_LIVE_MIN_SOURCE_COUNT,
+      2,
+    ),
+    liveMinimumConfidence: readFloat(
+      process.env.ROLE_MARKET_LIVE_MIN_CONFIDENCE,
+      0.65,
+    ),
+    liveLowConfidenceBlocksPublish: readBool(
+      process.env.ROLE_MARKET_LOW_CONFIDENCE_BLOCKS_PUBLISH,
+      true,
+    ),
+    liveIngestionSchedulerEnabled: readBool(
+      process.env.ROLE_MARKET_LIVE_INGESTION_SCHEDULER_ENABLED,
+      false,
+    ),
+    liveIngestionSchedule: process.env.ROLE_MARKET_LIVE_INGESTION_SCHEDULE || '0 */12 * * *',
+    liveIngestionScheduledQueries: process.env.ROLE_MARKET_LIVE_INGESTION_QUERIES || '',
+    liveIngestionScheduledLimit: readInt(
+      process.env.ROLE_MARKET_LIVE_INGESTION_SCHEDULED_LIMIT,
+      10,
+    ),
+    liveIngestionScheduledPageLimit: readInt(
+      process.env.ROLE_MARKET_LIVE_INGESTION_SCHEDULED_PAGE_LIMIT,
+      1,
+    ),
+    adzunaBaseUrl: process.env.ADZUNA_API_BASE_URL || 'https://api.adzuna.com',
+    adzunaDefaultCountry: process.env.ROLE_MARKET_ADZUNA_DEFAULT_COUNTRY || 'in',
+    adzunaMaxRetries: readInt(process.env.ROLE_MARKET_ADZUNA_MAX_RETRIES, 2),
+    adzunaRetryBaseDelayMs: readInt(
+      process.env.ROLE_MARKET_ADZUNA_RETRY_BASE_DELAY_MS,
+      500,
+    ),
+    adzunaRequestTimeoutMs: readInt(
+      process.env.ROLE_MARKET_ADZUNA_REQUEST_TIMEOUT_MS,
+      10_000,
+    ),
+    sourceCredentials: {
+      adzunaAppId: process.env.ADZUNA_APP_ID || '',
+      adzunaAppKey: process.env.ADZUNA_APP_KEY || '',
+      jobBoardApiKey: process.env.ROLE_MARKET_JOB_BOARD_API_KEY || '',
+      laborStatsApiKey: process.env.ROLE_MARKET_LABOR_STATS_API_KEY || '',
+      industryReportsApiKey: process.env.ROLE_MARKET_INDUSTRY_REPORTS_API_KEY || '',
+    },
     recommendRateLimitWindowMs: readInt(
       process.env.ROLE_MARKET_RECOMMEND_RATE_LIMIT_WINDOW_MS,
       60 * 1000,

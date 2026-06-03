@@ -51,7 +51,22 @@ export const listRolesResponseFixture: ListRolesResponse = {
   },
 };
 
+const fixtureMarketSignal = {
+  sourceMode: roleMarketFixtureMeta.sourceMode,
+  region: null,
+  sourceCount: aiBackendEngineerFixture.sourceRefs.length,
+  sampleSize: null,
+  freshnessHours: null,
+  profileVersionId: null,
+  publishedAt: null,
+  changeSummary: null,
+  diffMateriality: null,
+  warnings: [],
+};
+
 export const roleRecommendationResponseFixture: RoleRecommendationResponse = {
+  recommendationMode: "discovery",
+  targetRoleProfileId: null,
   recommendations: [
     {
       roleProfileId: aiBackendEngineerFixture.id,
@@ -70,6 +85,34 @@ export const roleRecommendationResponseFixture: RoleRecommendationResponse = {
         "Signals suggest teams need engineers who can own AI features beyond prompt experimentation.",
       ],
       confidence: 0.72,
+      scoreBreakdown: {
+        matchedRequirements: [
+          {
+            requirementId: aiBackendEngineerFixture.requirements[0].id,
+            label: aiBackendEngineerFixture.requirements[0].label,
+            priority: aiBackendEngineerFixture.requirements[0].priority,
+            status: "matched",
+            matchedTerms: ["Node.js", "TypeScript", "AWS"],
+            candidateSignals: ["Node.js", "TypeScript", "AWS"],
+            suggestedAction: "Turn this overlap into a source-backed project story.",
+            confidence: 0.78,
+          },
+        ],
+        weakRequirements: [],
+        missingRequirements: [],
+        matchedSkills: ["Node.js", "TypeScript", "AWS"],
+        matchedDirections: ["backend", "ai", "full_stack"],
+        seniorityFit: "aligned",
+        scoreInputs: {
+          requirementMatch: 24,
+          directionMatch: 20,
+          currentRoleMatch: 12,
+          seniorityMatch: 4,
+          workStyleMatch: 6,
+          marketConfidence: 7,
+        },
+      },
+      marketSignal: fixtureMarketSignal,
       lockedPremiumSections: ["full_readiness", "proof_plan", "sprint_plan"],
     },
   ],

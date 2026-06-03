@@ -1,16 +1,22 @@
 import {
   assertValidRoleRecommendationResponse,
-  roleMarketProfileFixtures,
   validateCandidateRoleInput,
   type CandidateRoleInput,
   type ContractMeta,
   type RoleMarketProfile,
+  type RoleRecommendationMarketSignal,
+  type RoleRecommendationMode,
   type RoleRecommendation,
   type RoleRecommendationResponse,
+  type RoleRecommendationScoreBreakdown,
+  type RoleRequirement,
+  type RoleRequirementCoverage,
   type RoleTransitionPath,
+  type SeniorityFit,
 } from '@daily-push/shared';
 import { config } from '../config';
 import { DependencyUnavailableError } from '../middleware/roleMarketFeature';
+import { getMarketProfileRegistry, type MarketProfileRegistry } from './marketProfileRegistry';
 
 interface RoleScoringHint {
   directions: string[];
@@ -25,6 +31,15 @@ interface ScoredRole {
   matchedSkillTerms: string[];
   matchedDirectionTerms: string[];
   matchedCurrentRoleTerms: string[];
+  matchedWorkStyles: string[];
+  requirementCoverage: RoleRequirementCoverage[];
+  scoreInputs: RoleRecommendationScoreBreakdown['scoreInputs'];
+  seniorityFit: SeniorityFit;
+}
+
+interface RecommendationOptions {
+  mode?: RoleRecommendationMode;
+  targetRoleProfileId?: string | null;
 }
 
 export class RoleRecommendationInputError extends Error {
@@ -163,11 +178,11 @@ const ARCHETYPE_GAPS_AND_PROOF: Array<{
   },
 ];
 
-function buildMeta(): ContractMeta {
+function buildMeta(sourceMode = config.roleMarket.sourceMode): ContractMeta {
   return {
     contractVersion: 'role-market.v1',
     generatedAt: new Date().toISOString(),
-    sourceMode: config.roleMarket.sourceMode,
+    sourceMode,
     seedVersion: config.roleMarket.seedVersion,
     warnings: [],
   };
@@ -229,6 +244,78 @@ function countMatches(text: string, terms: string[]): string[] {
   );
 }
 
+function requirementTerms(requirement: RoleRequirement): string[] {
+  return uniqueStrings([
+    requirement.label,
+    requirement.description,
+    requirement.category,
+    requirement.expectedLevel,
+    ...requirement.keywords,
+    ...requirement.proofExpected,
+    ...requirement.interviewSignals,
+  ]);
+}
+
+function candidateEvidenceText(input: CandidateRoleInput): string {
+  return [
+    input.currentRole,
+    input.freeTextContext,
+    ...input.skills,
+    ...input.strongestAreas,
+    ...input.preferredDirections,
+    ...input.workStyle,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(' ');
+}
+
+function buildRequirementCoverage(
+  profile: RoleMarketProfile,
+  input: CandidateRoleInput,
+): RoleRequirementCoverage[] {
+  const text = candidateEvidenceText(input);
+  return profile.requirements.map((requirement) => {
+    const matchedTerms = countMatches(text, requirementTerms(requirement));
+    const strongMatch =
+      matchedTerms.length >= 2 ||
+      (requirement.priority !== 'must_have' && matchedTerms.length >= 1);
+    const status = strongMatch ? 'matched' : matchedTerms.length > 0 ? 'weak' : 'missing';
+    const suggestedAction =
+      status === 'matched'
+        ? `Turn ${requirement.label} into a concrete project or production story.`
+        : status === 'weak'
+          ? `Strengthen ${requirement.label} with source-backed proof and interview examples.`
+          : `Build visible proof for ${requirement.label}; this is a market requirement for ${profile.title}.`;
+
+    return {
+      requirementId: requirement.id,
+      label: requirement.label,
+      priority: requirement.priority,
+      status,
+      matchedTerms,
+      candidateSignals: matchedTerms.slice(0, 5),
+      suggestedAction,
+      confidence: Number(
+        Math.max(0.35, Math.min(0.92, requirement.confidence - (status === 'missing' ? 0.18 : status === 'weak' ? 0.08 : 0))).toFixed(2),
+      ),
+    };
+  });
+}
+
+function inferSeniorityFit(profile: RoleMarketProfile, input: CandidateRoleInput): SeniorityFit {
+  if (!input.targetSeniority) return 'unknown';
+  if (profile.seniorityBands.includes(input.targetSeniority)) return 'aligned';
+  const order = ['junior', 'mid', 'senior', 'staff'];
+  const targetIndex = order.indexOf(input.targetSeniority);
+  const nearestProfileIndex = Math.min(
+    ...profile.seniorityBands
+      .map((band) => order.indexOf(band))
+      .filter((index) => index >= 0),
+  );
+  if (targetIndex < 0 || !Number.isFinite(nearestProfileIndex)) return 'unknown';
+  return targetIndex < nearestProfileIndex ? 'stretch' : 'mismatch';
+}
+
 function scoreRole(profile: RoleMarketProfile, input: CandidateRoleInput): ScoredRole {
   const hints = ROLE_HINTS[profile.id] ?? {
     directions: [profile.category],
@@ -242,14 +329,27 @@ function scoreRole(profile: RoleMarketProfile, input: CandidateRoleInput): Score
   const currentRoleText = input.currentRole ?? '';
   const skillText = [...input.skills, ...input.strongestAreas, input.freeTextContext ?? ''].join(' ');
   const workStyleText = input.workStyle.join(' ');
+  const requirementCoverage = buildRequirementCoverage(profile, input);
+  const matchedRequirementCount = requirementCoverage.filter(
+    (coverage) => coverage.status === 'matched',
+  ).length;
+  const weakRequirementCount = requirementCoverage.filter(
+    (coverage) => coverage.status === 'weak',
+  ).length;
+  const requirementTermsFromProfile = profile.requirements.flatMap(requirementTerms);
 
-  const matchedSkillTerms = countMatches(skillText, hints.skillTerms);
+  const matchedSkillTerms = countMatches(
+    skillText,
+    uniqueStrings([...requirementTermsFromProfile, ...hints.skillTerms]),
+  );
   const matchedDirectionTerms = countMatches(preferredText, hints.directions);
   const matchedCurrentRoleTerms = countMatches(currentRoleText, hints.currentRoleTerms);
   const matchedWorkStyles = countMatches(workStyleText, hints.workStyles);
+  const seniorityFit = inferSeniorityFit(profile, input);
 
   let score = 28 + profile.confidence * 10;
   score += Math.min(30, matchedSkillTerms.length * 6);
+  score += Math.min(18, matchedRequirementCount * 5 + weakRequirementCount * 2);
   score += Math.min(26, matchedDirectionTerms.length * 13);
   score += Math.min(24, matchedCurrentRoleTerms.length * 12);
   score += Math.min(10, matchedWorkStyles.length * 5);
@@ -276,6 +376,17 @@ function scoreRole(profile: RoleMarketProfile, input: CandidateRoleInput): Score
     matchedSkillTerms,
     matchedDirectionTerms,
     matchedCurrentRoleTerms,
+    matchedWorkStyles,
+    requirementCoverage,
+    seniorityFit,
+    scoreInputs: {
+      requirementMatch: Math.min(18, matchedRequirementCount * 5 + weakRequirementCount * 2),
+      directionMatch: Math.min(26, matchedDirectionTerms.length * 13),
+      currentRoleMatch: Math.min(24, matchedCurrentRoleTerms.length * 12),
+      seniorityMatch: input.targetSeniority && profile.seniorityBands.includes(input.targetSeniority) ? 4 : 0,
+      workStyleMatch: Math.min(10, matchedWorkStyles.length * 5),
+      marketConfidence: Number((profile.confidence * 10).toFixed(2)),
+    },
   };
 }
 
@@ -420,6 +531,45 @@ function buildWhyNow(profile: RoleMarketProfile): string[] {
   ];
 }
 
+function buildScoreBreakdown(scoredRole: ScoredRole): RoleRecommendationScoreBreakdown {
+  const matchedRequirements = scoredRole.requirementCoverage.filter(
+    (coverage) => coverage.status === 'matched',
+  );
+  const weakRequirements = scoredRole.requirementCoverage.filter(
+    (coverage) => coverage.status === 'weak',
+  );
+  const missingRequirements = scoredRole.requirementCoverage.filter(
+    (coverage) => coverage.status === 'missing',
+  );
+
+  return {
+    matchedRequirements,
+    weakRequirements,
+    missingRequirements,
+    matchedSkills: scoredRole.matchedSkillTerms.slice(0, 8),
+    matchedDirections: scoredRole.matchedDirectionTerms,
+    seniorityFit: scoredRole.seniorityFit,
+    scoreInputs: scoredRole.scoreInputs,
+  };
+}
+
+function buildMarketSignal(profile: RoleMarketProfile): RoleRecommendationMarketSignal {
+  const sourceSummary = profile.meta.sourceSummary;
+  const profileVersion = profile.meta.profileVersion;
+  return {
+    sourceMode: profile.meta.sourceMode,
+    region: sourceSummary?.region ?? null,
+    sourceCount: sourceSummary?.sourceCount ?? null,
+    sampleSize: sourceSummary?.sampleSize ?? null,
+    freshnessHours: sourceSummary?.freshnessHours ?? null,
+    profileVersionId: profileVersion?.profileVersionId ?? null,
+    publishedAt: profileVersion?.publishedAt ?? null,
+    changeSummary: profileVersion?.changeSummary ?? null,
+    diffMateriality: profileVersion?.diffMateriality ?? null,
+    warnings: profile.meta.warnings,
+  };
+}
+
 function toRecommendation(scoredRole: ScoredRole, input: CandidateRoleInput): RoleRecommendation {
   const fitScore = Math.max(20, Math.min(92, Math.round(scoredRole.score * 0.72 + 18)));
   return {
@@ -435,38 +585,83 @@ function toRecommendation(scoredRole: ScoredRole, input: CandidateRoleInput): Ro
       0.45,
       Math.min(0.86, Number((scoredRole.profile.confidence - 0.04).toFixed(2))),
     ),
+    scoreBreakdown: buildScoreBreakdown(scoredRole),
+    marketSignal: buildMarketSignal(scoredRole.profile),
     lockedPremiumSections: ['full_readiness', 'proof_plan', 'sprint_plan'],
   };
 }
 
-export function generateRoleRecommendations(
+export function generateRoleRecommendationsFromProfiles(
+  profiles: RoleMarketProfile[],
   input: CandidateRoleInput,
   limit = 3,
+  options: RecommendationOptions = {},
 ): RoleRecommendationResponse {
   const validation = validateCandidateRoleInput(input);
   if (!validation.valid) {
     throw new RoleRecommendationInputError(validation.errors.join('; '));
   }
 
-  if (roleMarketProfileFixtures.length === 0) {
-    throw new DependencyUnavailableError('Role Market seed profiles are unavailable.');
+  if (profiles.length === 0) {
+    throw new DependencyUnavailableError('Role Market profiles are unavailable.');
   }
 
   const safeLimit = Math.max(1, Math.min(limit, 6));
-  const recommendations = roleMarketProfileFixtures
+  const mode: RoleRecommendationMode =
+    options.mode === 'target_fit' && options.targetRoleProfileId ? 'target_fit' : 'discovery';
+  const scoredRoles = profiles
     .map((profile) => scoreRole(profile, input))
     .sort((a, b) => b.score - a.score || a.profile.title.localeCompare(b.profile.title))
+  const selectedRole =
+    mode === 'target_fit'
+      ? scoredRoles.find(
+          (role) =>
+            role.profile.id === options.targetRoleProfileId ||
+            role.profile.slug === options.targetRoleProfileId,
+        )
+      : null;
+  const orderedRoles =
+    selectedRole
+      ? [
+          selectedRole,
+          ...scoredRoles.filter((role) => role.profile.id !== selectedRole.profile.id),
+        ]
+      : scoredRoles;
+  const recommendations = orderedRoles
     .slice(0, safeLimit)
     .map((scoredRole) => toRecommendation(scoredRole, input));
 
   const response: RoleRecommendationResponse = {
+    recommendationMode: mode,
+    targetRoleProfileId: selectedRole?.profile.id ?? null,
     recommendations,
     interpretedInput: input,
     marketCaveat:
-      'These recommendations use curated market signals and your stated background. Treat them as directional guidance, not a promise of hiring outcomes.',
-    meta: buildMeta(),
+      mode === 'target_fit'
+        ? 'This fit check uses the selected role profile, market signals, and your stated background. Treat it as directional guidance, not a hiring outcome promise.'
+        : 'These recommendations use market profile signals and your stated background. Treat them as directional guidance, not a promise of hiring outcomes.',
+    meta: {
+      ...buildMeta(profiles[0]?.meta.sourceMode ?? config.roleMarket.sourceMode),
+      sourceSummary: profiles[0]?.meta.sourceSummary ?? null,
+      profileVersion: profiles[0]?.meta.profileVersion ?? null,
+      warnings: uniqueStrings(profiles.flatMap((profile) => profile.meta.warnings.map((warning) => warning.message)))
+        .map((message) =>
+          profiles.flatMap((profile) => profile.meta.warnings).find((warning) => warning.message === message),
+        )
+        .filter((warning): warning is NonNullable<typeof warning> => Boolean(warning)),
+    },
   };
 
   assertValidRoleRecommendationResponse(response);
   return response;
+}
+
+export async function generateRoleRecommendations(
+  input: CandidateRoleInput,
+  limit = 3,
+  registry: MarketProfileRegistry = getMarketProfileRegistry(),
+  options: RecommendationOptions = {},
+): Promise<RoleRecommendationResponse> {
+  const profiles = await registry.listProfiles({ region: input.region ?? null });
+  return generateRoleRecommendationsFromProfiles(profiles, input, limit, options);
 }

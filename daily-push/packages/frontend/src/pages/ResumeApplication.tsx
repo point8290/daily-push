@@ -247,7 +247,7 @@ export default function ResumeApplication() {
                 {application.targetRoleTitle ?? application.targetRole ?? 'Target Role'}
               </h2>
               <p className="mt-2 text-sm leading-7 text-slate-600">
-                This workspace is for one company/job description. The linked Target Role tracks the broader market direction, proof work, and readiness over time.
+                This workspace is for one company/job description. The linked Target Role tracks the broader role direction, proof work, and readiness over time.
               </p>
             </div>
             <Link

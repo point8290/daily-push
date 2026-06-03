@@ -1,0 +1,575 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--accent:#185FA5;--accent-bg:#E6F1FB;--accent-text:#0C447C;--success:#3B6D11;--success-bg:#EAF3DE;--warn:#854F0B;--warn-bg:#FAEEDA;--done-bg:#C0DD97}
+body{font-family:var(--font-sans);padding:0}
+.header{padding:1.5rem 1.5rem 1rem;border-bottom:0.5px solid var(--color-border-tertiary)}
+.header h1{font-size:20px;font-weight:500;color:var(--color-text-primary)}
+.header p{font-size:13px;color:var(--color-text-secondary);margin-top:4px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:1rem 1.5rem;border-bottom:0.5px solid var(--color-border-tertiary)}
+.stat{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px;text-align:center}
+.stat-num{font-size:22px;font-weight:500;color:var(--color-text-primary)}
+.stat-lbl{font-size:11px;color:var(--color-text-secondary);margin-top:2px}
+.progress-bar-wrap{padding:1rem 1.5rem 0.5rem;border-bottom:0.5px solid var(--color-border-tertiary)}
+.progress-bar-wrap p{font-size:12px;color:var(--color-text-secondary);margin-bottom:6px}
+.bar-bg{background:var(--color-background-secondary);border-radius:99px;height:8px;overflow:hidden;border:0.5px solid var(--color-border-tertiary)}
+.bar-fg{height:100%;border-radius:99px;background:var(--accent);transition:width 0.4s}
+.tabs{display:flex;gap:0;border-bottom:0.5px solid var(--color-border-tertiary);overflow-x:auto;padding:0 1.5rem}
+.tab{padding:10px 14px;font-size:13px;font-weight:500;color:var(--color-text-secondary);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;flex-shrink:0}
+.tab.active{color:var(--accent-text);border-bottom-color:var(--accent)}
+.content{padding:1rem 1.5rem 2rem}
+.week-card{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);background:var(--color-background-primary);margin-bottom:12px;overflow:hidden}
+.week-header{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none;border-bottom:0.5px solid var(--color-border-tertiary)}
+.week-badge{font-size:11px;font-weight:500;padding:3px 8px;border-radius:99px}
+.badge-current{background:var(--accent-bg);color:var(--accent-text)}
+.badge-done{background:var(--done-bg);color:var(--success)}
+.badge-upcoming{background:var(--color-background-secondary);color:var(--color-text-secondary)}
+.week-title{font-size:14px;font-weight:500;color:var(--color-text-primary);flex:1}
+.week-phase{font-size:11px;color:var(--color-text-secondary)}
+.chevron{font-size:16px;color:var(--color-text-secondary);transition:transform 0.2s}
+.chevron.open{transform:rotate(180deg)}
+.week-body{display:none;padding:12px 16px}
+.week-body.open{display:block}
+.topic-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.topic-row:last-child{border-bottom:none}
+.topic-check{width:18px;height:18px;flex-shrink:0;cursor:pointer;accent-color:var(--accent);margin-top:1px}
+.topic-content{flex:1}
+.topic-name{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.topic-name.done{text-decoration:line-through;color:var(--color-text-secondary)}
+.topic-sub{font-size:12px;color:var(--color-text-secondary);margin-top:2px}
+.topic-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.tag{font-size:10px;padding:2px 6px;border-radius:4px;font-weight:500}
+.tag-internals{background:var(--accent-bg);color:var(--accent-text)}
+.tag-perf{background:var(--warn-bg);color:var(--warn)}
+.tag-ds{background:#EEEDFE;color:#3C3489}
+.tag-db{background:#FBEAF0;color:#72243E)}
+.tag-system{background:#E1F5EE;color:#085041}
+.tag-mock{background:#FCEBEB;color:#791F1F}
+.day-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:10px}
+.day-cell{border-radius:4px;border:0.5px solid var(--color-border-tertiary);font-size:10px;padding:4px;text-align:center;color:var(--color-text-secondary)}
+.day-label{font-size:10px;color:var(--color-text-secondary);text-align:center;margin-bottom:2px}
+.day-note{font-size:10px;color:var(--color-text-secondary);font-weight:500;margin-top:2px}
+.resources-box{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px;margin-top:10px}
+.resources-title{font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.04em}
+.resource-item{font-size:12px;color:var(--color-text-primary);padding:3px 0;display:flex;gap:6px;align-items:flex-start}
+.resource-item i{color:var(--accent);margin-top:1px;font-size:13px;flex-shrink:0}
+.interview-tip{border-left:3px solid var(--accent);padding:8px 12px;background:var(--accent-bg);border-radius:0 var(--border-radius-md) var(--border-radius-md) 0;margin-top:10px}
+.interview-tip p{font-size:12px;color:var(--accent-text)}
+.interview-tip .tip-label{font-size:10px;font-weight:500;letter-spacing:0.04em;color:var(--accent-text);margin-bottom:3px}
+.ask-btn{margin-top:16px;padding:8px 14px;font-size:13px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-primary);cursor:pointer;width:100%}
+.ask-btn:hover{background:var(--color-background-secondary)}
+.legend{display:flex;gap:12px;padding:0.75rem 1.5rem;border-top:0.5px solid var(--color-border-tertiary);flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--color-text-secondary)}
+.legend-dot{width:8px;height:8px;border-radius:2px}
+</style>
+
+<h2 class="sr-only">Node.js interview prep — 8-week multi-week curriculum tracker with topics, resources, and progress</h2>
+
+<div class="header">
+  <h1><i class="ti ti-terminal-2" aria-hidden="true" style="font-size:18px;vertical-align:-2px;margin-right:6px;color:var(--accent)"></i>Node.js internals — 8-week interview prep</h1>
+  <p>Senior full-stack engineer track · ~1–2 hrs/day · Tap topics to mark complete</p>
+</div>
+
+<div class="stats">
+  <div class="stat"><div class="stat-num" id="done-count">0</div><div class="stat-lbl">Topics done</div></div>
+  <div class="stat"><div class="stat-num">32</div><div class="stat-lbl">Total topics</div></div>
+  <div class="stat"><div class="stat-num">8</div><div class="stat-lbl">Weeks</div></div>
+  <div class="stat"><div class="stat-num" id="pct">0%</div><div class="stat-lbl">Complete</div></div>
+</div>
+
+<div class="progress-bar-wrap">
+  <p>Overall progress</p>
+  <div class="bar-bg"><div class="bar-fg" id="prog-bar" style="width:0%"></div></div>
+</div>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-tab="curriculum">Curriculum</div>
+  <div class="tab" data-tab="resources">Key resources</div>
+  <div class="tab" data-tab="tips">Interview tips</div>
+</div>
+
+<div class="content" id="content">
+
+<div id="tab-curriculum">
+
+<div class="week-card" id="w1">
+<div class="week-header" onclick="toggleWeek('w1')">
+  <span class="week-badge badge-current">Week 1</span>
+  <span class="week-title">Event loop & async internals</span>
+  <span class="week-phase">Phase 1 · Internals</span>
+  <i class="ti ti-chevron-down chevron" id="chev-w1" aria-hidden="true"></i>
+</div>
+<div class="week-body" id="body-w1">
+  <div id="topics-w1">
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w1" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Event loop phases — deep dive</div>
+        <div class="topic-sub">timers → pending callbacks → idle/prepare → poll → check → close. Timer non-determinism, `uv_run` internals</div>
+        <div class="topic-tags"><span class="tag tag-internals">Internals</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w1" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">nextTick vs. microtask queue</div>
+        <div class="topic-sub">Execution order guarantees, starvation risk, Promise resolution vs. process.nextTick priority</div>
+        <div class="topic-tags"><span class="tag tag-internals">Internals</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w1" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">libuv & thread pool</div>
+        <div class="topic-sub">UV_THREADPOOL_SIZE, which ops use the thread pool (fs, dns, crypto), I/O vs CPU-bound blocking</div>
+        <div class="topic-tags"><span class="tag tag-internals">Internals</span><span class="tag tag-perf">Performance</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w1" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Streams & backpressure</div>
+        <div class="topic-sub">Readable/Writable/Transform, highWaterMark, pipe(), drain events, preventing memory leaks</div>
+        <div class="topic-tags"><span class="tag tag-internals">Internals</span><span class="tag tag-perf">Performance</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="interview-tip"><div class="tip-label">Interview focus</div><p>Draw the event loop on a whiteboard. Be ready to trace execution order for a snippet mixing setTimeout, Promise.then, and process.nextTick.</p></div>
+  <button class="ask-btn" onclick="sendPrompt('Give me a tricky Node.js event loop code snippet to trace execution order for interview practice ↗')">Practice event loop tracing ↗</button>
+</div>
+</div>
+
+<div class="week-card" id="w2">
+<div class="week-header" onclick="toggleWeek('w2')">
+  <span class="week-badge badge-current">Week 2</span>
+  <span class="week-title">Memory, GC & heap profiling</span>
+  <span class="week-phase">Phase 1 · Internals</span>
+  <i class="ti ti-chevron-down chevron" id="chev-w2" aria-hidden="true"></i>
+</div>
+<div class="week-body" id="body-w2">
+  <div id="topics-w2">
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w2" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">V8 heap structure</div>
+        <div class="topic-sub">New space (scavenge GC) vs old space (mark-sweep), large object space, process.memoryUsage() fields: rss, heapTotal, heapUsed, external, arrayBuffers</div>
+        <div class="topic-tags"><span class="tag tag-internals">Internals</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w2" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Heap snapshot workflow</div>
+        <div class="topic-sub">Take snapshot via `--inspect`, Chrome DevTools, find detached DOM nodes / closure leaks, compare snapshots</div>
+        <div class="topic-tags"><span class="tag tag-perf">Performance</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w2" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Common memory leak patterns</div>
+        <div class="topic-sub">Closure retaining scope, EventEmitter leaks (maxListeners), global cache without eviction, timer without clearTimeout</div>
+        <div class="topic-tags"><span class="tag tag-internals">Internals</span><span class="tag tag-perf">Performance</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w2" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Worker threads & cluster</div>
+        <div class="topic-sub">When to use worker_threads vs cluster, SharedArrayBuffer + Atomics, message passing overhead</div>
+        <div class="topic-tags"><span class="tag tag-internals">Internals</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="interview-tip"><div class="tip-label">Interview focus</div><p>Be precise about what each memoryUsage() field measures. Know the GC algorithm names — scavenge for young gen, mark-sweep-compact for old gen.</p></div>
+  <button class="ask-btn" onclick="sendPrompt('Ask me a senior-level interview question about Node.js memory management and V8 GC ↗')">Practice memory questions ↗</button>
+</div>
+</div>
+
+<div class="week-card" id="w3">
+<div class="week-header" onclick="toggleWeek('w3')">
+  <span class="week-badge badge-current">Week 3</span>
+  <span class="week-title">Performance measurement & profiling</span>
+  <span class="week-phase">Phase 1 · Internals</span>
+  <i class="ti ti-chevron-down chevron" id="chev-w3" aria-hidden="true"></i>
+</div>
+<div class="week-body" id="body-w3">
+  <div id="topics-w3">
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w3" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Structured performance methodology</div>
+        <div class="topic-sub">Baseline → hypothesis → isolate → measure → verify. Define SLO before optimizing. Know your p50/p95/p99.</div>
+        <div class="topic-tags"><span class="tag tag-perf">Performance</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w3" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">CPU profiling tools</div>
+        <div class="topic-sub">`--prof` + tick-processor, `clinic.js` flame, `0x`, Node.js built-in `perf_hooks`, Performance API</div>
+        <div class="topic-tags"><span class="tag tag-perf">Performance</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w3" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Load testing & benchmarking</div>
+        <div class="topic-sub">autocannon, k6, wrk. Avoid benchmarking in dev mode. Warm-up JIT, steady state measurement, reporting RPS + latency percentiles</div>
+        <div class="topic-tags"><span class="tag tag-perf">Performance</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w3" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">MySQL index deep dive (EXPLAIN)</div>
+        <div class="topic-sub">B-Tree mechanics, composite index column order, covering index, EXPLAIN output fields: type (ALL/ref/range/index), key, rows, Extra (Using index, Using filesort)</div>
+        <div class="topic-tags"><span class="tag tag-db">DB</span><span class="tag tag-perf">Performance</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="interview-tip"><div class="tip-label">Interview focus</div><p>This was your gap area. Practice narrating "I noticed p95 latency was 800ms, so I added `--prof`, saw 60% time in JSON.parse, and switched to a streaming parser — p95 dropped to 120ms."</p></div>
+  <button class="ask-btn" onclick="sendPrompt('Give me a mock interview question about diagnosing a Node.js API performance regression — I need to practice my structured methodology ↗')">Practice perf methodology ↗</button>
+</div>
+</div>
+
+<div class="week-card" id="w4">
+<div class="week-header" onclick="toggleWeek('w4')">
+  <span class="week-badge badge-upcoming">Week 4</span>
+  <span class="week-title">Distributed systems & microservices</span>
+  <span class="week-phase">Phase 1 · Architecture</span>
+  <i class="ti ti-chevron-down chevron" id="chev-w4" aria-hidden="true"></i>
+</div>
+<div class="week-body" id="body-w4">
+  <div id="topics-w4">
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w4" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">CAP theorem & consistency models</div>
+        <div class="topic-sub">Eventual vs strong consistency, read-your-writes, monotonic reads, linearizability. Practical tradeoffs in your IoT project.</div>
+        <div class="topic-tags"><span class="tag tag-system">Systems</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w4" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Message queues & event-driven arch</div>
+        <div class="topic-sub">At-least-once vs exactly-once delivery, idempotency keys, dead-letter queues, RabbitMQ vs Kafka tradeoffs</div>
+        <div class="topic-tags"><span class="tag tag-system">Systems</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w4" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Distributed caching with Redis</div>
+        <div class="topic-sub">Cache-aside vs write-through, TTL strategy, cache stampede (mutex lock/probabilistic early expiry), Redis cluster vs sentinel</div>
+        <div class="topic-tags"><span class="tag tag-system">Systems</span><span class="tag tag-perf">Performance</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w4" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Auth & Keycloak internals</div>
+        <div class="topic-sub">OAuth2 / OIDC flows, JWT validation, JWKS endpoint, token refresh, introspection vs local verification tradeoffs</div>
+        <div class="topic-tags"><span class="tag tag-system">Systems</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="interview-tip"><div class="tip-label">Interview focus</div><p>Connect concepts to your real projects. "In the IoT license system, I handled this by…" is far stronger than abstract answers.</p></div>
+  <button class="ask-btn" onclick="sendPrompt('Give me a system design interview prompt about designing a scalable event-driven microservices architecture ↗')">Practice system design ↗</button>
+</div>
+</div>
+
+<div class="week-card" id="w5">
+<div class="week-header" onclick="toggleWeek('w5')">
+  <span class="week-badge badge-upcoming">Week 5</span>
+  <span class="week-title">DSA for interviews</span>
+  <span class="week-phase">Phase 2 · DSA</span>
+  <i class="ti ti-chevron-down chevron" id="chev-w5" aria-hidden="true"></i>
+</div>
+<div class="week-body" id="body-w5">
+  <div id="topics-w5">
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w5" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Arrays, hashing & sliding window</div>
+        <div class="topic-sub">Two-pointer, sliding window max/min, HashMap patterns for O(1) lookups. 5–8 LeetCode medium problems.</div>
+        <div class="topic-tags"><span class="tag tag-ds">DSA</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w5" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Trees & graphs</div>
+        <div class="topic-sub">BFS/DFS, level-order traversal, topological sort, Dijkstra's. Focus on graph problems common in system design scenarios.</div>
+        <div class="topic-tags"><span class="tag tag-ds">DSA</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w5" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Dynamic programming patterns</div>
+        <div class="topic-sub">Tabulation vs memoization, 0/1 knapsack, LCS/LIS patterns, recognizing DP from problem shape</div>
+        <div class="topic-tags"><span class="tag tag-ds">DSA</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w5" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Complexity & estimation</div>
+        <div class="topic-sub">Big-O/Ω/Θ, amortized analysis, back-of-envelope estimation (RPS, storage, bandwidth) for system design</div>
+        <div class="topic-tags"><span class="tag tag-ds">DSA</span><span class="tag tag-system">Systems</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="interview-tip"><div class="tip-label">Interview focus</div><p>Think aloud. State brute force first, then optimize. Interviewers care more about your problem-solving process than the perfect solution.</p></div>
+  <button class="ask-btn" onclick="sendPrompt('Give me a medium-difficulty LeetCode-style coding problem in JavaScript, then walk me through the optimal solution ↗')">Practice a coding problem ↗</button>
+</div>
+</div>
+
+<div class="week-card" id="w6">
+<div class="week-header" onclick="toggleWeek('w6')">
+  <span class="week-badge badge-upcoming">Week 6</span>
+  <span class="week-title">AWS, Docker & CI/CD depth</span>
+  <span class="week-phase">Phase 2 · DevOps</span>
+  <i class="ti ti-chevron-down chevron" id="chev-w6" aria-hidden="true"></i>
+</div>
+<div class="week-body" id="body-w6">
+  <div id="topics-w6">
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w6" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">AWS EC2 & networking internals</div>
+        <div class="topic-sub">VPC, subnets, security groups vs NACLs, ALB vs NLB, auto-scaling groups, instance store vs EBS</div>
+        <div class="topic-tags"><span class="tag tag-system">Systems</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w6" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Docker deep dive</div>
+        <div class="topic-sub">Layer caching strategy, multi-stage builds, Docker networking (bridge/host/overlay), volume permission issues on Windows/Linux</div>
+        <div class="topic-tags"><span class="tag tag-system">Systems</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w6" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Jenkins & CI/CD pipelines</div>
+        <div class="topic-sub">Declarative vs scripted pipelines, parallel stages, shared libraries, secrets management, integration test strategies</div>
+        <div class="topic-tags"><span class="tag tag-system">Systems</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w6" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Observability: logs, metrics, traces</div>
+        <div class="topic-sub">Structured logging (pino/winston), CloudWatch, distributed tracing concepts (OpenTelemetry), alerting on SLOs</div>
+        <div class="topic-tags"><span class="tag tag-perf">Performance</span><span class="tag tag-system">Systems</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="interview-tip"><div class="tip-label">Interview focus</div><p>Tie AWS/Docker to production war stories from your projects. "We had a 2x memory regression after a Docker upgrade — here's how I diagnosed and fixed it."</p></div>
+  <button class="ask-btn" onclick="sendPrompt('Ask me a senior DevOps interview question about AWS architecture decisions or Docker production issues ↗')">Practice DevOps questions ↗</button>
+</div>
+</div>
+
+<div class="week-card" id="w7">
+<div class="week-header" onclick="toggleWeek('w7')">
+  <span class="week-badge badge-upcoming">Week 7</span>
+  <span class="week-title">React internals & full-stack patterns</span>
+  <span class="week-phase">Phase 2 · Frontend</span>
+  <i class="ti ti-chevron-down chevron" id="chev-w7" aria-hidden="true"></i>
+</div>
+<div class="week-body" id="body-w7">
+  <div id="topics-w7">
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w7" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">React reconciler & Fiber</div>
+        <div class="topic-sub">Virtual DOM diffing, Fiber tree structure, concurrent mode, scheduling priority (lanes), useTransition / useDeferredValue</div>
+        <div class="topic-tags"><span class="tag tag-internals">Internals</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w7" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">State management patterns</div>
+        <div class="topic-sub">Context vs Zustand vs Redux (when each), selector memoization, avoiding re-renders with useCallback/useMemo correctly</div>
+        <div class="topic-tags"><span class="tag tag-internals">Internals</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w7" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">API design patterns</div>
+        <div class="topic-sub">REST maturity levels, GraphQL N+1 problem + DataLoader, rate limiting patterns, idempotent endpoints (your CRM API improvements context)</div>
+        <div class="topic-tags"><span class="tag tag-system">Systems</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w7" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">RBAC & security patterns</div>
+        <div class="topic-sub">ABAC vs RBAC, permission hierarchy design (from your HRMS), OWASP Top 10 for Node APIs, SQL injection / NoSQL injection patterns</div>
+        <div class="topic-tags"><span class="tag tag-system">Systems</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="interview-tip"><div class="tip-label">Interview focus</div><p>For RBAC/HRMS questions, use STAR: Situation (multi-tenant HRMS), Task (role-based access), Action (permission hierarchy design), Result (X% reduction in unauthorized access attempts).</p></div>
+  <button class="ask-btn" onclick="sendPrompt('Run me through a React internals interview question about the Fiber reconciler or concurrent mode ↗')">Practice React internals ↗</button>
+</div>
+</div>
+
+<div class="week-card" id="w8">
+<div class="week-header" onclick="toggleWeek('w8')">
+  <span class="week-badge badge-upcoming">Week 8</span>
+  <span class="week-title">Full mock simulations</span>
+  <span class="week-phase">Phase 3 · Simulation</span>
+  <i class="ti ti-chevron-down chevron" id="chev-w8" aria-hidden="true"></i>
+</div>
+<div class="week-body" id="body-w8">
+  <div id="topics-w8">
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w8" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Timed coding mock (45 min)</div>
+        <div class="topic-sub">1 medium + 1 hard problem. Think aloud, no hints. Focus on clarity of explanation, not just the solution.</div>
+        <div class="topic-tags"><span class="tag tag-mock">Mock</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w8" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">System design mock (45 min)</div>
+        <div class="topic-sub">Design WhatsApp or a URL shortener. Practice: requirements clarification → capacity estimation → HLD → component deep dive → tradeoffs</div>
+        <div class="topic-tags"><span class="tag tag-mock">Mock</span><span class="tag tag-system">Systems</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w8" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Behavioural STAR stories</div>
+        <div class="topic-sub">Prepare 5 stories from IoT/CRM/HRMS/civic tech covering: conflict resolution, technical leadership, failure + learning, cross-team collaboration</div>
+        <div class="topic-tags"><span class="tag tag-mock">Mock</span></div>
+      </div>
+    </div>
+    <div class="topic-row">
+      <input type="checkbox" class="topic-check" data-week="w8" onchange="onCheck(this)">
+      <div class="topic-content">
+        <div class="topic-name">Full interview simulation (90 min)</div>
+        <div class="topic-sub">End-to-end mock: coding + system design + behavioural. Record yourself. Review pacing, terminology precision, recovery from blank moments.</div>
+        <div class="topic-tags"><span class="tag tag-mock">Mock</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="interview-tip"><div class="tip-label">Interview focus</div><p>Recovery skill matters as much as knowledge. Practice saying "let me think about that differently" and pivoting gracefully when you hit a wall.</p></div>
+  <button class="ask-btn" onclick="sendPrompt('Run a full 90-minute senior full-stack engineer mock interview covering Node.js internals, system design, and one behavioural question ↗')">Start full mock interview ↗</button>
+</div>
+</div>
+
+</div>
+
+<div id="tab-resources" style="display:none">
+  <div class="resources-box" style="margin-bottom:12px">
+    <div class="resources-title">Node.js internals</div>
+    <div class="resource-item"><i class="ti ti-book" aria-hidden="true"></i>Node.js docs — Event Loop, Timers, process.nextTick</div>
+    <div class="resource-item"><i class="ti ti-video" aria-hidden="true"></i>Bert Belder "Node's Event Loop from the Inside Out" (JSConf)</div>
+    <div class="resource-item"><i class="ti ti-book" aria-hidden="true"></i>"Node.js Design Patterns" — Casciaro & Mammino (Ch. 1–4)</div>
+    <div class="resource-item"><i class="ti ti-tool" aria-hidden="true"></i>clinic.js, 0x, node --inspect + Chrome DevTools</div>
+  </div>
+  <div class="resources-box" style="margin-bottom:12px">
+    <div class="resources-title">Databases & performance</div>
+    <div class="resource-item"><i class="ti ti-book" aria-hidden="true"></i>"Designing Data-Intensive Applications" — Kleppmann (Ch. 1–5)</div>
+    <div class="resource-item"><i class="ti ti-tool" aria-hidden="true"></i>EXPLAIN ANALYZE in MySQL / PostgreSQL workbench</div>
+    <div class="resource-item"><i class="ti ti-tool" aria-hidden="true"></i>autocannon or k6 for load testing Node.js APIs</div>
+  </div>
+  <div class="resources-box" style="margin-bottom:12px">
+    <div class="resources-title">System design</div>
+    <div class="resource-item"><i class="ti ti-book" aria-hidden="true"></i>"System Design Interview" — Alex Xu Vol 1 & 2</div>
+    <div class="resource-item"><i class="ti ti-link" aria-hidden="true"></i>highscalability.com — real-world architecture breakdowns</div>
+    <div class="resource-item"><i class="ti ti-link" aria-hidden="true"></i>AWS Well-Architected Framework whitepapers</div>
+  </div>
+  <div class="resources-box">
+    <div class="resources-title">DSA practice</div>
+    <div class="resource-item"><i class="ti ti-link" aria-hidden="true"></i>LeetCode — Node.js / JavaScript filter, focus on mediums</div>
+    <div class="resource-item"><i class="ti ti-book" aria-hidden="true"></i>neetcode.io — curated 150 problem list with patterns</div>
+  </div>
+  <button class="ask-btn" onclick="sendPrompt('Recommend a focused 5-day study sprint for Node.js event loop internals before an interview ↗')">Get a focused sprint plan ↗</button>
+</div>
+
+<div id="tab-tips" style="display:none">
+  <div class="interview-tip" style="margin-bottom:10px">
+    <div class="tip-label">Terminology precision</div>
+    <p>Use exact names: "V8 scavenge GC" not "garbage collection runs", "poll phase" not "event loop waits", "microtask checkpoint" not "the queue runs". Precise vocabulary signals seniority.</p>
+  </div>
+  <div class="interview-tip" style="margin-bottom:10px">
+    <div class="tip-label">Structured performance answers</div>
+    <p>Always frame perf answers as: measure baseline → identify bottleneck → change one variable → re-measure. Never jump to solutions without establishing a measurement framework first.</p>
+  </div>
+  <div class="interview-tip" style="margin-bottom:10px">
+    <div class="tip-label">Anchor to your projects</div>
+    <p>IoT license system → concurrency & throughput. CRM API improvements → performance profiling. HRMS → RBAC & security. Civic platform → data pipeline & reliability. Use these every time.</p>
+  </div>
+  <div class="interview-tip" style="margin-bottom:10px">
+    <div class="tip-label">System design structure</div>
+    <p>Step 1: Clarify requirements + scale. Step 2: Capacity estimate. Step 3: High-level diagram. Step 4: Deep dive 2–3 components. Step 5: Identify tradeoffs + failure modes. Always do Step 1 before drawing anything.</p>
+  </div>
+  <div class="interview-tip">
+    <div class="tip-label">Blank moment recovery</div>
+    <p>When stuck: "Let me think through this systematically…", "I'd approach this the same way I handled X in my CRM project, which is…", or "Can you tell me more about the scale requirements?" — all are professional pivots.</p>
+  </div>
+  <button class="ask-btn" onclick="sendPrompt('Give me 5 STAR story prompts I can prepare for based on my IoT, CRM, HRMS, and civic tech projects ↗')">Generate my STAR stories ↗</button>
+</div>
+
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent-bg);border:1px solid var(--accent)"></div>Internals</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--warn-bg);border:1px solid var(--warn)"></div>Performance</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#EEEDFE;border:1px solid #7F77DD"></div>DSA</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#E1F5EE;border:1px solid #1D9E75"></div>Systems</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#FCEBEB;border:1px solid #E24B4A"></div>Mock</div>
+</div>
+
+<script>
+const TOTAL = 32;
+let checked = new Set();
+
+function updateStats(){
+  const n = checked.size;
+  document.getElementById('done-count').textContent = n;
+  const pct = Math.round(n/TOTAL*100);
+  document.getElementById('pct').textContent = pct + '%';
+  document.getElementById('prog-bar').style.width = pct + '%';
+}
+
+function onCheck(el){
+  const key = el.dataset.week + '-' + Array.from(el.closest('#topics-'+el.dataset.week).querySelectorAll('.topic-check')).indexOf(el);
+  if(el.checked) checked.add(key); else checked.delete(key);
+  const nameEl = el.closest('.topic-row').querySelector('.topic-name');
+  if(el.checked) nameEl.classList.add('done'); else nameEl.classList.remove('done');
+  updateStats();
+}
+
+function toggleWeek(id){
+  const body = document.getElementById('body-'+id);
+  const chev = document.getElementById('chev-'+id);
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  chev.classList.toggle('open', !isOpen);
+}
+
+document.getElementById('tabs').addEventListener('click', function(e){
+  const t = e.target.closest('.tab');
+  if(!t) return;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  const tab = t.dataset.tab;
+  document.getElementById('tab-curriculum').style.display = tab==='curriculum'?'block':'none';
+  document.getElementById('tab-resources').style.display = tab==='resources'?'block':'none';
+  document.getElementById('tab-tips').style.display = tab==='tips'?'block':'none';
+});
+
+updateStats();
+</script>

@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useToast } from '@chakra-ui/react';
-import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.mjs?url';
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useToast } from "@chakra-ui/react";
 import {
   createGoalFromResumeApplication,
   createResumeApplication as saveResumeApplication,
@@ -14,14 +13,16 @@ import {
   type ResumeApplicationWorkspace,
   type ResumeFitSnapshot,
   type TargetRole,
-} from '../api/client';
-import { useAuth } from '../contexts/AuthContext';
-import { useEntitlements } from '../contexts/EntitlementsContext';
-import SurfaceCard from '../components/ui/SurfaceCard';
-import { hasProResumeAccess, hasSprintAccess } from '../utils/planAccess';
+} from "../api/client";
+import { useAuth } from "../contexts/AuthContext";
+import { useEntitlements } from "../contexts/EntitlementsContext";
+import DocumentDropzone from "../components/ui/DocumentDropzone";
+import SurfaceCard from "../components/ui/SurfaceCard";
+import { hasProResumeAccess, hasSprintAccess } from "../utils/planAccess";
+import { readDocumentFile, type DocumentKind } from "../utils/documentText";
 
-type DocumentKind = 'resume' | 'jobDescription';
-type InputMode = 'upload' | 'paste';
+type InputMode = "upload" | "paste";
+type ResumeWorkspaceTab = "snapshot" | "report" | "tailored" | "applications";
 
 interface StoredResumeDraft {
   resumeText: string;
@@ -29,17 +30,12 @@ interface StoredResumeDraft {
   snapshot: ResumeFitSnapshot | null;
 }
 
-const DRAFT_STORAGE_KEY = 'dp_resume_funnel_draft';
-const SUPPORTED_EXTENSIONS = new Set(['txt', 'md', 'markdown', 'rtf', 'pdf']);
-const SUPPORTED_ACCEPT =
-  '.txt,.md,.markdown,.rtf,.pdf,text/plain,text/markdown,application/rtf,application/pdf';
+const DRAFT_STORAGE_KEY = "dp_resume_funnel_draft";
 
-let pdfJsPromise: Promise<typeof import('pdfjs-dist')> | null = null;
-
-const fitStyles: Record<ResumeFitSnapshot['fitLabel'], string> = {
-  early: 'from-red-500 to-orange-500',
-  building: 'from-amber-500 to-sky-500',
-  close: 'from-emerald-500 to-teal-500',
+const fitStyles: Record<ResumeFitSnapshot["fitLabel"], string> = {
+  early: "from-red-500 to-orange-500",
+  building: "from-amber-500 to-sky-500",
+  close: "from-emerald-500 to-teal-500",
 };
 
 function normalizeText(value: string): string | null {
@@ -54,94 +50,10 @@ function saveDraft(draft: StoredResumeDraft) {
 function loadDraft(): StoredResumeDraft | null {
   try {
     const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
-    return raw ? JSON.parse(raw) as StoredResumeDraft : null;
+    return raw ? (JSON.parse(raw) as StoredResumeDraft) : null;
   } catch {
     return null;
   }
-}
-
-async function getPdfJs() {
-  if (!pdfJsPromise) {
-    pdfJsPromise = import('pdfjs-dist').then((pdfjs) => {
-      pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
-      return pdfjs;
-    });
-  }
-  return pdfJsPromise;
-}
-
-function stripRtfToPlainText(value: string): string {
-  return value
-    .replace(/\\par[d]?/gi, '\n')
-    .replace(/\\tab/gi, ' ')
-    .replace(/\\'[0-9a-fA-F]{2}/g, ' ')
-    .replace(/\\[a-z]+-?\d* ?/gi, ' ')
-    .replace(/[{}]/g, ' ')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .replace(/[ \t]{2,}/g, ' ')
-    .trim();
-}
-
-function normalizeDocumentText(value: string): string {
-  return value
-    .replace(/\u0000/g, ' ')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .replace(/[ \t]{2,}/g, ' ')
-    .trim();
-}
-
-function getExtension(file: File): string {
-  const parts = file.name.toLowerCase().split('.');
-  return parts.length > 1 ? parts.pop() ?? '' : '';
-}
-
-async function extractPdfText(file: File): Promise<string> {
-  const pdfjs = await getPdfJs();
-  const pdfData = new Uint8Array(await file.arrayBuffer());
-  const loadingTask = pdfjs.getDocument({ data: pdfData });
-
-  try {
-    const document = await loadingTask.promise;
-    const pageTexts: string[] = [];
-    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
-      const page = await document.getPage(pageNumber);
-      const textContent = await page.getTextContent();
-      const pageText = normalizeDocumentText(
-        textContent.items
-          .map((item) => ('str' in item && typeof item.str === 'string' ? item.str : ''))
-          .join(' '),
-      );
-      if (pageText) pageTexts.push(pageText);
-    }
-    return pageTexts.join('\n\n');
-  } catch {
-    throw new Error('Could not read that PDF. If it is scanned or image-only, paste the text instead.');
-  } finally {
-    await loadingTask.destroy();
-  }
-}
-
-async function readDocumentFile(file: File, kind: DocumentKind): Promise<string> {
-  const extension = getExtension(file);
-  if (!SUPPORTED_EXTENSIONS.has(extension)) {
-    throw new Error(
-      `Only PDF, TXT, MD, and RTF ${kind === 'resume' ? 'resumes' : 'job descriptions'} are supported right now.`,
-    );
-  }
-
-  const text = extension === 'pdf'
-    ? await extractPdfText(file)
-    : normalizeDocumentText(extension === 'rtf' ? stripRtfToPlainText(await file.text()) : await file.text());
-
-  if (text.length < (kind === 'resume' ? 10 : 20)) {
-    throw new Error(`That ${kind === 'resume' ? 'resume' : 'job description'} does not have enough readable text.`);
-  }
-  if (text.length > (kind === 'resume' ? 40000 : 50000)) {
-    throw new Error(`That ${kind === 'resume' ? 'resume' : 'job description'} is too large for one analysis.`);
-  }
-  return text;
 }
 
 function ResumeHeader() {
@@ -150,8 +62,15 @@ function ResumeHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-white/50 bg-white/80 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 md:px-6">
-        <Link to={user ? '/today' : '/resume'} className="flex items-center gap-3">
-          <img src="/logo-mark.svg" alt="Daily Push" className="h-10 w-10 rounded-2xl shadow-lg" />
+        <Link
+          to={user ? "/today" : "/resume"}
+          className="flex items-center gap-3"
+        >
+          <img
+            src="/logo-mark.svg"
+            alt="Daily Push"
+            className="h-10 w-10 rounded-2xl shadow-lg"
+          />
           <div>
             <p className="font-display text-lg font-semibold tracking-[-0.03em] text-slate-950">
               Daily Push
@@ -164,10 +83,16 @@ function ResumeHeader() {
         <div className="flex items-center gap-2">
           {user ? (
             <>
-              <Link to="/today" className="hidden rounded-full px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 md:inline-flex">
+              <Link
+                to="/today"
+                className="hidden rounded-full px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 md:inline-flex"
+              >
                 Today
               </Link>
-              <Link to="/goals" className="hidden rounded-full px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 md:inline-flex">
+              <Link
+                to="/goals"
+                className="hidden rounded-full px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 md:inline-flex"
+              >
                 Goals
               </Link>
               <button
@@ -180,10 +105,16 @@ function ResumeHeader() {
             </>
           ) : (
             <>
-              <Link to="/login" className="rounded-full px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100">
+              <Link
+                to="/login"
+                className="rounded-full px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
+              >
                 Sign in
               </Link>
-              <Link to="/login?mode=register&next=/resume" className="rounded-full bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-slate-900/15">
+              <Link
+                to="/login?mode=register&next=/resume"
+                className="rounded-full bg-slate-950 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-slate-900/15"
+              >
                 Save analysis
               </Link>
             </>
@@ -191,57 +122,6 @@ function ResumeHeader() {
         </div>
       </div>
     </header>
-  );
-}
-
-function UploadDropzone({
-  label,
-  filename,
-  onFile,
-}: {
-  label: string;
-  filename: string | null;
-  onFile: (file: File) => Promise<void>;
-}) {
-  const [dragActive, setDragActive] = useState(false);
-
-  return (
-    <label
-      onDragOver={(event) => {
-        event.preventDefault();
-        setDragActive(true);
-      }}
-      onDragLeave={() => setDragActive(false)}
-      onDrop={async (event) => {
-        event.preventDefault();
-        setDragActive(false);
-        const file = event.dataTransfer.files?.[0];
-        if (file) await onFile(file);
-      }}
-      className={`flex min-h-[168px] cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed px-5 py-6 text-center transition ${
-        dragActive ? 'border-sky-400 bg-sky-50' : 'border-slate-200 bg-slate-50/80 hover:border-slate-300'
-      }`}
-    >
-      <input
-        type="file"
-        accept={SUPPORTED_ACCEPT}
-        className="sr-only"
-        onChange={async (event) => {
-          const file = event.target.files?.[0];
-          event.target.value = '';
-          if (file) await onFile(file);
-        }}
-      />
-      <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400 shadow-sm">
-        {label}
-      </span>
-      <p className="mt-4 text-base font-extrabold text-slate-900">
-        {filename ?? 'Drop a PDF or choose a file'}
-      </p>
-      <p className="mt-2 max-w-xs text-sm leading-relaxed text-slate-500">
-        Text-based PDF, TXT, Markdown, and RTF files work best.
-      </p>
-    </label>
   );
 }
 
@@ -267,9 +147,7 @@ function SnapshotActionCard({
       <p className="mt-2 min-h-[52px] text-xs leading-6 text-slate-600">
         {description}
       </p>
-      <div className="mt-4">
-        {children}
-      </div>
+      <div className="mt-4">{children}</div>
     </div>
   );
 }
@@ -280,40 +158,82 @@ export default function Resume() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const toast = useToast();
-  const targetRoleIdParam = searchParams.get('targetRoleId');
-  const [resumeText, setResumeText] = useState('');
-  const [jdText, setJdText] = useState('');
-  const [resumeMode, setResumeMode] = useState<InputMode>('upload');
-  const [jdMode, setJdMode] = useState<InputMode>('upload');
+  const targetRoleIdParam = searchParams.get("targetRoleId");
+  const [resumeText, setResumeText] = useState("");
+  const [jdText, setJdText] = useState("");
+  const [resumeMode, setResumeMode] = useState<InputMode>("upload");
+  const [jdMode, setJdMode] = useState<InputMode>("upload");
   const [resumeFileName, setResumeFileName] = useState<string | null>(null);
   const [jdFileName, setJdFileName] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<ResumeFitSnapshot | null>(null);
-  const [applications, setApplications] = useState<ResumeApplicationWorkspace[]>([]);
-  const [activeApplication, setActiveApplication] = useState<ResumeApplicationWorkspace | null>(null);
-  const [selectedTargetRole, setSelectedTargetRole] = useState<TargetRole | null>(null);
+  const [applications, setApplications] = useState<
+    ResumeApplicationWorkspace[]
+  >([]);
+  const [activeApplication, setActiveApplication] =
+    useState<ResumeApplicationWorkspace | null>(null);
+  const [selectedTargetRole, setSelectedTargetRole] =
+    useState<TargetRole | null>(null);
   const [loadingApps, setLoadingApps] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [upgradePlan, setUpgradePlan] = useState<string | null>(null);
+  const [workspaceTab, setWorkspaceTab] =
+    useState<ResumeWorkspaceTab>("snapshot");
+  const isAppShell = Boolean(user);
 
-  const normalizedResumeText = useMemo(() => normalizeText(resumeText), [resumeText]);
+  const normalizedResumeText = useMemo(
+    () => normalizeText(resumeText),
+    [resumeText],
+  );
   const normalizedJdText = useMemo(() => normalizeText(jdText), [jdText]);
   const canPreview = !!normalizedResumeText && !!normalizedJdText && !busy;
   const canGenerateTailoredResume = hasProResumeAccess(currentPlan?.planKey);
   const canCreateSprint = hasSprintAccess(currentPlan?.planKey);
   const hasSavedAnalysis = !!activeApplication?.gapReport;
+  const showResumeWorkspace =
+    !!snapshot || !!activeApplication || applications.length > 0;
+  const resumeWorkspaceTabs: Array<{
+    key: ResumeWorkspaceTab;
+    label: string;
+    helper: string;
+  }> = [
+    { key: "snapshot", label: "Snapshot", helper: "Where you stand" },
+    {
+      key: "report",
+      label: "Full report",
+      helper: activeApplication?.gapReport
+        ? "Requirement coverage"
+        : "Save to unlock",
+    },
+    {
+      key: "tailored",
+      label: "Tailored resume",
+      helper: activeApplication?.tailoredResume ? "Draft ready" : "Pro draft",
+    },
+    {
+      key: "applications",
+      label: "Applications",
+      helper: user ? `${applications.length} saved` : "Sign in to save",
+    },
+  ];
   const savedStatusItems = activeApplication
     ? ([
-      ['Snapshot', true],
-      ['Target Role', !!activeApplication.targetRoleId],
-      ['Full report', !!activeApplication.gapReport],
-      ['Tailored resume', !!activeApplication.tailoredResume],
-      ['Goal', !!activeApplication.linkedGoalId],
-      ['Sprint', !!activeApplication.linkedSprintCreatedAt],
-    ] as const)
+        ["Snapshot", true],
+        ["Target Role", !!activeApplication.targetRoleId],
+        ["Full report", !!activeApplication.gapReport],
+        ["Tailored resume", !!activeApplication.tailoredResume],
+        ["Goal", !!activeApplication.linkedGoalId],
+        ["Sprint", !!activeApplication.linkedSprintCreatedAt],
+      ] as const)
     : [];
   const scrollToSavedAnalysis = () => {
-    document.getElementById('saved-analysis')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document
+      .getElementById("saved-analysis")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const openSavedAnalysis = () => {
+    setWorkspaceTab("report");
+    window.requestAnimationFrame(scrollToSavedAnalysis);
   };
 
   const loadApplications = async () => {
@@ -323,7 +243,9 @@ export default function Resume() {
       const nextApplications = await getResumeApplications();
       setApplications(nextApplications);
       setActiveApplication((current) =>
-        current ? nextApplications.find((item) => item.id === current.id) ?? current : nextApplications[0] ?? null,
+        current
+          ? (nextApplications.find((item) => item.id === current.id) ?? current)
+          : (nextApplications[0] ?? null),
       );
     } catch {
       setApplications([]);
@@ -338,15 +260,15 @@ export default function Resume() {
       setResumeText(draft.resumeText);
       setJdText(draft.jdText);
       setSnapshot(draft.snapshot);
-      setResumeMode('paste');
-      setJdMode('paste');
+      setResumeMode("paste");
+      setJdMode("paste");
     }
   }, []);
 
   useEffect(() => {
     if (!user) return;
     void trackEvent({
-      eventKey: 'resume_landing_viewed',
+      eventKey: "resume_landing_viewed",
       properties: { authenticated: true },
     }).catch(() => {});
     void loadApplications();
@@ -370,12 +292,18 @@ export default function Resume() {
     };
   }, [targetRoleIdParam, user]);
 
+  useEffect(() => {
+    if (!snapshot && activeApplication && workspaceTab === "snapshot") {
+      setWorkspaceTab(activeApplication.gapReport ? "report" : "applications");
+    }
+  }, [activeApplication, snapshot, workspaceTab]);
+
   const handleDocumentFile = async (file: File, kind: DocumentKind) => {
-    setBusy(kind === 'resume' ? 'resume-upload' : 'jd-upload');
+    setBusy(kind === "resume" ? "resume-upload" : "jd-upload");
     setError(null);
     try {
       const text = await readDocumentFile(file, kind);
-      if (kind === 'resume') {
+      if (kind === "resume") {
         setResumeText(text);
         setResumeFileName(file.name);
       } else {
@@ -383,8 +311,10 @@ export default function Resume() {
         setJdFileName(file.name);
       }
       setSnapshot(null);
+      setActiveApplication(null);
+      setWorkspaceTab("snapshot");
     } catch (err: any) {
-      setError(err?.message ?? 'Could not read that document.');
+      setError(err?.message ?? "Could not read that document.");
     } finally {
       setBusy(null);
     }
@@ -392,10 +322,12 @@ export default function Resume() {
 
   const handlePreview = async () => {
     if (!normalizedResumeText || !normalizedJdText) {
-      setError('Add both your resume and the job description to generate a fit snapshot.');
+      setError(
+        "Add both your resume and the job description to generate a fit snapshot.",
+      );
       return;
     }
-    setBusy('preview');
+    setBusy("preview");
     setError(null);
     setUpgradePlan(null);
     try {
@@ -405,10 +337,15 @@ export default function Resume() {
       });
       setSnapshot(nextSnapshot);
       setActiveApplication(null);
-      saveDraft({ resumeText: normalizedResumeText, jdText: normalizedJdText, snapshot: nextSnapshot });
+      setWorkspaceTab("snapshot");
+      saveDraft({
+        resumeText: normalizedResumeText,
+        jdText: normalizedJdText,
+        snapshot: nextSnapshot,
+      });
       if (user) {
         void trackEvent({
-          eventKey: 'resume_preview_generated',
+          eventKey: "resume_preview_generated",
           properties: {
             targetRole: nextSnapshot.targetRole,
             fitScore: nextSnapshot.fitScore,
@@ -417,50 +354,65 @@ export default function Resume() {
         }).catch(() => {});
       }
     } catch (err: any) {
-      setError(err?.response?.data?.error ?? 'Could not generate the resume fit snapshot.');
+      setError(
+        err?.response?.data?.error ??
+          "Could not generate the resume audit snapshot.",
+      );
     } finally {
       setBusy(null);
     }
   };
 
-  const saveAnalysis = async (redirectToWorkspace = true): Promise<ResumeApplicationWorkspace | null> => {
+  const saveAnalysis = async (
+    redirectToWorkspace = true,
+  ): Promise<ResumeApplicationWorkspace | null> => {
     if (!normalizedResumeText || !normalizedJdText) {
-      setError('Add both your resume and the job description first.');
+      setError("Add both your resume and the job description first.");
       return null;
     }
     if (!user) {
-      saveDraft({ resumeText: normalizedResumeText, jdText: normalizedJdText, snapshot });
-      navigate('/login?mode=register&next=/resume');
+      saveDraft({
+        resumeText: normalizedResumeText,
+        jdText: normalizedJdText,
+        snapshot,
+      });
+      navigate("/login?mode=register&next=/resume");
       return null;
     }
 
-    setBusy('save');
+    setBusy("save");
     setError(null);
     setUpgradePlan(null);
     try {
       const result = await saveResumeApplication({
         rawText: normalizedResumeText,
         jdText: normalizedJdText,
-        source: resumeFileName ? 'upload' : 'manual',
-        title: snapshot?.targetRole ? `${snapshot.targetRole} application` : null,
+        source: resumeFileName ? "upload" : "manual",
+        title: snapshot?.targetRole
+          ? `${snapshot.targetRole} application`
+          : null,
         targetRoleId: selectedTargetRole?.id ?? null,
       });
       setActiveApplication(result.application);
+      setWorkspaceTab("report");
       await loadApplications();
       toast({
-        title: 'Full analysis saved',
-        description: 'Your requirement coverage report is saved and ready when you return.',
-        status: 'success',
+        title: "Full analysis saved",
+        description:
+          "Your requirement coverage report is saved and ready when you return.",
+        status: "success",
         duration: 2800,
         isClosable: true,
-        position: 'top-right',
+        position: "top-right",
       });
       if (redirectToWorkspace) {
         navigate(`/resume/applications/${result.application.id}`);
       }
       return result.application;
     } catch (err: any) {
-      setError(err?.response?.data?.error ?? 'Could not save the full analysis.');
+      setError(
+        err?.response?.data?.error ?? "Could not save the full analysis.",
+      );
       setUpgradePlan(err?.response?.data?.upgradePlan ?? null);
       return null;
     } finally {
@@ -476,7 +428,7 @@ export default function Resume() {
   const handleCreateGoal = async () => {
     const application = await ensureSavedApplication();
     if (!application) return;
-    setBusy('goal');
+    setBusy("goal");
     setError(null);
     setUpgradePlan(null);
     try {
@@ -484,7 +436,10 @@ export default function Resume() {
       toast.closeAll();
       navigate(`/goals/${goalId}?source=resume`);
     } catch (err: any) {
-      setError(err?.response?.data?.error ?? 'Could not create a career goal from this analysis.');
+      setError(
+        err?.response?.data?.error ??
+          "Could not create a career goal from this analysis.",
+      );
       setUpgradePlan(err?.response?.data?.upgradePlan ?? null);
     } finally {
       setBusy(null);
@@ -494,15 +449,17 @@ export default function Resume() {
   const handleCreateSprint = async () => {
     const application = await ensureSavedApplication();
     if (!application) return;
-    setBusy('sprint');
+    setBusy("sprint");
     setError(null);
     setUpgradePlan(null);
     try {
-      const { goalId } = await createSprintFromResumeApplication(application.id);
+      const { goalId } = await createSprintFromResumeApplication(
+        application.id,
+      );
       toast.closeAll();
       navigate(`/goals/${goalId}?source=resume`);
     } catch (err: any) {
-      setError(err?.response?.data?.error ?? 'Could not create the sprint.');
+      setError(err?.response?.data?.error ?? "Could not create the sprint.");
       setUpgradePlan(err?.response?.data?.upgradePlan ?? null);
     } finally {
       setBusy(null);
@@ -512,22 +469,27 @@ export default function Resume() {
   const handleGenerateTailoredResume = async () => {
     const application = await ensureSavedApplication();
     if (!application) return;
-    setBusy('tailored-resume');
+    setBusy("tailored-resume");
     setError(null);
     setUpgradePlan(null);
     try {
-      const result = await generateResumeApplicationTailoredResume(application.id);
+      const result = await generateResumeApplicationTailoredResume(
+        application.id,
+      );
       setActiveApplication(result.application);
+      setWorkspaceTab("tailored");
       await loadApplications();
       toast({
-        title: 'Tailored resume draft ready',
-        status: 'success',
+        title: "Tailored resume draft ready",
+        status: "success",
         duration: 2500,
         isClosable: true,
-        position: 'top-right',
+        position: "top-right",
       });
     } catch (err: any) {
-      setError(err?.response?.data?.error ?? 'Could not generate the tailored resume.');
+      setError(
+        err?.response?.data?.error ?? "Could not generate the tailored resume.",
+      );
       setUpgradePlan(err?.response?.data?.upgradePlan ?? null);
     } finally {
       setBusy(null);
@@ -535,40 +497,61 @@ export default function Resume() {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_32%),radial-gradient(circle_at_80%_10%,rgba(249,115,22,0.14),transparent_28%),linear-gradient(180deg,#f8fbff_0%,#eef5ff_100%)]">
-      <ResumeHeader />
+    <div
+      className={
+        isAppShell
+          ? ""
+          : "min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.16),transparent_32%),radial-gradient(circle_at_80%_10%,rgba(249,115,22,0.14),transparent_28%),linear-gradient(180deg,#f8fbff_0%,#eef5ff_100%)]"
+      }
+    >
+      {!isAppShell && <ResumeHeader />}
 
-      <main className="mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-12">
-        <section className="grid gap-8 lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
-          <div>
+      <main
+        className={
+          isAppShell
+            ? "space-y-8"
+            : "mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-12"
+        }
+      >
+        <section className="grid gap-6 lg:grid-cols-[0.72fr_1.28fr] lg:items-start">
+          <div className="lg:sticky lg:top-24">
             <div className="inline-flex rounded-full border border-sky-200 bg-white/70 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-sky-700 shadow-sm">
-              Free resume fit snapshot
+              Resume Audit
             </div>
-            <h1 className="mt-5 max-w-4xl font-display text-5xl font-semibold leading-[0.93] tracking-[-0.06em] text-slate-950 md:text-7xl">
-              Find out if your resume is ready for this job.
+            <h1 className="mt-4 max-w-3xl font-display text-4xl font-semibold leading-[0.96] tracking-[-0.06em] text-slate-950 md:text-6xl">
+              Check your resume against a job.
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-9 text-slate-600">
-              Upload your resume and a job description. Daily Push shows your fit, the highest-impact gaps,
-              and the next move: save the full analysis, tailor the resume, or turn the gaps into a focused sprint.
+            <p className="mt-4 max-w-2xl text-base leading-8 text-slate-600">
+              Add both documents, generate a fit snapshot, then decide whether
+              to save the full report, tailor the resume, or build proof for the
+              gaps.
             </p>
-            <div className="mt-7 grid gap-3 sm:grid-cols-3">
-              {[
-                ['Resume', 'Job-specific fit and missing keywords'],
-                ['Goal', 'Your long-term career outcome'],
-                ['Sprint', 'A 2-8 week push to close gaps'],
-              ].map(([title, body]) => (
-                <SurfaceCard key={title} p={4} className="bg-white/75">
-                  <p className="text-sm font-black text-slate-950">{title}</p>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-500">{body}</p>
-                </SurfaceCard>
-              ))}
+            <div className="mt-6 rounded-3xl border border-white/70 bg-white/70 p-4">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                Output
+              </p>
+              <div className="mt-3 grid gap-3">
+                {[
+                  "Fit score",
+                  "Top strengths",
+                  "Highest-impact gaps",
+                  "Next action",
+                ].map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-black text-slate-700"
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
           <SurfaceCard p={{ base: 5, md: 6 }} className="bg-white/90">
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
                     Step 1
                   </p>
@@ -576,44 +559,46 @@ export default function Resume() {
                     Add your documents
                   </h2>
                 </div>
-                  <p className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
-                    {user ? 'Signed in' : 'No account required'}
+                {/* <p className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500">
+                  {user ? "Signed in" : ""}
+                </p> */}
+              </div>
+
+              {selectedTargetRole && (
+                <div className="rounded-3xl border border-sky-100 bg-sky-50/80 p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">
+                    Linked Target Role
+                  </p>
+                  <p className="mt-2 text-sm font-black text-slate-950">
+                    {selectedTargetRole.title}
+                  </p>
+                  <p className="mt-1 text-xs leading-6 text-slate-600">
+                    This application will stay company-specific, while the
+                    Target Role keeps your broader market preparation and
+                    readiness history.
                   </p>
                 </div>
+              )}
 
-                {selectedTargetRole && (
-                  <div className="rounded-3xl border border-sky-100 bg-sky-50/80 p-4">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">
-                      Linked Target Role
-                    </p>
-                    <p className="mt-2 text-sm font-black text-slate-950">
-                      {selectedTargetRole.title}
-                    </p>
-                    <p className="mt-1 text-xs leading-6 text-slate-600">
-                      This application will stay company-specific, while the Target Role keeps your broader market preparation and readiness history.
-                    </p>
-                  </div>
-                )}
-
-                <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <div className="mb-3 flex rounded-full bg-slate-100 p-1 text-xs font-black text-slate-500">
-                    {(['upload', 'paste'] as const).map((mode) => (
+                    {(["upload", "paste"] as const).map((mode) => (
                       <button
                         key={mode}
                         type="button"
                         onClick={() => setResumeMode(mode)}
-                        className={`flex-1 rounded-full px-3 py-2 capitalize ${resumeMode === mode ? 'bg-white text-slate-950 shadow-sm' : ''}`}
+                        className={`flex-1 rounded-full px-3 py-2 capitalize ${resumeMode === mode ? "bg-white text-slate-950 shadow-sm" : ""}`}
                       >
                         {mode} resume
                       </button>
                     ))}
                   </div>
-                  {resumeMode === 'upload' ? (
-                    <UploadDropzone
+                  {resumeMode === "upload" ? (
+                    <DocumentDropzone
                       label="Resume"
                       filename={resumeFileName}
-                      onFile={(file) => handleDocumentFile(file, 'resume')}
+                      onFile={(file) => handleDocumentFile(file, "resume")}
                     />
                   ) : (
                     <textarea
@@ -621,6 +606,8 @@ export default function Resume() {
                       onChange={(event) => {
                         setResumeText(event.target.value);
                         setSnapshot(null);
+                        setActiveApplication(null);
+                        setWorkspaceTab("snapshot");
                       }}
                       rows={9}
                       placeholder="Paste your resume here..."
@@ -631,22 +618,26 @@ export default function Resume() {
 
                 <div>
                   <div className="mb-3 flex rounded-full bg-slate-100 p-1 text-xs font-black text-slate-500">
-                    {(['upload', 'paste'] as const).map((mode) => (
+                    {(["upload", "paste"] as const).map((mode) => (
                       <button
                         key={mode}
                         type="button"
                         onClick={() => setJdMode(mode)}
-                        className={`flex-1 rounded-full px-3 py-2 capitalize ${jdMode === mode ? 'bg-white text-slate-950 shadow-sm' : ''}`}
+                        className={`flex-1 rounded-full px-3 py-2 capitalize ${jdMode === mode ? "bg-white text-slate-950 shadow-sm" : ""}`}
                       >
-                        {mode === 'upload' ? 'Upload job description' : 'Paste job description'}
+                        {mode === "upload"
+                          ? "Upload job description"
+                          : "Paste job description"}
                       </button>
                     ))}
                   </div>
-                  {jdMode === 'upload' ? (
-                    <UploadDropzone
+                  {jdMode === "upload" ? (
+                    <DocumentDropzone
                       label="Job description"
                       filename={jdFileName}
-                      onFile={(file) => handleDocumentFile(file, 'jobDescription')}
+                      onFile={(file) =>
+                        handleDocumentFile(file, "jobDescription")
+                      }
                     />
                   ) : (
                     <textarea
@@ -654,6 +645,8 @@ export default function Resume() {
                       onChange={(event) => {
                         setJdText(event.target.value);
                         setSnapshot(null);
+                        setActiveApplication(null);
+                        setWorkspaceTab("snapshot");
                       }}
                       rows={9}
                       placeholder="Paste the target job description here..."
@@ -667,7 +660,10 @@ export default function Resume() {
                 <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
                   {error}
                   {upgradePlan && (
-                    <Link to="/pricing?source=resume" className="ml-2 text-red-900 underline">
+                    <Link
+                      to="/pricing?source=resume"
+                      className="ml-2 text-red-900 underline"
+                    >
                       Upgrade to {upgradePlan}
                     </Link>
                   )}
@@ -680,13 +676,48 @@ export default function Resume() {
                 disabled={!canPreview}
                 className="rounded-2xl bg-slate-950 px-5 py-4 text-sm font-black text-white shadow-xl shadow-slate-900/20 transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
               >
-                {busy === 'preview' ? 'Generating snapshot...' : 'Generate free fit snapshot'}
+                {busy === "preview"
+                  ? "Generating fit report..."
+                  : "Generate fit report"}
               </button>
             </div>
           </SurfaceCard>
         </section>
 
-        {snapshot && (
+        {showResumeWorkspace && (
+          <section className="mt-8">
+            <SurfaceCard p={3} className="bg-white/80">
+              <div className="grid gap-2 md:grid-cols-4">
+                {resumeWorkspaceTabs.map((tab) => {
+                  const active = workspaceTab === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setWorkspaceTab(tab.key)}
+                      className={`rounded-2xl px-4 py-3 text-left transition ${
+                        active
+                          ? "bg-slate-950 text-white shadow-xl shadow-slate-900/15"
+                          : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      <span className="block text-sm font-black">
+                        {tab.label}
+                      </span>
+                      <span
+                        className={`mt-1 block text-[11px] font-bold ${active ? "text-white/60" : "text-slate-400"}`}
+                      >
+                        {tab.helper}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </SurfaceCard>
+          </section>
+        )}
+
+        {snapshot && workspaceTab === "snapshot" && (
           <section className="mt-8 grid gap-6 lg:grid-cols-[0.82fr_1.18fr]">
             <SurfaceCard
               p={{ base: 5, md: 6 }}
@@ -696,9 +727,11 @@ export default function Resume() {
               className="overflow-hidden"
             >
               <p className="text-xs font-black uppercase tracking-[0.18em] text-white/50">
-                Resume fit snapshot
+                Resume audit snapshot
               </p>
-              <div className={`mt-5 inline-flex h-28 w-28 items-center justify-center rounded-[2rem] bg-gradient-to-br ${fitStyles[snapshot.fitLabel]} text-4xl font-black shadow-2xl`}>
+              <div
+                className={`mt-5 inline-flex h-28 w-28 items-center justify-center rounded-[2rem] bg-gradient-to-br ${fitStyles[snapshot.fitLabel]} text-4xl font-black shadow-2xl`}
+              >
                 {snapshot.fitScore}
               </div>
               <h2 className="mt-5 text-3xl font-black tracking-[-0.05em]">
@@ -710,11 +743,19 @@ export default function Resume() {
               <div className="mt-6 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={hasSavedAnalysis ? scrollToSavedAnalysis : () => void saveAnalysis(true)}
+                  onClick={
+                    hasSavedAnalysis
+                      ? openSavedAnalysis
+                      : () => void saveAnalysis(true)
+                  }
                   disabled={!!busy}
                   className="rounded-full bg-white px-5 py-3 text-sm font-black text-slate-950 disabled:opacity-60"
                 >
-                  {hasSavedAnalysis ? 'View full report' : user ? 'Save full analysis' : 'Create account to save'}
+                  {hasSavedAnalysis
+                    ? "View full report"
+                    : user
+                      ? "Save full analysis"
+                      : "Create account to save"}
                 </button>
                 {canCreateSprint ? (
                   <button
@@ -753,7 +794,10 @@ export default function Resume() {
                   </p>
                   <div className="mt-4 space-y-3">
                     {snapshot.topStrengths.map((item) => (
-                      <p key={item} className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+                      <p
+                        key={item}
+                        className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"
+                      >
                         {item}
                       </p>
                     ))}
@@ -766,14 +810,21 @@ export default function Resume() {
                   </p>
                   <div className="mt-4 space-y-3">
                     {snapshot.topGaps.map((item) => (
-                      <div key={`${item.name}-${item.priority}`} className="rounded-2xl bg-orange-50 px-4 py-3">
+                      <div
+                        key={`${item.name}-${item.priority}`}
+                        className="rounded-2xl bg-orange-50 px-4 py-3"
+                      >
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-black text-orange-900">{item.name}</p>
+                          <p className="text-sm font-black text-orange-900">
+                            {item.name}
+                          </p>
                           <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase text-orange-600">
                             {item.priority}
                           </span>
                         </div>
-                        <p className="mt-2 text-xs leading-relaxed text-orange-800">{item.reason}</p>
+                        <p className="mt-2 text-xs leading-relaxed text-orange-800">
+                          {item.reason}
+                        </p>
                       </div>
                     ))}
                   </div>
@@ -789,7 +840,7 @@ export default function Resume() {
                 </h3>
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <SnapshotActionCard
-                    badge={user ? 'Free account' : 'Account'}
+                    badge={user ? "Free account" : "Account"}
                     title="Full requirement coverage"
                     description="Save the report to see each job requirement mapped to covered, weak, or missing resume evidence."
                   >
@@ -807,7 +858,7 @@ export default function Resume() {
                         disabled={!!busy}
                         className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
                       >
-                        {user ? 'Save full analysis' : 'Create account to save'}
+                        {user ? "Save full analysis" : "Create account to save"}
                       </button>
                     )}
                   </SnapshotActionCard>
@@ -824,7 +875,7 @@ export default function Resume() {
                         disabled={!!busy}
                         className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
                       >
-                        {user ? 'Save analysis first' : 'Create account first'}
+                        {user ? "Save analysis first" : "Create account first"}
                       </button>
                     ) : canGenerateTailoredResume ? (
                       <button
@@ -857,7 +908,7 @@ export default function Resume() {
                         disabled={!!busy}
                         className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
                       >
-                        {user ? 'Save analysis first' : 'Create account first'}
+                        {user ? "Save analysis first" : "Create account first"}
                       </button>
                     ) : canCreateSprint ? (
                       <button
@@ -880,8 +931,8 @@ export default function Resume() {
 
                   <SnapshotActionCard
                     badge="Sprint"
-                    title="Proof builder and interview prep"
-                    description="Get project ideas, interview risks, and practice focus areas based on the missing evidence in the report."
+                    title="Proof builder"
+                    description="Get project ideas and practice focus areas based on the missing evidence in the report."
                   >
                     {!user || !activeApplication ? (
                       <button
@@ -890,7 +941,7 @@ export default function Resume() {
                         disabled={!!busy}
                         className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
                       >
-                        {user ? 'Save analysis first' : 'Create account first'}
+                        {user ? "Save analysis first" : "Create account first"}
                       </button>
                     ) : canCreateSprint ? (
                       <button
@@ -916,7 +967,7 @@ export default function Resume() {
           </section>
         )}
 
-        {activeApplication?.gapReport && (
+        {workspaceTab === "report" && activeApplication?.gapReport && (
           <section id="saved-analysis" className="mt-8 scroll-mt-24">
             <SurfaceCard p={{ base: 5, md: 6 }} className="bg-white/95">
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -936,10 +987,12 @@ export default function Resume() {
                         <span
                           key={label}
                           className={`rounded-full px-3 py-1 text-xs font-black ${
-                            complete ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                            complete
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "bg-slate-100 text-slate-500"
                           }`}
                         >
-                          {complete ? 'Ready' : 'Next'}: {label}
+                          {complete ? "Ready" : "Next"}: {label}
                         </span>
                       ))}
                     </div>
@@ -966,79 +1019,206 @@ export default function Resume() {
               </div>
 
               <div className="mt-6 grid gap-4 md:grid-cols-3">
-                {activeApplication.gapReport.requirementCoverage.slice(0, 6).map((item) => (
-                  <div key={`${item.requirement}-${item.status}`} className="rounded-3xl border border-slate-100 bg-slate-50 p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-black text-slate-900">{item.requirement}</p>
-                      <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase text-slate-500">
-                        {item.status}
-                      </span>
+                {activeApplication.gapReport.requirementCoverage
+                  .slice(0, 6)
+                  .map((item) => (
+                    <div
+                      key={`${item.requirement}-${item.status}`}
+                      className="rounded-3xl border border-slate-100 bg-slate-50 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-black text-slate-900">
+                          {item.requirement}
+                        </p>
+                        <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase text-slate-500">
+                          {item.status}
+                        </span>
+                      </div>
+                      <p className="mt-3 text-xs leading-relaxed text-slate-600">
+                        {item.action}
+                      </p>
                     </div>
-                    <p className="mt-3 text-xs leading-relaxed text-slate-600">{item.action}</p>
-                  </div>
-                ))}
+                  ))}
               </div>
+            </SurfaceCard>
+          </section>
+        )}
 
-              {activeApplication.tailoredResume && (
-                <SurfaceCard p={5} className="mt-6 bg-slate-50">
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                    Tailored resume draft
-                  </p>
-                  <h3 className="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-950">
+        {workspaceTab === "report" &&
+          !activeApplication?.gapReport &&
+          showResumeWorkspace && (
+            <section id="saved-analysis" className="mt-8 scroll-mt-24">
+              <SurfaceCard p={{ base: 5, md: 6 }} className="bg-white/95">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                  Full resume report
+                </p>
+                <h2 className="mt-2 text-3xl font-black tracking-[-0.05em] text-slate-950">
+                  Save the analysis to see requirement coverage.
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm leading-8 text-slate-600">
+                  The full report maps each job requirement to resume evidence,
+                  weak signals, or missing proof.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void saveAnalysis(false)}
+                  disabled={!!busy}
+                  className="mt-5 rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white disabled:opacity-60"
+                >
+                  {user ? "Save full analysis" : "Create account to save"}
+                </button>
+              </SurfaceCard>
+            </section>
+          )}
+
+        {workspaceTab === "tailored" && showResumeWorkspace && (
+          <section className="mt-8">
+            <SurfaceCard p={{ base: 5, md: 6 }} className="bg-white/95">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                Tailored resume draft
+              </p>
+              {activeApplication?.tailoredResume ? (
+                <>
+                  <h2 className="mt-2 text-3xl font-black tracking-[-0.05em] text-slate-950">
                     {activeApplication.tailoredResume.headline}
-                  </h3>
-                  <p className="mt-3 text-sm leading-8 text-slate-600">
+                  </h2>
+                  <p className="mt-3 max-w-3xl text-sm leading-8 text-slate-600">
                     {activeApplication.tailoredResume.professionalSummary}
                   </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {activeApplication.tailoredResume.atsKeywords.slice(0, 14).map((keyword) => (
-                      <span key={keyword} className="rounded-full bg-white px-3 py-1 text-xs font-bold text-sky-700">
-                        {keyword}
-                      </span>
-                    ))}
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {activeApplication.tailoredResume.atsKeywords
+                      .slice(0, 18)
+                      .map((keyword) => (
+                        <span
+                          key={keyword}
+                          className="rounded-full bg-sky-50 px-3 py-1 text-xs font-bold text-sky-700"
+                        >
+                          {keyword}
+                        </span>
+                      ))}
                   </div>
-                </SurfaceCard>
+                </>
+              ) : (
+                <>
+                  <h2 className="mt-2 text-3xl font-black tracking-[-0.05em] text-slate-950">
+                    Generate a job-specific resume draft.
+                  </h2>
+                  <p className="mt-3 max-w-2xl text-sm leading-8 text-slate-600">
+                    The draft uses the saved analysis so your resume stays
+                    grounded in evidence already present in your profile.
+                  </p>
+                  {!user || !activeApplication ? (
+                    <button
+                      type="button"
+                      onClick={() => void saveAnalysis(false)}
+                      disabled={!!busy}
+                      className="mt-5 rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white disabled:opacity-60"
+                    >
+                      {user ? "Save analysis first" : "Create account first"}
+                    </button>
+                  ) : canGenerateTailoredResume ? (
+                    <button
+                      type="button"
+                      onClick={handleGenerateTailoredResume}
+                      disabled={!!busy}
+                      className="mt-5 rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white disabled:opacity-60"
+                    >
+                      {busy === "tailored-resume"
+                        ? "Generating resume..."
+                        : "Generate tailored resume"}
+                    </button>
+                  ) : (
+                    <Link
+                      to="/pricing?source=resume"
+                      className="mt-5 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white"
+                    >
+                      Upgrade to Pro
+                    </Link>
+                  )}
+                </>
               )}
             </SurfaceCard>
           </section>
         )}
 
-        {user && (
-          <section className="mt-8">
-            <SurfaceCard p={5} className="bg-white/85">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                    Saved applications
-                  </p>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Keep each job analysis organized so you can return to the report, resume draft, and next steps.
-                  </p>
-                </div>
-                {loadingApps && <span className="text-xs font-bold text-slate-400">Loading...</span>}
-              </div>
-              <div className="mt-4 space-y-3">
-                {applications.length === 0 ? (
-                  <p className="rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-500">
-                    Save your first analysis to keep the full report and continue from where you left off.
-                  </p>
-                ) : applications.map((application) => (
-                  <Link
-                    key={application.id}
-                    to={`/resume/applications/${application.id}`}
-                    className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                      activeApplication?.id === application.id
-                        ? 'border-sky-200 bg-sky-50'
-                        : 'border-slate-100 bg-slate-50 hover:border-slate-200'
-                    }`}
-                  >
-                    <p className="text-sm font-black text-slate-900">{application.title}</p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {application.targetRole ?? 'Target role'} - {application.targetRoleTitle ? `Linked to ${application.targetRoleTitle}` : application.linkedSprintCreatedAt ? 'Sprint created' : application.linkedGoalId ? 'Goal created' : 'Resume analysis'}
+        {workspaceTab === "applications" &&
+          user &&
+          (applications.length > 0 || snapshot || activeApplication) && (
+            <section className="mt-8">
+              <SurfaceCard p={5} className="bg-white/85">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                      Saved applications
                     </p>
-                  </Link>
-                ))}
-              </div>
+                    <p className="mt-2 text-sm text-slate-500">
+                      Keep each job analysis organized so you can return to the
+                      report, resume draft, and next steps.
+                    </p>
+                  </div>
+                  {loadingApps && (
+                    <span className="text-xs font-bold text-slate-400">
+                      Loading...
+                    </span>
+                  )}
+                </div>
+                <div className="mt-4 space-y-3">
+                  {applications.length === 0 ? (
+                    <p className="rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-500">
+                      Save your first analysis to keep the full report and
+                      continue from where you left off.
+                    </p>
+                  ) : (
+                    applications.map((application) => (
+                      <Link
+                        key={application.id}
+                        to={`/resume/applications/${application.id}`}
+                        className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                          activeApplication?.id === application.id
+                            ? "border-sky-200 bg-sky-50"
+                            : "border-slate-100 bg-slate-50 hover:border-slate-200"
+                        }`}
+                      >
+                        <p className="text-sm font-black text-slate-900">
+                          {application.title}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {application.targetRole ?? "Target role"} -{" "}
+                          {application.targetRoleTitle
+                            ? `Linked to ${application.targetRoleTitle}`
+                            : application.linkedSprintCreatedAt
+                              ? "Sprint created"
+                              : application.linkedGoalId
+                                ? "Goal created"
+                                : "Resume analysis"}
+                        </p>
+                      </Link>
+                    ))
+                  )}
+                </div>
+              </SurfaceCard>
+            </section>
+          )}
+
+        {workspaceTab === "applications" && !user && showResumeWorkspace && (
+          <section className="mt-8">
+            <SurfaceCard p={6} className="bg-white/85 text-center">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                Applications
+              </p>
+              <h2 className="mt-2 text-3xl font-black tracking-[-0.05em] text-slate-950">
+                Create an account to save each job analysis.
+              </h2>
+              <p className="mx-auto mt-3 max-w-2xl text-sm leading-8 text-slate-600">
+                Saved applications keep the fit report, tailored resume draft,
+                and next steps together for each role.
+              </p>
+              <Link
+                to="/login?mode=register&next=/resume"
+                className="mt-5 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-xl shadow-slate-900/20"
+              >
+                Create account
+              </Link>
             </SurfaceCard>
           </section>
         )}
@@ -1053,10 +1233,14 @@ export default function Resume() {
                 Save the analysis, then turn it into a plan.
               </h2>
               <p className="mx-auto mt-3 max-w-2xl text-sm leading-8 text-slate-600">
-                The free snapshot tells you where you stand. Save the analysis to keep the full report,
-                resume tailoring, goal creation, and a sprint plan in one place.
+                The free snapshot tells you where you stand. Save the analysis
+                to keep the full report, resume tailoring, goal creation, and a
+                sprint plan in one place.
               </p>
-              <Link to="/login?mode=register&next=/resume" className="mt-5 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-xl shadow-slate-900/20">
+              <Link
+                to="/login?mode=register&next=/resume"
+                className="mt-5 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-xl shadow-slate-900/20"
+              >
                 Create account and continue
               </Link>
             </SurfaceCard>

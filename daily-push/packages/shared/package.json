@@ -10,7 +10,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "validate:golden-fixtures": "npm run build && node scripts/validate-role-market-golden-fixtures.mjs",
-    "validate:copy-safety": "npm run build && node scripts/validate-role-market-copy-safety.mjs"
+    "validate:copy-safety": "npm run build && node scripts/validate-role-market-copy-safety.mjs",
+    "validate:live-market-fixtures": "npm run build && node scripts/validate-live-market-fixtures.mjs",
+    "validate:live-market-contracts": "npm run build && node scripts/validate-live-market-fixtures.mjs",
+    "validate:live-market-profile-drafts": "npm run build && node scripts/validate-live-market-profile-drafts.mjs",
+    "validate:live-market-source-integrity": "npm run build && node scripts/validate-live-market-source-integrity.mjs",
+    "validate:outcome-signal-contract": "npm run build && node scripts/validate-outcome-signal-contract.mjs"
   },
   "devDependencies": {
     "typescript": "^5.7.3"

@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import type {
+import {
   AiImpact,
   CandidateRoleInput,
   ListRolesQuery,
@@ -12,9 +12,9 @@ import { optionalAuth, OptionalAuthRequest } from '../middleware/auth';
 import { requireRoleMarketFeature } from '../middleware/roleMarketFeature';
 import { createRateLimit } from '../middleware/rateLimit';
 import {
-  getRoleMarketProfile,
-  listRoleMarketProfiles,
-} from '../services/roleMarketCatalog';
+  getPublicRoleMarketProfile,
+  listPublicRoleMarketProfiles,
+} from '../services/roleMarketPublicCatalog';
 import { generateRoleRecommendations } from '../services/roleMarketRecommendation';
 import {
   assertQuotaAvailable,
@@ -90,6 +90,18 @@ function readOptionalLimit(value: unknown): number | undefined {
   return parsed;
 }
 
+function readOptionalRegion(value: unknown): string | undefined {
+  const region = readSingleQueryValue(value, 'region');
+  if (!region) return undefined;
+  if (region.length > 80) {
+    throw new ValidationError('region must be at most 80 characters.');
+  }
+  if (!/^[a-z0-9 ,._:-]+$/i.test(region)) {
+    throw new ValidationError('region can include letters, numbers, spaces, commas, periods, underscores, colons, and hyphens.');
+  }
+  return region;
+}
+
 function readPathParam(value: string | string[] | undefined, fieldName: string): string {
   const raw = Array.isArray(value) ? value[0] : value;
   if (!raw || !raw.trim()) {
@@ -109,6 +121,7 @@ function readListRolesQuery(query: Record<string, unknown>): ListRolesQuery {
     category: readOptionalEnum(query.category, 'category', ROLE_CATEGORIES),
     roleType: readOptionalEnum(query.roleType, 'roleType', ROLE_TYPES),
     aiImpact: readOptionalEnum(query.aiImpact, 'aiImpact', AI_IMPACTS),
+    region: readOptionalRegion(query.region),
     limit: readOptionalLimit(query.limit),
   };
 }
@@ -146,19 +159,37 @@ function readRecommendationLimit(value: unknown): number | undefined {
 function readRecommendationRequest(value: unknown): RoleRecommendationRequest {
   const body = assertBodyObject(value);
   const inputPayload = body.input === undefined ? body : body.input;
+  const mode =
+    body.mode === undefined || body.mode === null
+      ? undefined
+      : body.mode === 'discovery' || body.mode === 'target_fit'
+        ? body.mode
+        : (() => {
+            throw new ValidationError('mode must be discovery or target_fit.');
+          })();
+  const targetRoleProfileId =
+    body.targetRoleProfileId === undefined || body.targetRoleProfileId === null
+      ? null
+      : typeof body.targetRoleProfileId === 'string' && body.targetRoleProfileId.trim()
+        ? body.targetRoleProfileId.trim()
+        : (() => {
+            throw new ValidationError('targetRoleProfileId must be a non-empty string or null.');
+          })();
   return {
     input: readCandidateInput(inputPayload),
     limit: readRecommendationLimit(body.limit),
+    mode,
+    targetRoleProfileId,
   };
 }
 
 router.get(
   '/roles',
   requireRoleMarketFeature('role_market_public'),
-  (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
       const query = readListRolesQuery(req.query as Record<string, unknown>);
-      res.json(listRoleMarketProfiles(query));
+      res.json(await listPublicRoleMarketProfiles(query));
     } catch (error) {
       next(error);
     }
@@ -178,7 +209,10 @@ router.post(
         await assertQuotaAvailable(userId, 'market_recommendations.daily');
       }
 
-      const response = generateRoleRecommendations(request.input, request.limit);
+      const response = await generateRoleRecommendations(request.input, request.limit, undefined, {
+        mode: request.mode,
+        targetRoleProfileId: request.targetRoleProfileId,
+      });
       const quota = userId
         ? await consumeQuota(userId, 'market_recommendations.daily', {
             source: 'career_market_recommendation',
@@ -226,9 +260,14 @@ router.post(
 router.get(
   '/roles/:roleId',
   requireRoleMarketFeature('role_market_public'),
-  (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json(getRoleMarketProfile(readPathParam(req.params.roleId, 'roleId')));
+      res.json(
+        await getPublicRoleMarketProfile(
+          readPathParam(req.params.roleId, 'roleId'),
+          { region: readOptionalRegion(req.query.region) ?? null },
+        ),
+      );
     } catch (error) {
       next(error);
     }

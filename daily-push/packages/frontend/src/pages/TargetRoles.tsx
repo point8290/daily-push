@@ -1,14 +1,11 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import {
-  getTargetRoles,
-  type TargetRole,
-} from '../api/client';
-import SurfaceCard from '../components/ui/SurfaceCard';
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { getTargetRoles, type TargetRole } from "../api/client";
+import SurfaceCard from "../components/ui/SurfaceCard";
 
 function formatLabel(value: string): string {
   return value
-    .replace(/_/g, ' ')
+    .replace(/_/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
@@ -16,23 +13,23 @@ function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 }
 
 function nextActionLabel(role: TargetRole): string {
-  if (role.latestAssessmentId) return 'Review readiness';
-  if (role.linkedSprintId) return 'Open sprint';
-  if (role.linkedGoalId) return 'Review goal';
-  return 'Generate readiness';
+  if (role.latestAssessmentId) return "Review readiness";
+  if (role.linkedSprintId) return "Open sprint";
+  if (role.linkedGoalId) return "Review goal";
+  return "Generate readiness";
 }
 
 export default function TargetRoles() {
   const [roles, setRoles] = useState<TargetRole[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -41,7 +38,7 @@ export default function TargetRoles() {
       .then((data) => {
         if (!cancelled) {
           setRoles(data);
-          setError('');
+          setError("");
         }
       })
       .catch((err: any) => {
@@ -49,8 +46,8 @@ export default function TargetRoles() {
           const status = err?.response?.status;
           setError(
             status === 404
-              ? 'Target Roles are not enabled yet in this environment.'
-              : 'Could not load your Target Roles right now.',
+              ? "Target Roles are not enabled yet in this environment."
+              : "Could not load your Target Roles right now.",
           );
         }
       })
@@ -73,14 +70,16 @@ export default function TargetRoles() {
             Roles you are preparing for.
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-            Target Role is your career direction. Applications are company-specific. Sprints are the focused execution plan that closes the gaps.
+            Target Role is your career direction. Applications are
+            company-specific. Sprints are the focused execution plan that closes
+            the gaps.
           </p>
         </div>
         <Link
           to="/career-market"
           className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5"
         >
-          Explore career market
+          Explore new roles
         </Link>
       </div>
 
@@ -93,7 +92,10 @@ export default function TargetRoles() {
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="h-64 animate-pulse rounded-[32px] bg-white/70" />
+            <div
+              key={index}
+              className="h-64 animate-pulse rounded-[32px] bg-white/70"
+            />
           ))}
         </div>
       ) : roles.length === 0 && !error ? (
@@ -107,13 +109,15 @@ export default function TargetRoles() {
                 Choose a role before choosing a sprint.
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-                Start with the Career Market analyzer. Save one target role, then use this workspace to connect readiness, applications, and upgrade work without mixing them together.
+                Start with Role Discovery. Save one target role, then use
+                this workspace to connect readiness, applications, and upgrade
+                work without mixing them together.
               </p>
               <Link
-                to="/career-market"
+                to="/career-market/find-direction"
                 className="mt-6 inline-flex rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5"
               >
-                Find my target role
+                Find a target role
               </Link>
             </div>
             <div className="rounded-[32px] bg-slate-950 p-6 text-white">
@@ -121,8 +125,15 @@ export default function TargetRoles() {
                 Workspace model
               </p>
               <div className="mt-5 space-y-3">
-                {['Target Role = direction', 'Application = company/job', 'Sprint = execution plan'].map((item) => (
-                  <div key={item} className="rounded-3xl border border-white/10 bg-white/8 p-4 text-sm font-bold text-white/82">
+                {[
+                  "Target Role = direction",
+                  "Application = company/job",
+                  "Sprint = execution plan",
+                ].map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-3xl border border-white/10 bg-white/8 p-4 text-sm font-bold text-white/82"
+                  >
                     {item}
                   </div>
                 ))}
@@ -156,13 +167,17 @@ export default function TargetRoles() {
                   <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
                     Saved
                   </p>
-                  <p className="mt-1 text-sm font-bold text-slate-700">{formatDate(role.createdAt)}</p>
+                  <p className="mt-1 text-sm font-bold text-slate-700">
+                    {formatDate(role.createdAt)}
+                  </p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
                     Next
                   </p>
-                  <p className="mt-1 text-sm font-bold text-slate-700">{nextActionLabel(role)}</p>
+                  <p className="mt-1 text-sm font-bold text-slate-700">
+                    {nextActionLabel(role)}
+                  </p>
                 </div>
               </div>
               <p className="mt-5 text-sm font-black text-sky-700">

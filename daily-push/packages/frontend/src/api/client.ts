@@ -13,13 +13,25 @@ import type {
   CreateTargetRoleRequest,
   CreateTargetRoleResponse,
   GenerateReadinessResponse,
+  MarketIngestionRunStatus,
+  MarketProfileRequirementDiffItem,
+  OperatorOutcomeCalibrationResponse,
+  OperatorMarketAggregatesResponse,
+  OperatorMarketIngestionTriggerResponse,
+  OperatorMarketProfileActionResponse,
+  OperatorMarketProfileDraftsResponse,
+  OperatorMarketProfileVersionsResponse,
   RoleMarketProfile,
+  OperatorMarketIngestionRunsResponse,
+  OperatorMarketSourcesResponse,
   RoleReadinessHistoryResponse,
+  RoleRecommendationRequest,
   RoleReadinessReport,
   RoleRecommendationResponse,
   StartUpgradePlanSprintResponse,
   StartTargetRoleDecompositionResponse,
   TargetRoleDecompositionStatusResponse,
+  TargetRoleMarketChangeResponse,
   TargetRole,
   UpgradePlan,
 } from "@daily-push/shared";
@@ -32,6 +44,25 @@ export type {
   GapToProofResponse,
   GenerateReadinessResponse,
   ListRolesResponse,
+  MarketIngestionRun,
+  MarketIngestionRunStatus,
+  MarketProfileRequirementDiffItem,
+  MarketSource,
+  MarketSourceHealth,
+  OperatorMarketIngestionRunsResponse,
+  OperatorMarketIngestionTriggerResponse,
+  OperatorMarketAggregatesResponse,
+  OperatorOutcomeCalibrationRoleItem,
+  OperatorOutcomeCalibrationResponse,
+  OutcomeCalibrationMetricStatus,
+  OperatorMarketProfileActionResponse,
+  OperatorMarketProfileDraftItem,
+  OperatorMarketProfileDraftsResponse,
+  OperatorMarketProfileVersionItem,
+  OperatorMarketProfileVersionsResponse,
+  OperatorMarketRoleAggregateItem,
+  OperatorMarketSourceHealthItem,
+  OperatorMarketSourcesResponse,
   ProofEvidenceStatusResponse,
   ProofRecommendation,
   PublishProofEvidenceResponse,
@@ -39,6 +70,7 @@ export type {
   RoleMarketCard,
   RoleMarketProfile,
   RoleReadinessHistoryResponse,
+  RoleRecommendationRequest,
   RoleReadinessReport,
   RoleRecommendation,
   RoleRecommendationResponse,
@@ -46,6 +78,7 @@ export type {
   StartTargetRoleDecompositionResponse,
   TargetRoleDecompositionStatusResponse,
   TargetRoleDecompositionTopic,
+  TargetRoleMarketChangeResponse,
   TargetRole,
   UpgradePlan,
 } from "@daily-push/shared";
@@ -238,6 +271,13 @@ export interface ResumeSummary {
     sourceSnippet: string;
     confidence: number;
   }>;
+}
+
+export interface ImportTargetRoleResumeEvidenceResponse {
+  resumeId: string;
+  resumeSummary: ResumeSummary;
+  evidenceProfile: CandidateEvidenceProfile;
+  importedClaimCount: number;
 }
 
 export interface JdRequirement {
@@ -679,14 +719,11 @@ export const getMarketRoles = (params?: ListRolesQuery) =>
   api
     .get("/market/roles", { params })
     .then((r) => r.data as ListRolesResponse);
-export const getMarketRole = (roleId: string) =>
+export const getMarketRole = (roleId: string, params?: { region?: string | null }) =>
   api
-    .get(`/market/roles/${roleId}`)
+    .get(`/market/roles/${roleId}`, { params })
     .then((r) => r.data as RoleMarketProfile);
-export const recommendMarketRoles = (data: {
-  input: CandidateRoleInput;
-  limit?: number;
-}) =>
+export const recommendMarketRoles = (data: RoleRecommendationRequest) =>
   api
     .post("/market/recommend-roles", data)
     .then((r) => r.data as RoleRecommendationResponse);
@@ -702,6 +739,16 @@ export const getTargetRoleEvidence = (id: string) =>
   api
     .get(`/target-roles/${id}/evidence`)
     .then((r) => r.data as CandidateEvidenceProfile);
+export const importTargetRoleResumeEvidence = (
+  id: string,
+  data: {
+    rawText: string;
+    source?: "upload" | "linkedin_paste" | "manual";
+  },
+) =>
+  api
+    .post(`/target-roles/${id}/evidence/import-resume`, data)
+    .then((r) => r.data as ImportTargetRoleResumeEvidenceResponse);
 export const getTargetRoleReadiness = (id: string) =>
   api
     .get(`/target-roles/${id}/readiness`)
@@ -710,6 +757,10 @@ export const getTargetRoleReadinessHistory = (id: string, limit = 8) =>
   api
     .get(`/target-roles/${id}/readiness-history`, { params: { limit } })
     .then((r) => r.data as RoleReadinessHistoryResponse);
+export const getTargetRoleMarketChange = (id: string) =>
+  api
+    .get(`/target-roles/${id}/market-change`)
+    .then((r) => r.data as TargetRoleMarketChangeResponse);
 export const generateTargetRoleReadiness = (
   id: string,
   data: { includeAiSummary?: boolean } = {},
@@ -1191,6 +1242,82 @@ export const getAiUsageSummary = (windowDays = 30) =>
   api
     .get("/reports/ai-usage", { params: { windowDays } })
     .then((r) => r.data as LlmUsageSummary);
+export const getOperatorMarketSources = () =>
+  api
+    .get("/operator/market/sources")
+    .then((r) => r.data as OperatorMarketSourcesResponse);
+export const getOperatorMarketIngestionRuns = (params?: {
+  sourceId?: string;
+  status?: MarketIngestionRunStatus;
+  limit?: number;
+}) =>
+  api
+    .get("/operator/market/ingestion-runs", { params })
+    .then((r) => r.data as OperatorMarketIngestionRunsResponse);
+export const getOperatorMarketAggregates = (params?: {
+  region?: string | null;
+  limit?: number;
+}) =>
+  api
+    .get("/operator/market/aggregates", { params })
+    .then((r) => r.data as OperatorMarketAggregatesResponse);
+export const getOperatorOutcomeCalibration = (params?: {
+  windowDays?: number;
+  limit?: number;
+}) =>
+  api
+    .get("/operator/market/outcome-calibration", { params })
+    .then((r) => r.data as OperatorOutcomeCalibrationResponse);
+export const getOperatorMarketProfileDrafts = (params?: {
+  limit?: number;
+}) =>
+  api
+    .get("/operator/market/profile-drafts", { params })
+    .then((r) => r.data as OperatorMarketProfileDraftsResponse);
+export const getOperatorMarketProfileVersions = (params?: {
+  roleProfileId?: string | null;
+  limit?: number;
+}) =>
+  api
+    .get("/operator/market/profile-versions", { params })
+    .then((r) => r.data as OperatorMarketProfileVersionsResponse);
+export const publishOperatorMarketProfileDraft = (
+  profileVersionId: string,
+  data: { reason: string },
+) =>
+  api
+    .post(`/operator/market/profile-drafts/${encodeURIComponent(profileVersionId)}/publish`, data)
+    .then((r) => r.data as OperatorMarketProfileActionResponse);
+export const rejectOperatorMarketProfileDraft = (
+  profileVersionId: string,
+  data: { reason: string },
+) =>
+  api
+    .post(`/operator/market/profile-drafts/${encodeURIComponent(profileVersionId)}/reject`, data)
+    .then((r) => r.data as OperatorMarketProfileActionResponse);
+export const rollbackOperatorMarketProfileVersion = (
+  profileVersionId: string,
+  data: { reason: string },
+) =>
+  api
+    .post(`/operator/market/profile-versions/${encodeURIComponent(profileVersionId)}/rollback`, data)
+    .then((r) => r.data as OperatorMarketProfileActionResponse);
+export const triggerOperatorMarketIngestion = (
+  sourceId: string,
+  data: {
+    query: string;
+    roleProfileId?: string | null;
+    region?: string | null;
+    country?: string | null;
+    limit?: number;
+    page?: number;
+    pageLimit?: number;
+    dryRun?: boolean;
+  },
+) =>
+  api
+    .post(`/operator/market/sources/${encodeURIComponent(sourceId)}/ingest`, data)
+    .then((r) => r.data as OperatorMarketIngestionTriggerResponse);
 
 // Reflections
 export const getReflectionPrompt = (goalId: string) =>

@@ -35,7 +35,7 @@ export default function Pricing() {
   const [error, setError] = useState('');
   const pricingSource = new URLSearchParams(location.search).get('source');
   const isResumeSource = pricingSource === 'resume';
-  const isCareerMarketSource = pricingSource?.startsWith('career-market') ?? false;
+  const isRoleDiscoverySource = pricingSource?.startsWith('career-market') ?? false;
   const showDevBillingBanner = import.meta.env.VITE_SHOW_DEV_BILLING_BANNER === 'true';
 
   useEffect(() => {
@@ -71,14 +71,14 @@ export default function Pricing() {
         title={
           isResumeSource
             ? 'Plans for stronger job applications'
-            : isCareerMarketSource
+            : isRoleDiscoverySource
               ? 'Plans for sharper role preparation'
               : 'Pricing built for serious career progression'
         }
         description={
           isResumeSource
             ? 'Upgrade when you want full resume reports, tailored drafts, saved applications, and a sprint plan to close the gaps.'
-            : isCareerMarketSource
+            : isRoleDiscoverySource
               ? 'Upgrade when you want more Target Roles, readiness reports, role comparisons, and a sprint plan that turns market gaps into weekly proof.'
               : 'Start free, then upgrade when you want deeper feedback, stronger resume support, and more accountability around the roles you are targeting.'
         }

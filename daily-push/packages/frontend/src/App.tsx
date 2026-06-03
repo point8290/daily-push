@@ -45,18 +45,34 @@ import Settings from './pages/Settings';
 import Pricing from './pages/Pricing';
 import MockInterview from './pages/MockInterview';
 import ProductMetrics from './pages/ProductMetrics';
+import OperatorMarketHealth from './pages/OperatorMarketHealth';
 import ReflectionModal from './components/ReflectionModal';
 import { getPrimaryGoal, getReflectionPrompt, getStreak } from './api/client';
 
-const navItems = [
+type NavItem = {
+  to: string;
+  label: string;
+  end?: boolean;
+};
+
+const primaryNavItems: NavItem[] = [
   { to: '/today', label: 'Today', end: true },
   { to: '/map', label: 'Map' },
   { to: '/goals', label: 'Goals' },
-  { to: '/career-market', label: 'Market' },
+  { to: '/career-market', label: 'Role Discovery' },
   { to: '/target-roles', label: 'Targets' },
+];
+
+const secondaryNavItems: NavItem[] = [
   { to: '/resume', label: 'Resume' },
   { to: '/news', label: 'News' },
   { to: '/history', label: 'History' },
+];
+
+const compactNavItems: NavItem[] = [
+  { to: '/today', label: 'Today', end: true },
+  { to: '/goals', label: 'Goals' },
+  { to: '/career-market', label: 'Role Discovery' },
 ];
 
 function FlameIcon() {
@@ -99,6 +115,31 @@ function TopNav({ streak }: { streak: number }) {
   const navigate = useNavigate();
   const location = useLocation();
   const firstName = user?.name?.split(' ')[0] ?? 'You';
+  const isActiveNavItem = (item: NavItem) =>
+    item.end ? location.pathname === item.to : location.pathname.startsWith(item.to);
+  const hiddenCompactNavItems = [
+    ...primaryNavItems.filter((item) => !compactNavItems.some((compact) => compact.to === item.to)),
+    ...secondaryNavItems,
+  ];
+  const isSecondaryNavActive = secondaryNavItems.some(isActiveNavItem);
+  const isHiddenCompactNavActive = hiddenCompactNavItems.some(isActiveNavItem);
+  const navButtonProps = (item: NavItem) => {
+    const isActive = isActiveNavItem(item);
+    return {
+      size: 'sm' as const,
+      flexShrink: 0,
+      variant: isActive ? 'solid' : 'ghost',
+      bg: isActive ? 'whiteAlpha.240' : 'transparent',
+      color: isActive ? 'white' : 'whiteAlpha.800',
+      border: '1px solid',
+      borderColor: isActive ? 'whiteAlpha.300' : 'transparent',
+      _hover: {
+        bg: isActive ? 'whiteAlpha.280' : 'whiteAlpha.140',
+        color: 'white',
+      },
+      onClick: () => navigate(item.to),
+    };
+  };
 
   return (
     <Box
@@ -192,39 +233,71 @@ function TopNav({ streak }: { streak: number }) {
             </HStack>
           </Flex>
 
+          <HStack spacing={2} py={1} flex="1" display={{ base: 'none', lg: 'flex' }}>
+            {primaryNavItems.map((item) => (
+              <Button key={item.to} {...navButtonProps(item)}>
+                {item.label}
+              </Button>
+            ))}
+            <Menu>
+              <MenuButton
+                as={Button}
+                size="sm"
+                variant={isSecondaryNavActive ? 'solid' : 'ghost'}
+                bg={isSecondaryNavActive ? 'whiteAlpha.240' : 'transparent'}
+                color={isSecondaryNavActive ? 'white' : 'whiteAlpha.800'}
+                border="1px solid"
+                borderColor={isSecondaryNavActive ? 'whiteAlpha.300' : 'transparent'}
+                _hover={{ bg: 'whiteAlpha.140', color: 'white' }}
+              >
+                More
+              </MenuButton>
+              <MenuList rounded="2xl" borderColor="blackAlpha.100" shadow="panel" py={2}>
+                {secondaryNavItems.map((item) => (
+                  <MenuItem key={item.to} onClick={() => navigate(item.to)}>
+                    {item.label}
+                  </MenuItem>
+                ))}
+              </MenuList>
+            </Menu>
+          </HStack>
+
           <HStack
-            spacing={2}
-            overflowX="auto"
+            spacing={1}
             py={1}
-            flex={{ base: 'none', md: '1' }}
-            w={{ base: 'full', md: 'auto' }}
+            display={{ base: 'flex', lg: 'none' }}
+            w="full"
+            overflowX="auto"
             sx={{ '&::-webkit-scrollbar': { display: 'none' } }}
           >
-            {navItems.map((item) => {
-              const isActive = item.end
-                ? location.pathname === item.to
-                : location.pathname.startsWith(item.to);
-
-              return (
-                <Button
-                  key={item.to}
-                  size="sm"
-                  flexShrink={0}
-                  variant={isActive ? 'solid' : 'ghost'}
-                  bg={isActive ? 'whiteAlpha.240' : 'transparent'}
-                  color={isActive ? 'white' : 'whiteAlpha.800'}
-                  border="1px solid"
-                  borderColor={isActive ? 'whiteAlpha.300' : 'transparent'}
-                  _hover={{
-                    bg: isActive ? 'whiteAlpha.280' : 'whiteAlpha.140',
-                    color: 'white',
-                  }}
-                  onClick={() => navigate(item.to)}
-                >
-                  {item.label}
-                </Button>
-              );
-            })}
+            {compactNavItems.map((item) => (
+              <Button key={item.to} px={2.5} {...navButtonProps(item)}>
+                {item.label}
+              </Button>
+            ))}
+            <Menu>
+              <MenuButton
+                as={Button}
+                size="sm"
+                flexShrink={0}
+                px={2.5}
+                variant={isHiddenCompactNavActive ? 'solid' : 'ghost'}
+                bg={isHiddenCompactNavActive ? 'whiteAlpha.240' : 'transparent'}
+                color={isHiddenCompactNavActive ? 'white' : 'whiteAlpha.800'}
+                border="1px solid"
+                borderColor={isHiddenCompactNavActive ? 'whiteAlpha.300' : 'transparent'}
+                _hover={{ bg: 'whiteAlpha.140', color: 'white' }}
+              >
+                More
+              </MenuButton>
+              <MenuList rounded="2xl" borderColor="blackAlpha.100" shadow="panel" py={2}>
+                {hiddenCompactNavItems.map((item) => (
+                  <MenuItem key={item.to} onClick={() => navigate(item.to)}>
+                    {item.label}
+                  </MenuItem>
+                ))}
+              </MenuList>
+            </Menu>
           </HStack>
 
           <Spacer display={{ base: 'none', md: 'block' }} />
@@ -311,7 +384,23 @@ function TopNav({ streak }: { streak: number }) {
   );
 }
 
-function ProtectedLayout() {
+function AppContentFrame({ children }: { children: ReactNode }) {
+  return (
+    <Box flex="1" position="relative">
+      <Box
+        position="absolute"
+        inset={0}
+        pointerEvents="none"
+        bgImage="radial-gradient(circle at top left, rgba(47,140,255,0.08), transparent 26%), radial-gradient(circle at right 18%, rgba(255,125,20,0.07), transparent 18%)"
+      />
+      <Container maxW="7xl" px={{ base: 4, md: 6 }} py={{ base: 6, md: 8 }} position="relative">
+        {children}
+      </Container>
+    </Box>
+  );
+}
+
+function ProtectedLayout({ children }: { children?: ReactNode }) {
   const { user, loading } = useAuth();
   const [streak, setStreak] = useState(0);
   const [reflectionState, setReflectionState] = useState<{
@@ -355,7 +444,7 @@ function ProtectedLayout() {
   return (
     <Flex minH="100vh" direction="column">
       <TopNav streak={streak} />
-      <MainContent />
+      {children ? <AppContentFrame>{children}</AppContentFrame> : <MainContent />}
       {reflectionState && (
         <ReflectionModal
           goalId={reflectionState.goalId}
@@ -390,33 +479,29 @@ function MainContent() {
   }
 
   return (
-    <Box flex="1" position="relative">
-      <Box
-        position="absolute"
-        inset={0}
-        pointerEvents="none"
-        bgImage="radial-gradient(circle at top left, rgba(47,140,255,0.08), transparent 26%), radial-gradient(circle at right 18%, rgba(255,125,20,0.07), transparent 18%)"
-      />
-      <Container maxW="7xl" px={{ base: 4, md: 6 }} py={{ base: 6, md: 8 }} position="relative">
-        <Routes>
-          <Route path="/today" element={<Today />} />
-          <Route path="/goals" element={<Goals />} />
-          <Route path="/goals/new" element={<GoalSetup />} />
-          <Route path="/goals/:id" element={<GoalDetail />} />
-          <Route path="/target-roles" element={<TargetRoles />} />
-          <Route path="/target-roles/:id" element={<TargetRoleWorkspace />} />
-          <Route path="/resume" element={<Resume />} />
-          <Route path="/resume/applications/:applicationId" element={<ResumeApplication />} />
-          <Route path="/news" element={<News />} />
-          <Route path="/history" element={<History />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/metrics" element={<ProductMetrics />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route path="/mock" element={<MockInterview />} />
-          <Route path="*" element={<Navigate to="/today" replace />} />
-        </Routes>
-      </Container>
-    </Box>
+    <AppContentFrame>
+      <Routes>
+        <Route path="/today" element={<Today />} />
+        <Route path="/career-market" element={<CareerMarket />} />
+        <Route path="/career-market/find-direction" element={<CareerMarket />} />
+        <Route path="/career-market/roles/:roleId" element={<RoleMarketDetail />} />
+        <Route path="/goals" element={<Goals />} />
+        <Route path="/goals/new" element={<GoalSetup />} />
+        <Route path="/goals/:id" element={<GoalDetail />} />
+        <Route path="/target-roles" element={<TargetRoles />} />
+        <Route path="/target-roles/:id" element={<TargetRoleWorkspace />} />
+        <Route path="/resume" element={<Resume />} />
+        <Route path="/resume/applications/:applicationId" element={<ResumeApplication />} />
+        <Route path="/news" element={<News />} />
+        <Route path="/history" element={<History />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/metrics" element={<ProductMetrics />} />
+        <Route path="/operator/market" element={<OperatorMarketHealth />} />
+        <Route path="/pricing" element={<Pricing />} />
+        <Route path="/mock" element={<MockInterview />} />
+        <Route path="*" element={<Navigate to="/today" replace />} />
+      </Routes>
+    </AppContentFrame>
   );
 }
 
@@ -424,6 +509,21 @@ function PublicRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (user) return <Navigate to="/today" replace />;
+  return <>{children}</>;
+}
+
+function PublicOrAppShellRoute({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <Flex minH="100vh" align="center" justify="center" color="ink.400" fontSize="sm">
+        Loading...
+      </Flex>
+    );
+  }
+
+  if (user) return <ProtectedLayout>{children}</ProtectedLayout>;
   return <>{children}</>;
 }
 
@@ -442,9 +542,38 @@ export default function App() {
                 </PublicRoute>
               )}
             />
-            <Route path="/career-market" element={<CareerMarket />} />
-            <Route path="/career-market/roles/:roleId" element={<RoleMarketDetail />} />
-            <Route path="/resume" element={<Resume />} />
+            <Route
+              path="/career-market"
+              element={(
+                <PublicOrAppShellRoute>
+                  <CareerMarket />
+                </PublicOrAppShellRoute>
+              )}
+            />
+            <Route
+              path="/career-market/find-direction"
+              element={(
+                <PublicOrAppShellRoute>
+                  <CareerMarket />
+                </PublicOrAppShellRoute>
+              )}
+            />
+            <Route
+              path="/career-market/roles/:roleId"
+              element={(
+                <PublicOrAppShellRoute>
+                  <RoleMarketDetail />
+                </PublicOrAppShellRoute>
+              )}
+            />
+            <Route
+              path="/resume"
+              element={(
+                <PublicOrAppShellRoute>
+                  <Resume />
+                </PublicOrAppShellRoute>
+              )}
+            />
             <Route path="/*" element={<ProtectedLayout />} />
           </Routes>
         </BrowserRouter>

@@ -117,16 +117,16 @@ function RoleMarketPilotFeedbackPanel({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-              Role Market pilot signal
+              Role Discovery pilot signal
             </p>
             <h2
               className="font-display text-2xl text-slate-900"
               style={{ letterSpacing: '-0.03em' }}
             >
-              Are candidates finding the market analyzer useful?
+              Are candidates finding Role Discovery useful?
             </h2>
             <p className="max-w-3xl text-sm leading-relaxed text-slate-500">
-              Aggregated feedback from the Career Market and Target Role workspace. This avoids raw
+              Aggregated feedback from Role Discovery and the Target Role workspace. This avoids raw
               user notes and focuses on decision signals for the pilot.
             </p>
           </div>

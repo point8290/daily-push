@@ -1,18 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   getMarketRole,
   trackEvent,
   trackPublicEvent,
   type RoleMarketProfile,
-} from '../api/client';
-import SurfaceCard from '../components/ui/SurfaceCard';
-import { CareerMarketHeader } from './CareerMarket';
-import { useAuth } from '../contexts/AuthContext';
+} from "../api/client";
+import SurfaceCard from "../components/ui/SurfaceCard";
+import { CareerMarketHeader } from "./CareerMarket";
+import { useAuth } from "../contexts/AuthContext";
 
 function formatLabel(value: string): string {
   return value
-    .replace(/_/g, ' ')
+    .replace(/_/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
@@ -20,16 +20,63 @@ function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   });
 }
 
 function confidenceLabel(confidence: number): string {
-  if (confidence >= 0.8) return 'High confidence';
-  if (confidence >= 0.65) return 'Medium confidence';
-  return 'Low confidence';
+  if (confidence >= 0.8) return "High confidence";
+  if (confidence >= 0.65) return "Medium confidence";
+  return "Low confidence";
+}
+
+function signalBasisLabel(role: RoleMarketProfile): string {
+  if (role.meta.profileVersion)
+    return `Reviewed market signals v${role.meta.profileVersion.version}`;
+  if (role.meta.sourceMode === "hybrid") return "Curated market baseline";
+  if (role.meta.sourceMode === "live") return "Reviewed market signals";
+  return "Curated market baseline";
+}
+
+function sourceSampleLabel(role: RoleMarketProfile): string {
+  const summary = role.meta.sourceSummary;
+  if (!summary) return "Source summary unavailable";
+  const signalLabel =
+    summary.sampleSize === 1 ? "market signal" : "market signals";
+  const sourceLabel = summary.sourceCount === 1 ? "source" : "sources";
+  if (summary.sampleSize !== null && summary.sourceCount !== null) {
+    return `${summary.sampleSize} ${signalLabel} from ${summary.sourceCount} ${sourceLabel}`;
+  }
+  if (summary.sampleSize !== null)
+    return `${summary.sampleSize} ${signalLabel}`;
+  if (summary.sourceCount !== null)
+    return `${summary.sourceCount} ${sourceLabel}`;
+  return "Curated source review";
+}
+
+function freshnessLabel(role: RoleMarketProfile): string | null {
+  const hours = role.meta.sourceSummary?.freshnessHours;
+  if (hours === null || hours === undefined) return null;
+  if (hours < 24) return `${Math.max(1, Math.round(hours))} hours old`;
+  return `${Math.round(hours / 24)} days old`;
+}
+
+function sourceWindowLabel(role: RoleMarketProfile): string | null {
+  const summary = role.meta.sourceSummary;
+  if (!summary?.windowStart || !summary.windowEnd) return null;
+  return `${formatDate(summary.windowStart)} to ${formatDate(summary.windowEnd)}`;
+}
+
+function sourceRegionLabel(role: RoleMarketProfile): string {
+  return role.meta.sourceSummary?.region ?? "Global guidance";
+}
+
+function changeMaterialityLabel(role: RoleMarketProfile): string {
+  const materiality = role.meta.profileVersion?.diffMateriality;
+  if (!materiality) return "Reviewed update";
+  return `${formatLabel(materiality)} materiality update`;
 }
 
 function DetailSection({
@@ -56,40 +103,49 @@ function DetailSection({
 
 export default function RoleMarketDetail() {
   const { roleId } = useParams();
+  const [searchParams] = useSearchParams();
+  const selectedRegion = searchParams.get("region")?.trim() || "";
   const { user, loading: authLoading } = useAuth();
   const viewedRoleIdRef = useRef<string | null>(null);
   const [role, setRole] = useState<RoleMarketProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
+  const isAppShell = Boolean(user);
 
   const handleSaveDirectionClick = () => {
     if (!role) return;
-    sessionStorage.setItem('dp_career_market_selected_role', JSON.stringify({
-      roleProfileId: role.id,
-      slug: role.slug,
-      title: role.title,
-      createdAt: new Date().toISOString(),
-    }));
+    sessionStorage.setItem(
+      "dp_career_market_selected_role",
+      JSON.stringify({
+        roleProfileId: role.id,
+        slug: role.slug,
+        title: role.title,
+        createdAt: new Date().toISOString(),
+      }),
+    );
     if (user) {
       void trackEvent({
-        eventKey: 'target_role_save_clicked',
+        eventKey: "target_role_save_clicked",
         properties: {
-          source: 'role_detail',
-          ctaLocation: 'hero_save_direction',
+          source: "role_detail",
+          ctaLocation: "hero_save_direction",
           roleProfileId: role.id,
         },
       }).catch(() => {});
     } else {
-      sessionStorage.setItem('dp_career_market_save_intent', JSON.stringify({
-        source: 'role_detail',
-        roleProfileId: role.id,
-      }));
+      sessionStorage.setItem(
+        "dp_career_market_save_intent",
+        JSON.stringify({
+          source: "role_detail",
+          roleProfileId: role.id,
+        }),
+      );
       void trackPublicEvent({
-        eventKey: 'target_role_save_clicked',
+        eventKey: "target_role_save_clicked",
         properties: {
-          source: 'role_detail',
-          ctaLocation: 'hero_save_direction',
-          continuation: 'signup_required',
+          source: "role_detail",
+          ctaLocation: "hero_save_direction",
+          continuation: "signup_required",
           roleProfileId: role.id,
         },
       }).catch(() => {});
@@ -100,15 +156,19 @@ export default function RoleMarketDetail() {
     if (!roleId) return;
     let cancelled = false;
     setLoading(true);
-    getMarketRole(roleId)
+    getMarketRole(
+      roleId,
+      selectedRegion ? { region: selectedRegion } : undefined,
+    )
       .then((profile) => {
         if (!cancelled) {
           setRole(profile);
-          setError('');
+          setError("");
         }
       })
       .catch(() => {
-        if (!cancelled) setError('We could not load that role profile right now.');
+        if (!cancelled)
+          setError("We could not load that role profile right now.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -116,16 +176,16 @@ export default function RoleMarketDetail() {
     return () => {
       cancelled = true;
     };
-  }, [roleId]);
+  }, [roleId, selectedRegion]);
 
   useEffect(() => {
     if (authLoading || !role || viewedRoleIdRef.current === role.id) return;
     viewedRoleIdRef.current = role.id;
     void trackPublicEvent({
-      eventKey: 'role_profile_viewed',
+      eventKey: "role_profile_viewed",
       properties: {
-        source: 'role_detail',
-        ctaLocation: 'page_load',
+        source: "role_detail",
+        ctaLocation: "page_load",
         authenticated: Boolean(user),
         roleProfileId: role.id,
         slug: role.slug,
@@ -137,12 +197,27 @@ export default function RoleMarketDetail() {
   }, [authLoading, role, user]);
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_12%_8%,rgba(14,165,233,0.18),transparent_28%),radial-gradient(circle_at_88%_8%,rgba(16,185,129,0.14),transparent_24%),linear-gradient(180deg,#f8fbff_0%,#edf6ff_100%)] text-slate-950">
-      <CareerMarketHeader />
+    <div
+      className={
+        isAppShell
+          ? "overflow-hidden text-slate-950"
+          : "min-h-screen overflow-hidden bg-[radial-gradient(circle_at_12%_8%,rgba(14,165,233,0.18),transparent_28%),radial-gradient(circle_at_88%_8%,rgba(16,185,129,0.14),transparent_24%),linear-gradient(180deg,#f8fbff_0%,#edf6ff_100%)] text-slate-950"
+      }
+    >
+      {!isAppShell && <CareerMarketHeader />}
 
-      <main className="mx-auto max-w-7xl px-4 py-10 md:px-6 md:py-14">
-        <Link to="/career-market" className="inline-flex rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-black text-slate-600 transition hover:border-sky-300 hover:text-sky-700">
-          Back to Career Market
+      <main
+        className={
+          isAppShell
+            ? "space-y-8"
+            : "mx-auto max-w-7xl px-4 py-10 md:px-6 md:py-14"
+        }
+      >
+        <Link
+          to="/career-market"
+          className="inline-flex rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-black text-slate-600 transition hover:border-sky-300 hover:text-sky-700"
+        >
+          Back to Role Discovery
         </Link>
 
         {loading && (
@@ -158,7 +233,10 @@ export default function RoleMarketDetail() {
               Role profile unavailable
             </h1>
             <p className="mt-3 text-sm leading-7 text-slate-600">{error}</p>
-            <Link to="/career-market" className="mt-5 inline-flex rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white">
+            <Link
+              to="/career-market"
+              className="mt-5 inline-flex rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white"
+            >
               Explore other roles
             </Link>
           </SurfaceCard>
@@ -167,7 +245,10 @@ export default function RoleMarketDetail() {
         {role && (
           <>
             <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-stretch">
-              <SurfaceCard p={{ base: 6, md: 8 }} className="relative overflow-hidden">
+              <SurfaceCard
+                p={{ base: 6, md: 8 }}
+                className="relative overflow-hidden"
+              >
                 <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-sky-200/70 blur-3xl" />
                 <div className="relative">
                   <div className="flex flex-wrap gap-2">
@@ -193,7 +274,12 @@ export default function RoleMarketDetail() {
                 </div>
               </SurfaceCard>
 
-              <SurfaceCard p={{ base: 6, md: 7 }} bg="rgba(2,6,23,0.96)" color="white" className="relative overflow-hidden">
+              <SurfaceCard
+                p={{ base: 6, md: 7 }}
+                bg="rgba(2,6,23,0.96)"
+                color="white"
+                className="relative overflow-hidden"
+              >
                 <div className="absolute -bottom-28 right-4 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
                 <div className="relative">
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-white/45">
@@ -201,30 +287,95 @@ export default function RoleMarketDetail() {
                   </p>
                   <div className="mt-6 grid gap-3">
                     <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
-                      <p className="text-sm font-black text-white">Last updated</p>
-                      <p className="mt-1 text-sm text-white/65">{formatDate(role.lastUpdated)}</p>
-                    </div>
-                    <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
-                      <p className="text-sm font-black text-white">Source confidence</p>
-                      <p className="mt-1 text-sm text-white/65">{confidenceLabel(role.confidence)}</p>
-                    </div>
-                    <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
-                      <p className="text-sm font-black text-white">Interview focus</p>
+                      <p className="text-sm font-black text-white">
+                        Last updated
+                      </p>
                       <p className="mt-1 text-sm text-white/65">
-                        {role.interviewTopics.slice(0, 4).join(', ')}
+                        {formatDate(role.lastUpdated)}
+                      </p>
+                    </div>
+                    <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
+                      <p className="text-sm font-black text-white">
+                        Source confidence
+                      </p>
+                      <p className="mt-1 text-sm text-white/65">
+                        {confidenceLabel(role.confidence)}
+                      </p>
+                    </div>
+                    <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
+                      <p className="text-sm font-black text-white">
+                        Signal basis
+                      </p>
+                      <p className="mt-1 text-sm text-white/65">
+                        {signalBasisLabel(role)}
+                      </p>
+                      <p className="mt-1 text-xs font-bold text-white/45">
+                        {sourceRegionLabel(role)} - {sourceSampleLabel(role)}
+                        {freshnessLabel(role)
+                          ? ` - ${freshnessLabel(role)}`
+                          : ""}
+                      </p>
+                      {sourceWindowLabel(role) ? (
+                        <p className="mt-1 text-xs font-bold text-white/35">
+                          Window: {sourceWindowLabel(role)}
+                        </p>
+                      ) : null}
+                    </div>
+                    {role.meta.profileVersion?.changeSummary ? (
+                      <div className="rounded-3xl border border-sky-300/20 bg-sky-300/10 p-4">
+                        <p className="text-sm font-black text-white">
+                          What changed recently
+                        </p>
+                        <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-sky-100/65">
+                          {changeMaterialityLabel(role)}
+                        </p>
+                        <p className="mt-2 text-sm leading-6 text-white/70">
+                          {role.meta.profileVersion.changeSummary}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
+                        <p className="text-sm font-black text-white">
+                          What changed recently
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-white/65">
+                          No reviewed source-backed change summary is attached
+                          yet. Use this profile as a directional baseline.
+                        </p>
+                      </div>
+                    )}
+                    <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
+                      <p className="text-sm font-black text-white">
+                        Interview focus
+                      </p>
+                      <p className="mt-1 text-sm text-white/65">
+                        {role.interviewTopics.slice(0, 4).join(", ")}
                       </p>
                     </div>
                   </div>
+                  {role.meta.warnings.length > 0 && (
+                    <div className="mt-5 rounded-3xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm font-bold leading-6 text-amber-50">
+                      {role.meta.warnings[0].message}
+                    </div>
+                  )}
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                    <Link to="/career-market#analyzer" className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 transition hover:-translate-y-0.5">
+                    <Link
+                      to="/career-market/find-direction"
+                      onClick={handleSaveDirectionClick}
+                      className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 transition hover:-translate-y-0.5"
+                    >
                       Check my fit
                     </Link>
                     <Link
-                      to={user ? '/resume' : '/login?mode=register&next=/career-market'}
+                      to={
+                        user
+                          ? "/resume"
+                          : "/login?mode=register&next=/career-market/find-direction"
+                      }
                       onClick={handleSaveDirectionClick}
                       className="inline-flex items-center justify-center rounded-2xl border border-white/15 px-5 py-3 text-sm font-black text-white/85 transition hover:bg-white/10 hover:text-white"
                     >
-                      {user ? 'Compare resume' : 'Save this direction'}
+                      {user ? "Compare resume" : "Save this direction"}
                     </Link>
                   </div>
                 </div>
@@ -232,10 +383,16 @@ export default function RoleMarketDetail() {
             </section>
 
             <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-              <DetailSection eyebrow="Must-have signals" title="What this role expects">
+              <DetailSection
+                eyebrow="Must-have signals"
+                title="What this role expects"
+              >
                 <div className="space-y-4">
                   {role.requirements.map((requirement) => (
-                    <div key={requirement.id} className="rounded-3xl border border-slate-100 bg-slate-50 p-5">
+                    <div
+                      key={requirement.id}
+                      className="rounded-3xl border border-slate-100 bg-slate-50 p-5"
+                    >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <h3 className="text-lg font-black tracking-[-0.04em] text-slate-950">
                           {requirement.label}
@@ -249,7 +406,10 @@ export default function RoleMarketDetail() {
                       </p>
                       <div className="mt-4 flex flex-wrap gap-2">
                         {requirement.keywords.slice(0, 7).map((keyword) => (
-                          <span key={keyword} className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600">
+                          <span
+                            key={keyword}
+                            className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600"
+                          >
                             {keyword}
                           </span>
                         ))}
@@ -259,7 +419,7 @@ export default function RoleMarketDetail() {
                           Proof employers can believe
                         </p>
                         <p className="mt-2 text-sm leading-7 text-slate-600">
-                          {requirement.proofExpected.join(' ')}
+                          {requirement.proofExpected.join(" ")}
                         </p>
                       </div>
                     </div>
@@ -268,26 +428,42 @@ export default function RoleMarketDetail() {
               </DetailSection>
 
               <div className="space-y-6">
-                <DetailSection eyebrow="Market shifts" title="How the role is changing">
+                <DetailSection
+                  eyebrow="Market shifts"
+                  title="How the role is changing"
+                >
                   <div className="space-y-4">
                     {role.trendSignals.map((signal) => (
-                      <div key={signal.id} className="rounded-3xl bg-sky-50 p-5">
+                      <div
+                        key={signal.id}
+                        className="rounded-3xl bg-sky-50 p-5"
+                      >
                         <div className="flex flex-wrap items-center justify-between gap-3">
-                          <h3 className="text-base font-black text-slate-950">{signal.label}</h3>
+                          <h3 className="text-base font-black text-slate-950">
+                            {signal.label}
+                          </h3>
                           <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-sky-700">
                             {formatLabel(signal.direction)}
                           </span>
                         </div>
-                        <p className="mt-2 text-sm leading-7 text-slate-600">{signal.summary}</p>
+                        <p className="mt-2 text-sm leading-7 text-slate-600">
+                          {signal.summary}
+                        </p>
                       </div>
                     ))}
                   </div>
                 </DetailSection>
 
-                <DetailSection eyebrow="Interview prep" title="Topics to be ready for">
+                <DetailSection
+                  eyebrow="Interview prep"
+                  title="Topics to be ready for"
+                >
                   <div className="flex flex-wrap gap-2">
                     {role.interviewTopics.map((topic) => (
-                      <span key={topic} className="rounded-full bg-slate-100 px-3 py-2 text-sm font-bold text-slate-700">
+                      <span
+                        key={topic}
+                        className="rounded-full bg-slate-100 px-3 py-2 text-sm font-bold text-slate-700"
+                      >
                         {topic}
                       </span>
                     ))}
@@ -297,10 +473,16 @@ export default function RoleMarketDetail() {
             </section>
 
             <section className="mt-6 grid gap-6 lg:grid-cols-2">
-              <DetailSection eyebrow="Transition paths" title="Where candidates can move from">
+              <DetailSection
+                eyebrow="Transition paths"
+                title="Where candidates can move from"
+              >
                 <div className="space-y-4">
                   {role.transitionPaths.map((path) => (
-                    <div key={`${path.fromRole}-${path.fitLevel}`} className="rounded-3xl border border-slate-100 bg-slate-50 p-5">
+                    <div
+                      key={`${path.fromRole}-${path.fitLevel}`}
+                      className="rounded-3xl border border-slate-100 bg-slate-50 p-5"
+                    >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <h3 className="text-lg font-black tracking-[-0.04em] text-slate-950">
                           From {path.fromRole}
@@ -313,44 +495,52 @@ export default function RoleMarketDetail() {
                         Transferable strengths
                       </p>
                       <p className="mt-2 text-sm leading-7 text-slate-600">
-                        {path.transferableSkills.join(', ')}
+                        {path.transferableSkills.join(", ")}
                       </p>
                       <p className="mt-4 text-xs font-black uppercase tracking-[0.14em] text-slate-400">
                         Likely gaps
                       </p>
                       <p className="mt-2 text-sm leading-7 text-slate-600">
-                        {path.likelyGaps.join(', ')}
+                        {path.likelyGaps.join(", ")}
                       </p>
                       <p className="mt-4 text-xs font-black uppercase tracking-[0.14em] text-slate-400">
                         Recommended proof
                       </p>
                       <p className="mt-2 text-sm leading-7 text-slate-600">
-                        {path.recommendedProof.join(' ')}
+                        {path.recommendedProof.join(" ")}
                       </p>
                     </div>
                   ))}
                 </div>
               </DetailSection>
 
-              <DetailSection eyebrow="Sources" title="Signals behind this profile">
+              <DetailSection
+                eyebrow="Sources"
+                title="Signals behind this profile"
+              >
                 <div className="space-y-3">
                   {role.sourceRefs.map((source) => (
                     <a
                       key={source.id}
-                      href={source.url ?? '#'}
-                      target={source.url ? '_blank' : undefined}
-                      rel={source.url ? 'noreferrer' : undefined}
+                      href={source.url ?? "#"}
+                      target={source.url ? "_blank" : undefined}
+                      rel={source.url ? "noreferrer" : undefined}
                       className="block rounded-3xl border border-slate-100 bg-slate-50 p-5 transition hover:border-sky-200 hover:bg-white"
                     >
-                      <p className="text-sm font-black text-slate-950">{source.title}</p>
+                      <p className="text-sm font-black text-slate-950">
+                        {source.title}
+                      </p>
                       <p className="mt-1 text-xs font-bold text-slate-500">
-                        {source.publisher ?? 'Source'} - {source.region ?? 'Global'} - {confidenceLabel(source.confidence)}
+                        {source.publisher ?? "Source"} -{" "}
+                        {source.region ?? "Global"} -{" "}
+                        {confidenceLabel(source.confidence)}
                       </p>
                     </a>
                   ))}
                 </div>
                 <p className="mt-5 rounded-3xl bg-amber-50 p-4 text-sm leading-7 text-amber-800">
-                  Treat this as a directional market profile. Real hiring expectations still vary by company, region, and seniority.
+                  Treat this as a directional market profile. Real hiring
+                  expectations still vary by company, region, and seniority.
                 </p>
               </DetailSection>
             </section>

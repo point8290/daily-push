@@ -13,13 +13,14 @@ import {
   type RoleReadinessReport,
   type RoleReadinessScoreBreakdown,
   type RoleRequirement,
+  type TargetRole,
 } from '@daily-push/shared';
 import { pool } from '../db/postgres';
 import { config } from '../config';
 import { callClaudeWithUsage, parseJSON } from './claude';
 import { getCandidateEvidenceProfile } from './candidateEvidence';
 import { recordLlmUsage } from './llmUsage';
-import { getRoleMarketProfile } from './roleMarketCatalog';
+import { getMarketProfileRegistry } from './marketProfileRegistry';
 import { getTargetRole } from './targetRoles';
 
 interface GeneratedReadiness {
@@ -43,6 +44,13 @@ interface AiSummaryPatch {
   summary?: string;
   strengths?: string[];
   recommendedNextStep?: string;
+}
+
+export interface ReadinessProfileAudit {
+  profileVersionId: string | null;
+  profileSourceMode: ContractMeta['sourceMode'];
+  profilePublishedAt: string | null;
+  profileWarnings: ContractWarning[];
 }
 
 const STOP_WORDS = new Set([
@@ -71,13 +79,39 @@ const STOP_WORDS = new Set([
   'system',
 ]);
 
-function buildMeta(warnings: ContractWarning[] = []): ContractMeta {
+function mergeWarnings(warnings: ContractWarning[]): ContractWarning[] {
+  const seen = new Set<string>();
+  const merged: ContractWarning[] = [];
+  for (const warning of warnings) {
+    const key = `${warning.code}:${warning.message}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(warning);
+  }
+  return merged;
+}
+
+function buildMeta(
+  warnings: ContractWarning[] = [],
+  sourceMeta?: ContractMeta,
+): ContractMeta {
   return {
     contractVersion: 'role-market.v1',
     generatedAt: new Date().toISOString(),
-    sourceMode: config.roleMarket.sourceMode,
-    seedVersion: config.roleMarket.seedVersion,
-    warnings,
+    sourceMode: sourceMeta?.sourceMode ?? config.roleMarket.sourceMode,
+    seedVersion: sourceMeta?.seedVersion ?? config.roleMarket.seedVersion,
+    warnings: mergeWarnings([...(sourceMeta?.warnings ?? []), ...warnings]),
+    profileVersion: sourceMeta?.profileVersion ?? null,
+    sourceSummary: sourceMeta?.sourceSummary ?? null,
+  };
+}
+
+export function extractReadinessProfileAudit(report: RoleReadinessReport): ReadinessProfileAudit {
+  return {
+    profileVersionId: report.meta.profileVersion?.profileVersionId ?? null,
+    profileSourceMode: report.meta.sourceMode,
+    profilePublishedAt: report.meta.profileVersion?.publishedAt ?? null,
+    profileWarnings: report.meta.warnings,
   };
 }
 
@@ -524,8 +558,34 @@ export async function buildRoleReadinessReport(
     throw error;
   }
 
-  const roleProfile = getRoleMarketProfile(targetRole.roleProfileId);
+  const roleProfile = await getMarketProfileRegistry().getProfile(
+    targetRole.roleProfileId,
+    { region: targetRole.candidateInput?.region ?? null },
+  );
   const evidenceProfile = await getCandidateEvidenceProfile(userId);
+  return buildRoleReadinessReportFromInputs({
+    userId,
+    targetRole,
+    roleProfile,
+    evidenceProfile,
+    includeAiSummary: options.includeAiSummary,
+  });
+}
+
+export async function buildRoleReadinessReportFromInputs(params: {
+  userId: string;
+  targetRole: TargetRole;
+  roleProfile: RoleMarketProfile;
+  evidenceProfile: CandidateEvidenceProfile;
+  includeAiSummary?: boolean;
+}): Promise<GeneratedReadiness> {
+  const {
+    userId,
+    targetRole,
+    roleProfile,
+    evidenceProfile,
+    includeAiSummary = false,
+  } = params;
   const warnings: ContractWarning[] = [...evidenceProfile.meta.warnings];
   if (evidenceProfile.claims.length < 4) {
     warnings.push({
@@ -559,17 +619,17 @@ export async function buildRoleReadinessReport(
     sourceRefs: uniqueStrings(roleProfile.sourceRefs.map((source) => source.id), 20),
     generatedAt: new Date().toISOString(),
     confidence: computeConfidence(roleProfile, evidenceProfile, coverage),
-    meta: buildMeta(warnings),
+    meta: buildMeta(warnings, roleProfile.meta),
   };
 
-  if (options.includeAiSummary && config.roleMarket.featureAiSummary) {
+  if (includeAiSummary && config.roleMarket.featureAiSummary) {
     report = await applyAiSummaryPatch({
       userId,
       report,
       roleProfile,
       warnings,
     });
-    report.meta = buildMeta(warnings);
+    report.meta = buildMeta(warnings, roleProfile.meta);
   }
 
   assertValidRoleReadinessReport(report);
@@ -583,6 +643,7 @@ export async function persistRoleReadinessReport(
 ): Promise<RoleReadinessReport> {
   const { report, evidenceProfile } = generated;
   assertValidRoleReadinessReport(report);
+  const profileAudit = extractReadinessProfileAudit(report);
 
   const client = await pool.connect();
   try {
@@ -599,9 +660,13 @@ export async function persistRoleReadinessReport(
           verdict,
           overall_score,
           confidence,
+          profile_version_id,
+          profile_source_mode,
+          profile_published_at,
+          profile_warnings,
           generated_by,
           metadata)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, $10, 'deterministic_v1', $11::jsonb)`,
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, 'deterministic_v1', $15::jsonb)`,
       [
         report.id,
         userId,
@@ -613,7 +678,17 @@ export async function persistRoleReadinessReport(
         report.verdict,
         report.score.overall,
         report.confidence,
-        JSON.stringify({ warningCodes: report.meta.warnings.map((warning) => warning.code) }),
+        profileAudit.profileVersionId,
+        profileAudit.profileSourceMode,
+        profileAudit.profilePublishedAt,
+        JSON.stringify(profileAudit.profileWarnings),
+        JSON.stringify({
+          warningCodes: report.meta.warnings.map((warning) => warning.code),
+          profileVersionId: profileAudit.profileVersionId,
+          profileSourceMode: profileAudit.profileSourceMode,
+          profilePublishedAt: profileAudit.profilePublishedAt,
+          sourceSummary: report.meta.sourceSummary ?? null,
+        }),
       ],
     );
     await client.query(

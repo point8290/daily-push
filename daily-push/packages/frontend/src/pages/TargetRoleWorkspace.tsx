@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   createTargetRoleUpgradePlan,
   decomposeTargetRoleUpgradePlan,
   generateTargetRoleProofRecommendations,
   generateTargetRoleReadiness,
   getLatestTargetRoleUpgradePlan,
+  getTargetRoleMarketChange,
   getTargetRoleReadiness,
   getTargetRoleReadinessHistory,
   getTargetRoleDecompositionStatus,
@@ -14,6 +15,7 @@ import {
   getTargetRoleApplications,
   getMarketRole,
   getTargetRole,
+  importTargetRoleResumeEvidence,
   publishTargetRoleProofEvidence,
   reassessTargetRoleReadiness,
   retryTargetRoleUpgradePlanDecomposition,
@@ -29,10 +31,13 @@ import {
   type RoleReadinessReport,
   type TargetRole,
   type TargetRoleDecompositionStatusResponse,
+  type TargetRoleMarketChangeResponse,
   type UpgradePlan,
 } from '../api/client';
 import RoleMarketPilotFeedback from '../components/RoleMarketPilotFeedback';
+import DocumentDropzone from '../components/ui/DocumentDropzone';
 import SurfaceCard from '../components/ui/SurfaceCard';
+import { readDocumentFile } from '../utils/documentText';
 
 function formatLabel(value: string): string {
   return value
@@ -69,6 +74,40 @@ function formatDelta(delta: number | null): string {
   return String(delta);
 }
 
+function describeReadinessMarketSource(report: RoleReadinessReport): {
+  label: string;
+  detail: string;
+  changeSummary: string | null;
+} {
+  const version = report.meta.profileVersion;
+  const summary = report.meta.sourceSummary;
+  const region = summary?.region ? `${summary.region} signals` : 'global signals';
+  if (version) {
+    return {
+      label: `Reviewed market profile v${version.version}`,
+      detail: [
+        region,
+        version.publishedAt ? `published ${formatDate(version.publishedAt)}` : null,
+        summary?.sampleSize ? `${summary.sampleSize} job signals` : null,
+      ].filter(Boolean).join(' - '),
+      changeSummary: version.changeSummary ?? null,
+    };
+  }
+
+  return {
+    label:
+      report.meta.sourceMode === 'curated'
+        ? 'Curated market baseline'
+        : `${formatLabel(report.meta.sourceMode)} market baseline`,
+    detail:
+      report.meta.warnings.find((warning) =>
+        warning.code === 'region_unavailable' || warning.code === 'dependency_unavailable',
+      )?.message ??
+      `This report used the ${region} baseline available when it was generated.`,
+    changeSummary: null,
+  };
+}
+
 function coverageTone(status: string): string {
   if (status === 'covered') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
   if (status === 'weak') return 'bg-amber-50 text-amber-700 border-amber-200';
@@ -93,6 +132,166 @@ function pipelineLabel(status: string): string {
   return formatLabel(status);
 }
 
+type TargetRoleWorkspaceTab =
+  | 'overview'
+  | 'evidence'
+  | 'readiness'
+  | 'action_plan'
+  | 'applications'
+  | 'market_signals';
+
+type RecommendedTargetRoleActionKey =
+  | 'add_evidence'
+  | 'generate_readiness'
+  | 'generate_proof'
+  | 'create_plan'
+  | 'start_sprint'
+  | 'continue_today'
+  | 'compare_jd';
+
+const targetRoleTabs: Array<{
+  id: TargetRoleWorkspaceTab;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: 'overview',
+    label: 'Overview',
+    description: 'Status and next step',
+  },
+  {
+    id: 'evidence',
+    label: 'Evidence',
+    description: 'Resume and proof signals',
+  },
+  {
+    id: 'readiness',
+    label: 'Readiness',
+    description: 'Score and gaps',
+  },
+  {
+    id: 'action_plan',
+    label: 'Action Plan',
+    description: 'Proof tasks and sprint',
+  },
+  {
+    id: 'applications',
+    label: 'Applications',
+    description: 'Company-specific JDs',
+  },
+  {
+    id: 'market_signals',
+    label: 'Market Signals',
+    description: 'Role requirements',
+  },
+];
+
+const targetRolePrimaryActionClass =
+  'inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-60';
+
+const targetRoleSecondaryActionClass =
+  'inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 transition hover:border-sky-300 hover:text-sky-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-60';
+
+const targetRoleInvertedActionClass =
+  'inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/30';
+
+const targetRoleInlineActionClass =
+  'mt-4 inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-700 transition hover:border-sky-300 hover:text-sky-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100';
+
+const targetRoleStepCardClass =
+  'rounded-3xl border border-slate-200 bg-slate-50/80 p-4 text-left';
+
+function targetRoleTabClass(active: boolean): string {
+  return [
+    'rounded-3xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100',
+    active
+      ? 'border-slate-950 bg-slate-950 text-white shadow-lg shadow-slate-900/15'
+      : 'border-transparent bg-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-950',
+  ].join(' ');
+}
+
+function getRecommendedTargetRoleAction(args: {
+  evidenceCount: number;
+  readinessReport: RoleReadinessReport | null;
+  proofResponse: GapToProofResponse | null;
+  upgradePlan: UpgradePlan | null;
+  targetRole: TargetRole;
+}): {
+  key: RecommendedTargetRoleActionKey;
+  tab: TargetRoleWorkspaceTab;
+  title: string;
+  body: string;
+  cta: string;
+} {
+  if (args.evidenceCount < 4) {
+    return {
+      key: 'add_evidence',
+      tab: 'evidence',
+      title: 'Add evidence before judging readiness.',
+      body: 'Upload a resume, profile export, or project notes so the diagnosis is based on real proof instead of broad profile guesses.',
+      cta: 'Add role evidence',
+    };
+  }
+
+  if (!args.readinessReport) {
+    return {
+      key: 'generate_readiness',
+      tab: 'readiness',
+      title: 'Generate a readiness report.',
+      body: 'Compare the current evidence against this role and identify what is covered, weak, or missing.',
+      cta: 'Generate readiness',
+    };
+  }
+
+  if (!args.proofResponse && !args.upgradePlan) {
+    return {
+      key: 'generate_proof',
+      tab: 'action_plan',
+      title: args.readinessReport.recommendedNextStep,
+      body: 'Turn the weakest requirements into concrete proof tasks that can improve interviews, portfolio, and resume positioning.',
+      cta: 'Build proof tasks',
+    };
+  }
+
+  if (args.proofResponse && !args.upgradePlan) {
+    return {
+      key: 'create_plan',
+      tab: 'action_plan',
+      title: 'Turn proof tasks into a focused upgrade plan.',
+      body: 'Group the proof work into a short execution plan so progress is visible and easier to finish.',
+      cta: 'Create upgrade plan',
+    };
+  }
+
+  if (args.upgradePlan && !args.upgradePlan.linkedSprintId) {
+    return {
+      key: 'start_sprint',
+      tab: 'action_plan',
+      title: 'Start a gap-closing sprint.',
+      body: 'Use the upgrade plan to create weekly execution work based on the exact role gaps.',
+      cta: 'Start execution sprint',
+    };
+  }
+
+  if (args.upgradePlan?.linkedSprintId || args.targetRole.linkedSprintId) {
+    return {
+      key: 'continue_today',
+      tab: 'action_plan',
+      title: 'Continue today’s execution work.',
+      body: 'The role direction is connected to a sprint. Keep shipping proof and reassess after meaningful progress.',
+      cta: 'Open Today',
+    };
+  }
+
+  return {
+    key: 'compare_jd',
+    tab: 'applications',
+    title: 'Compare a company job description when ready.',
+    body: 'Broad role preparation is in place. Use Applications only when there is a specific company JD to target.',
+    cta: 'Compare company JD',
+  };
+}
+
 function ScoreBar({ label, value }: { label: string; value: number }) {
   return (
     <div>
@@ -110,43 +309,18 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
   );
 }
 
-function WorkspacePlaceholder({
-  eyebrow,
-  title,
-  body,
-  cta,
-  to,
-}: {
-  eyebrow: string;
-  title: string;
-  body: string;
-  cta: string;
-  to: string;
-}) {
-  return (
-    <SurfaceCard p={5} className="bg-white/88">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-        {eyebrow}
-      </p>
-      <h3 className="mt-2 text-xl font-black tracking-[-0.04em] text-slate-950">
-        {title}
-      </h3>
-      <p className="mt-3 text-sm leading-7 text-slate-600">{body}</p>
-      <Link
-        to={to}
-        className="mt-5 inline-flex rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-sky-300 hover:text-sky-700"
-      >
-        {cta}
-      </Link>
-    </SurfaceCard>
-  );
-}
-
 export default function TargetRoleWorkspace() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const [activeTargetRoleTab, setActiveTargetRoleTab] = useState<TargetRoleWorkspaceTab>('overview');
   const [targetRole, setTargetRole] = useState<TargetRole | null>(null);
   const [roleProfile, setRoleProfile] = useState<RoleMarketProfile | null>(null);
   const [evidenceProfile, setEvidenceProfile] = useState<CandidateEvidenceProfile | null>(null);
+  const [evidenceImportText, setEvidenceImportText] = useState('');
+  const [evidenceFileName, setEvidenceFileName] = useState<string | null>(null);
+  const [evidenceImportBusy, setEvidenceImportBusy] = useState(false);
+  const [evidenceImportError, setEvidenceImportError] = useState('');
+  const [evidenceImportMessage, setEvidenceImportMessage] = useState('');
   const [readinessReport, setReadinessReport] = useState<RoleReadinessReport | null>(null);
   const [readinessBusy, setReadinessBusy] = useState(false);
   const [readinessError, setReadinessError] = useState('');
@@ -166,6 +340,7 @@ export default function TargetRoleWorkspace() {
   const [sprintError, setSprintError] = useState('');
   const [sprintSuccess, setSprintSuccess] = useState('');
   const [decompositionStatus, setDecompositionStatus] = useState<TargetRoleDecompositionStatusResponse | null>(null);
+  const [marketChange, setMarketChange] = useState<TargetRoleMarketChangeResponse | null>(null);
   const [decompositionBusy, setDecompositionBusy] = useState(false);
   const [decompositionError, setDecompositionError] = useState('');
   const [proofEvidenceStatus, setProofEvidenceStatus] = useState<ProofEvidenceStatusResponse | null>(null);
@@ -174,6 +349,13 @@ export default function TargetRoleWorkspace() {
   const [proofEvidenceError, setProofEvidenceError] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const readinessMarketSource = readinessReport
+    ? describeReadinessMarketSource(readinessReport)
+    : null;
+  const materialMarketChange =
+    marketChange?.summary.status === 'material_change'
+      ? marketChange.summary
+      : null;
 
   const trackMarketUpgradeClick = (ctaLocation: string, upgradePlanKey?: string) => {
     void trackEvent({
@@ -188,17 +370,24 @@ export default function TargetRoleWorkspace() {
     }).catch(() => {});
   };
 
+  const scrollToEvidenceIntake = () => {
+    document
+      .getElementById('target-role-evidence-intake')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
     setLoading(true);
     getTargetRole(id)
       .then(async (role) => {
-        const [profile, evidence, readiness, history, latestPlan, proofEvidence, applications] = await Promise.all([
-          getMarketRole(role.roleProfileId),
+        const [profile, evidence, readiness, history, marketChangeSummary, latestPlan, proofEvidence, applications] = await Promise.all([
+          getMarketRole(role.roleProfileId, { region: role.candidateInput?.region ?? undefined }),
           getTargetRoleEvidence(role.id).catch(() => null),
           getTargetRoleReadiness(role.id).catch(() => null),
           getTargetRoleReadinessHistory(role.id).catch(() => null),
+          getTargetRoleMarketChange(role.id).catch(() => null),
           getLatestTargetRoleUpgradePlan(role.id).catch(() => null),
           getTargetRoleProofEvidenceStatus(role.id).catch(() => null),
           getTargetRoleApplications(role.id).catch(() => []),
@@ -213,6 +402,7 @@ export default function TargetRoleWorkspace() {
           setEvidenceProfile(evidence);
           setReadinessReport(readiness?.report ?? null);
           setReadinessHistory(history);
+          setMarketChange(marketChangeSummary);
           setUpgradePlan(plan);
           setDecompositionStatus(decomposition);
           setProofEvidenceStatus(proofEvidence);
@@ -271,6 +461,7 @@ export default function TargetRoleWorkspace() {
       setPlanError('');
       setProofEvidenceStatus(await getTargetRoleProofEvidenceStatus(targetRole.id).catch(() => null));
       setReadinessHistory(await getTargetRoleReadinessHistory(targetRole.id).catch(() => null));
+      setMarketChange(await getTargetRoleMarketChange(targetRole.id).catch(() => null));
       setTargetRole((current) =>
         current
           ? {
@@ -316,6 +507,7 @@ export default function TargetRoleWorkspace() {
       setDecompositionStatus(null);
       setProofEvidenceStatus(await getTargetRoleProofEvidenceStatus(targetRole.id).catch(() => null));
       setReadinessHistory(await getTargetRoleReadinessHistory(targetRole.id).catch(() => null));
+      setMarketChange(await getTargetRoleMarketChange(targetRole.id).catch(() => null));
       setTargetRole((current) =>
         current
           ? {
@@ -521,6 +713,64 @@ export default function TargetRoleWorkspace() {
     }
   };
 
+  const importEvidenceText = async (
+    rawText: string,
+    source: 'upload' | 'manual' | 'linkedin_paste',
+  ) => {
+    if (!targetRole) return;
+    const normalizedText = rawText.trim();
+    if (normalizedText.length < 20) {
+      setEvidenceImportError('Add at least one meaningful resume or profile bullet.');
+      setEvidenceImportMessage('');
+      return;
+    }
+
+    setEvidenceImportBusy(true);
+    setEvidenceImportError('');
+    setEvidenceImportMessage('');
+    try {
+      const result = await importTargetRoleResumeEvidence(targetRole.id, {
+        rawText: normalizedText,
+        source,
+      });
+      setEvidenceProfile(result.evidenceProfile);
+      if (source !== 'upload') setEvidenceImportText('');
+      setEvidenceImportMessage(
+        result.importedClaimCount > 0
+          ? `${result.importedClaimCount} role evidence signal${result.importedClaimCount === 1 ? '' : 's'} imported.`
+          : 'Evidence imported. Readiness will use the updated profile on the next report.',
+      );
+      setProofEvidenceStatus(await getTargetRoleProofEvidenceStatus(targetRole.id).catch(() => null));
+    } catch (err: any) {
+      const apiError = err?.response?.data?.error;
+      const message =
+        typeof apiError === 'string'
+          ? apiError
+          : apiError?.message ?? 'Could not import evidence right now.';
+      setEvidenceImportError(message);
+    } finally {
+      setEvidenceImportBusy(false);
+    }
+  };
+
+  const handleEvidenceFile = async (file: File) => {
+    setEvidenceImportError('');
+    setEvidenceImportMessage('');
+    setEvidenceFileName(file.name);
+    setEvidenceImportBusy(true);
+    try {
+      const text = await readDocumentFile(file, 'profileEvidence');
+      await importEvidenceText(text, 'upload');
+    } catch (err: any) {
+      setEvidenceImportError(err?.message ?? 'Could not read that evidence file.');
+      setEvidenceImportBusy(false);
+    }
+  };
+
+  const handleImportPastedEvidence = async () => {
+    await importEvidenceText(evidenceImportText, 'manual');
+  };
+
   if (loading) {
     return (
       <div className="space-y-5">
@@ -550,6 +800,50 @@ export default function TargetRoleWorkspace() {
       </SurfaceCard>
     );
   }
+
+  const recommendedAction = getRecommendedTargetRoleAction({
+    evidenceCount: evidenceProfile?.claims.length ?? 0,
+    readinessReport,
+    proofResponse,
+    upgradePlan,
+    targetRole,
+  });
+
+  const handleRecommendedAction = () => {
+    setActiveTargetRoleTab(recommendedAction.tab);
+
+    if (recommendedAction.key === 'add_evidence') {
+      window.setTimeout(scrollToEvidenceIntake, 50);
+      return;
+    }
+
+    if (recommendedAction.key === 'generate_readiness') {
+      void handleGenerateReadiness();
+      return;
+    }
+
+    if (recommendedAction.key === 'generate_proof') {
+      void handleGenerateProof();
+      return;
+    }
+
+    if (recommendedAction.key === 'create_plan') {
+      void handleCreateUpgradePlan();
+      return;
+    }
+
+    if (recommendedAction.key === 'start_sprint') {
+      void handleStartSprint();
+      return;
+    }
+
+    if (recommendedAction.key === 'continue_today') {
+      navigate('/today');
+      return;
+    }
+
+    navigate(`/resume?targetRoleId=${targetRole.id}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -590,28 +884,26 @@ export default function TargetRoleWorkspace() {
               Next best action
             </p>
             <h2 className="mt-3 text-3xl font-black tracking-[-0.06em]">
-              {readinessReport
-                ? readinessReport.recommendedNextStep
-                : 'Generate readiness before creating a sprint.'}
+              {recommendedAction.title}
             </h2>
             <p className="mt-3 text-sm leading-7 text-white/70">
-              {readinessReport
-                ? readinessReport.summary
-                : 'Readiness checks your current evidence against this role. Then Daily Push can turn gaps into applications, proof tasks, and execution sprints.'}
+              {recommendedAction.body}
             </p>
             <button
               type="button"
-              onClick={readinessReport ? handleReassessReadiness : handleGenerateReadiness}
-              disabled={readinessBusy || reassessmentBusy}
-              className="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={handleRecommendedAction}
+              disabled={readinessBusy || reassessmentBusy || proofBusy || planBusy || sprintBusy}
+              className={`mt-6 w-full ${targetRoleInvertedActionClass} disabled:cursor-not-allowed disabled:opacity-60`}
             >
-              {reassessmentBusy
-                ? 'Reassessing readiness...'
-                : readinessBusy
-                  ? 'Generating readiness...'
-                  : readinessReport
-                    ? 'Reassess readiness'
-                    : 'Generate readiness report'}
+              {readinessBusy
+                ? 'Generating readiness...'
+                : proofBusy
+                  ? 'Building proof tasks...'
+                  : planBusy
+                    ? 'Creating plan...'
+                    : sprintBusy
+                      ? 'Starting sprint...'
+                      : recommendedAction.cta}
             </button>
             {(readinessError || reassessmentError) && (
               <div className="mt-3 rounded-2xl border border-red-300/30 bg-red-400/10 p-3 text-sm font-bold leading-6 text-red-100">
@@ -652,7 +944,7 @@ export default function TargetRoleWorkspace() {
               <div className="mt-5 rounded-3xl border border-white/10 bg-white/8 p-4">
                 <p className="text-sm font-black text-white">Evidence needed</p>
                 <p className="mt-1 text-sm leading-6 text-white/65">
-                  Add a resume or profile details so readiness can judge real proof instead of guesses.
+                  Add role evidence so readiness can judge real proof instead of guesses.
                 </p>
               </div>
             )}
@@ -660,7 +952,107 @@ export default function TargetRoleWorkspace() {
         </SurfaceCard>
       </section>
 
-      <SurfaceCard p={{ base: 5, md: 6 }} className="relative overflow-hidden">
+      <div
+        data-testid="target-role-tablist"
+        role="tablist"
+        aria-label="Target Role workspace sections"
+        className="grid gap-2 rounded-[28px] border border-white/70 bg-white/82 p-2 shadow-sm shadow-slate-200/50 backdrop-blur md:grid-cols-3 xl:grid-cols-6"
+      >
+        {targetRoleTabs.map((tab) => {
+          const active = activeTargetRoleTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setActiveTargetRoleTab(tab.id)}
+              className={targetRoleTabClass(active)}
+            >
+              <span className="block text-sm font-black">{tab.label}</span>
+              <span className={`mt-1 block text-xs font-bold ${active ? 'text-white/55' : 'text-slate-400'}`}>
+                {tab.description}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {activeTargetRoleTab === 'overview' && (
+        <section data-section="target-role-overview" className="grid gap-5 lg:grid-cols-3">
+          <SurfaceCard p={5} className="bg-white/88 lg:col-span-2">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+              How to use this page
+            </p>
+            <h2 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+              Prepare broadly here. Compare company JDs only in Applications.
+            </h2>
+            <p className="mt-3 text-sm leading-7 text-slate-600">
+              This role page is for direction, readiness, evidence, and upgrade work. The tabs keep each job-switching step separate so you always know what problem you are solving.
+            </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <div className={targetRoleStepCardClass}>
+                <span className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">Step 1</span>
+                <span className="mt-2 block text-sm font-black text-slate-950">Add evidence</span>
+                <span className="mt-1 block text-sm leading-6 text-slate-600">Upload proof so readiness has facts.</span>
+                <button
+                  type="button"
+                  onClick={() => setActiveTargetRoleTab('evidence')}
+                  className={targetRoleInlineActionClass}
+                >
+                  Open Evidence
+                </button>
+              </div>
+              <div className={targetRoleStepCardClass}>
+                <span className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">Step 2</span>
+                <span className="mt-2 block text-sm font-black text-slate-950">Check readiness</span>
+                <span className="mt-1 block text-sm leading-6 text-slate-600">See covered, weak, and missing requirements.</span>
+                <button
+                  type="button"
+                  onClick={() => setActiveTargetRoleTab('readiness')}
+                  className={targetRoleInlineActionClass}
+                >
+                  Open Readiness
+                </button>
+              </div>
+              <div className={targetRoleStepCardClass}>
+                <span className="text-xs font-black uppercase tracking-[0.14em] text-amber-700">Step 3</span>
+                <span className="mt-2 block text-sm font-black text-slate-950">Close gaps</span>
+                <span className="mt-1 block text-sm leading-6 text-slate-600">Turn gaps into proof tasks and sprints.</span>
+                <button
+                  type="button"
+                  onClick={() => setActiveTargetRoleTab('action_plan')}
+                  className={targetRoleInlineActionClass}
+                >
+                  Open Action Plan
+                </button>
+              </div>
+            </div>
+          </SurfaceCard>
+          <SurfaceCard p={5} className="bg-slate-950 text-white">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45">
+              Current focus
+            </p>
+            <h3 className="mt-2 text-xl font-black tracking-[-0.04em]">
+              {recommendedAction.title}
+            </h3>
+            <p className="mt-3 text-sm leading-7 text-white/65">
+              {recommendedAction.body}
+            </p>
+            <button
+              type="button"
+              onClick={handleRecommendedAction}
+              className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-950 transition hover:-translate-y-0.5"
+            >
+              {recommendedAction.cta}
+            </button>
+          </SurfaceCard>
+        </section>
+      )}
+
+      {activeTargetRoleTab === 'evidence' && (
+        <section data-section="target-role-evidence">
+          <SurfaceCard p={{ base: 5, md: 6 }} className="relative overflow-hidden">
         <div className="absolute -right-20 -bottom-20 h-56 w-56 rounded-full bg-emerald-100 blur-3xl" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -712,12 +1104,108 @@ export default function TargetRoleWorkspace() {
             </div>
           </div>
         </div>
+        <div
+          id="target-role-evidence-intake"
+          className="relative mt-6 grid gap-4 lg:grid-cols-[1fr_0.72fr]"
+        >
+          <div className="rounded-[28px] border border-slate-200 bg-white/86 p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+              Add role evidence
+            </p>
+            <h3 className="mt-2 text-xl font-black tracking-[-0.04em] text-slate-950">
+              Bring in proof for this role without choosing a company.
+            </h3>
+            <p className="mt-2 text-sm leading-7 text-slate-600">
+              Upload a resume, profile export, or project notes. Daily Push will convert it into source-backed evidence for this role; company-specific JD comparison stays in Applications.
+            </p>
+            <div className="mt-4">
+              <DocumentDropzone
+                label="Role evidence"
+                filename={evidenceFileName}
+                title="Upload resume or profile file"
+                helperText="PDF, TXT, Markdown, and RTF files are supported. Scanned PDFs may need the paste fallback."
+                minHeightClassName="min-h-[190px]"
+                onFile={handleEvidenceFile}
+              />
+            </div>
+            {evidenceImportBusy && (
+              <p className="mt-3 rounded-2xl border border-sky-100 bg-sky-50 p-3 text-sm font-bold leading-6 text-sky-800">
+                Reading and importing evidence...
+              </p>
+            )}
+            <details className="mt-4 rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
+              <summary className="cursor-pointer text-sm font-black text-slate-700">
+                Paste instead
+              </summary>
+              <p className="mt-3 text-sm leading-6 text-slate-500">
+                Use this when the source is a LinkedIn section, portfolio note, or a PDF that cannot be read automatically.
+              </p>
+              <textarea
+                value={evidenceImportText}
+                onChange={(event) => {
+                  setEvidenceImportText(event.target.value);
+                  if (evidenceImportError) setEvidenceImportError('');
+                  if (evidenceImportMessage) setEvidenceImportMessage('');
+                }}
+                rows={6}
+                placeholder="Example: Owned production Node.js services, optimized dashboard APIs by 35%, designed RBAC flows, deployed with Docker/Jenkins/AWS..."
+                className="mt-4 w-full resize-y rounded-3xl border border-slate-200 bg-white px-4 py-4 text-sm leading-7 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+              />
+              <button
+                type="button"
+                onClick={handleImportPastedEvidence}
+                disabled={evidenceImportBusy}
+                className={`mt-3 ${targetRolePrimaryActionClass}`}
+              >
+                {evidenceImportBusy ? 'Importing evidence...' : 'Import pasted evidence'}
+              </button>
+            </details>
+            {evidenceImportError && (
+              <p className="mt-3 rounded-2xl border border-red-100 bg-red-50 p-3 text-sm font-bold leading-6 text-red-700">
+                {evidenceImportError}
+              </p>
+            )}
+            {evidenceImportMessage && (
+              <p className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-sm font-bold leading-6 text-emerald-800">
+                {evidenceImportMessage}
+              </p>
+            )}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              {readinessReport && (
+                <button
+                  type="button"
+                  onClick={handleReassessReadiness}
+                  disabled={reassessmentBusy || evidenceImportBusy}
+                  className={targetRoleSecondaryActionClass}
+                >
+                  {reassessmentBusy ? 'Reassessing...' : 'Reassess after import'}
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="rounded-[28px] border border-sky-100 bg-sky-50/80 p-5">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">
+              What this updates
+            </p>
+            <div className="mt-4 space-y-3 text-sm leading-7 text-sky-950/80">
+              <p>
+                Readiness can judge real source-backed proof instead of guessing from a role title.
+              </p>
+              <p>
+                Proof tasks become sharper because Daily Push can see which skills and outcomes already exist.
+              </p>
+              <p>
+                Use Resume later only when comparing against a specific company job description.
+              </p>
+            </div>
+          </div>
+        </div>
         <div className="relative mt-5 flex flex-wrap gap-3">
           <button
             type="button"
             onClick={handlePublishProofEvidence}
             disabled={proofEvidenceBusy || proofEvidenceStatus?.publishableArtifactCount === 0}
-            className="inline-flex rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+            className={targetRolePrimaryActionClass}
           >
             {proofEvidenceBusy ? 'Adding proof...' : 'Add proof to Evidence Vault'}
           </button>
@@ -740,8 +1228,12 @@ export default function TargetRoleWorkspace() {
             </Link>
           )}
         </div>
-      </SurfaceCard>
+          </SurfaceCard>
+        </section>
+      )}
 
+      {activeTargetRoleTab === 'readiness' && (
+        <div data-section="target-role-readiness" className="space-y-6">
       {readinessReport ? (
         <section className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
           <SurfaceCard p={{ base: 6, md: 7 }} className="relative overflow-hidden">
@@ -780,6 +1272,29 @@ export default function TargetRoleWorkspace() {
               <p className="mt-6 text-base leading-8 text-slate-600">
                 {readinessReport.summary}
               </p>
+              {readinessMarketSource && (
+                <div className="mt-5 rounded-3xl border border-slate-200 bg-white/80 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-black text-slate-900">
+                      Market source used
+                    </p>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                      {formatLabel(readinessReport.meta.sourceMode)}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm font-bold leading-6 text-slate-700">
+                    {readinessMarketSource.label}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">
+                    {readinessMarketSource.detail}
+                  </p>
+                  {readinessMarketSource.changeSummary && (
+                    <p className="mt-3 rounded-2xl bg-sky-50 p-3 text-sm leading-6 text-sky-800">
+                      Recent market change: {readinessMarketSource.changeSummary}
+                    </p>
+                  )}
+                </div>
+              )}
               {readinessReport.meta.warnings.length > 0 && (
                 <div className="mt-5 rounded-3xl border border-amber-200 bg-amber-50 p-4">
                   <p className="text-sm font-black text-amber-800">Improve report accuracy</p>
@@ -788,18 +1303,83 @@ export default function TargetRoleWorkspace() {
                   </p>
                 </div>
               )}
+              {materialMarketChange && (
+                <div className="mt-5 rounded-3xl border border-sky-200 bg-sky-50 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-black text-sky-950">
+                        Market requirements changed since your last report
+                      </p>
+                      <p className="mt-1 text-sm leading-6 text-sky-800/85">
+                        {materialMarketChange.summary}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-sky-700">
+                      {formatLabel(materialMarketChange.materiality)} change
+                    </span>
+                  </div>
+
+                  <details className="mt-4 rounded-2xl border border-sky-100 bg-white/80 p-4">
+                    <summary className="cursor-pointer text-sm font-black text-sky-950">
+                      Inspect changed requirements
+                    </summary>
+                    <div className="mt-4 space-y-3">
+                      {materialMarketChange.signals.changedRequirements.length > 0 ? (
+                        materialMarketChange.signals.changedRequirements.slice(0, 6).map((item) => (
+                          <div key={`${item.changeType}-${item.label}`} className="rounded-2xl border border-slate-100 bg-white p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-sm font-black text-slate-900">{item.label}</p>
+                              <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
+                                {formatLabel(item.changeType)}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm leading-6 text-slate-600">{item.summary}</p>
+                            <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+                              {item.beforePriority ? formatLabel(item.beforePriority) : 'New'} to {item.afterPriority ? formatLabel(item.afterPriority) : 'Removed'}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm leading-6 text-slate-600">
+                          No requirement text changed, but trend confidence or source-backed profile confidence changed enough to refresh the report.
+                        </p>
+                      )}
+                      {materialMarketChange.signals.highConfidenceTrendChanges.slice(0, 3).map((change) => (
+                        <p key={change} className="rounded-2xl bg-sky-50 p-3 text-sm leading-6 text-sky-800">
+                          {change}
+                        </p>
+                      ))}
+                      {materialMarketChange.signals.confidenceDrop !== null && (
+                        <p className="rounded-2xl bg-amber-50 p-3 text-sm leading-6 text-amber-800">
+                          Market profile confidence dropped by {Math.abs(Math.round(materialMarketChange.signals.confidenceDrop * 100))} point(s).
+                        </p>
+                      )}
+                    </div>
+                  </details>
+
+                  <button
+                    type="button"
+                    onClick={handleReassessReadiness}
+                    disabled={reassessmentBusy || !readinessReport}
+                    className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-sky-950 px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                  >
+                    {reassessmentBusy ? 'Reassessing readiness...' : 'Reassess with latest market profile'}
+                  </button>
+                </div>
+              )}
               <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                <Link
-                  to="/resume"
-                  className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-sky-300 hover:text-sky-700"
+                <button
+                  type="button"
+                  onClick={scrollToEvidenceIntake}
+                  className={targetRoleSecondaryActionClass}
                 >
-                  Improve evidence
-                </Link>
+                  Add role evidence
+                </button>
                 <button
                   type="button"
                   onClick={handleGenerateProof}
                   disabled={proofBusy}
-                  className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                  className={targetRolePrimaryActionClass}
                 >
                   {proofBusy ? 'Building proof tasks...' : 'Generate proof tasks'}
                 </button>
@@ -844,7 +1424,7 @@ export default function TargetRoleWorkspace() {
                 <div className="mt-4 rounded-3xl border border-amber-200 bg-amber-50 p-4">
                   <p className="text-sm font-black text-amber-800">Your evidence is still light.</p>
                   <p className="mt-1 text-sm leading-6 text-amber-800/80">
-                    You can generate a report now, but adding a resume first will make the diagnosis more useful.
+                    You can generate a report now, but adding role evidence first will make the diagnosis more useful.
                   </p>
                 </div>
               )}
@@ -854,16 +1434,17 @@ export default function TargetRoleWorkspace() {
                 type="button"
                 onClick={handleGenerateReadiness}
                 disabled={readinessBusy}
-                className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-4 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                className={targetRolePrimaryActionClass}
               >
                 {readinessBusy ? 'Generating readiness...' : 'Generate readiness report'}
               </button>
-              <Link
-                to="/resume"
-                className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-black text-slate-700 transition hover:border-sky-300 hover:text-sky-700"
+              <button
+                type="button"
+                onClick={scrollToEvidenceIntake}
+                className={targetRoleSecondaryActionClass}
               >
-                Add resume evidence
-              </Link>
+                Add role evidence
+              </button>
             </div>
           </div>
         </SurfaceCard>
@@ -890,7 +1471,7 @@ export default function TargetRoleWorkspace() {
                   type="button"
                   onClick={handleReassessReadiness}
                   disabled={reassessmentBusy}
-                  className="inline-flex rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                  className={targetRolePrimaryActionClass}
                 >
                   {reassessmentBusy ? 'Reassessing...' : 'Run reassessment'}
                 </button>
@@ -1008,14 +1589,91 @@ export default function TargetRoleWorkspace() {
           </SurfaceCard>
         </section>
       )}
+        </div>
+      )}
 
-      {readinessReport && !upgradePlan && targetRole && (
-        <RoleMarketPilotFeedback
-          source="target_role_workspace"
-          ctaLocation="readiness_report"
-          roleProfileId={targetRole.roleProfileId}
-          targetRoleId={targetRole.id}
-        />
+      {activeTargetRoleTab === 'action_plan' && (
+        <div data-section="target-role-action-plan" className="space-y-6">
+      {!readinessReport && (
+        <SurfaceCard p={{ base: 5, md: 6 }} className="relative overflow-hidden">
+          <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-sky-100 blur-3xl" />
+          <div className="relative grid gap-5 lg:grid-cols-[1fr_0.55fr] lg:items-center">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                Action Plan
+              </p>
+              <h2 className="mt-2 text-3xl font-black tracking-[-0.06em] text-slate-950">
+                Generate readiness before planning proof work.
+              </h2>
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
+                The action plan should be based on real gaps. Generate readiness first, then turn weak requirements into proof tasks and sprint work.
+              </p>
+            </div>
+            <div className="grid gap-3">
+              <button
+                type="button"
+                onClick={handleGenerateReadiness}
+                disabled={readinessBusy}
+                className={targetRolePrimaryActionClass}
+              >
+                {readinessBusy ? 'Generating readiness...' : 'Generate readiness report'}
+              </button>
+              <button
+                type="button"
+                onClick={scrollToEvidenceIntake}
+                className={targetRoleSecondaryActionClass}
+              >
+                Add role evidence first
+              </button>
+            </div>
+          </div>
+        </SurfaceCard>
+      )}
+
+      {readinessReport && !proofResponse && !upgradePlan && (
+        <SurfaceCard p={{ base: 5, md: 6 }} className="relative overflow-hidden">
+          <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-amber-100 blur-3xl" />
+          <div className="relative grid gap-5 lg:grid-cols-[1fr_0.55fr] lg:items-center">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                Action Plan
+              </p>
+              <h2 className="mt-2 text-3xl font-black tracking-[-0.06em] text-slate-950">
+                Plan the proof work.
+              </h2>
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
+                Start from the weakest role requirements and create visible artifacts that can improve interviews, portfolio proof, and resume positioning.
+              </p>
+              {readinessReport.criticalGaps.length > 0 && (
+                <p className="mt-4 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-7 text-amber-900">
+                  First gap to close: {readinessReport.criticalGaps[0]}
+                </p>
+              )}
+            </div>
+            <div className="grid gap-3">
+              <button
+                type="button"
+                onClick={handleGenerateProof}
+                disabled={proofBusy}
+                className={targetRolePrimaryActionClass}
+              >
+                {proofBusy ? 'Building proof tasks...' : 'Generate proof tasks'}
+              </button>
+              <button
+                type="button"
+                onClick={scrollToEvidenceIntake}
+                className={targetRoleSecondaryActionClass}
+              >
+                Add more evidence
+              </button>
+            </div>
+          </div>
+          {proofError && (
+            <p className="relative mt-4 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-bold leading-6 text-red-700">
+              {proofError}
+            </p>
+          )}
+        </SurfaceCard>
       )}
 
       {proofResponse && (
@@ -1038,7 +1696,7 @@ export default function TargetRoleWorkspace() {
                 type="button"
                 onClick={handleCreateUpgradePlan}
                 disabled={planBusy}
-                className="inline-flex rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                className={targetRolePrimaryActionClass}
               >
                 {planBusy ? 'Creating plan...' : 'Create upgrade plan'}
               </button>
@@ -1089,6 +1747,15 @@ export default function TargetRoleWorkspace() {
         </SurfaceCard>
       )}
 
+      {readinessReport && !upgradePlan && targetRole && (
+        <RoleMarketPilotFeedback
+          source="target_role_workspace"
+          ctaLocation="readiness_report"
+          roleProfileId={targetRole.roleProfileId}
+          targetRoleId={targetRole.id}
+        />
+      )}
+
       {upgradePlan && (
         <SurfaceCard p={{ base: 5, md: 6 }} className="relative overflow-hidden">
           <div className="absolute -left-24 -bottom-24 h-72 w-72 rounded-full bg-emerald-100 blur-3xl" />
@@ -1110,7 +1777,7 @@ export default function TargetRoleWorkspace() {
                   type="button"
                   onClick={handleStartSprint}
                   disabled={sprintBusy}
-                  className="inline-flex rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                  className={targetRolePrimaryActionClass}
                 >
                   {sprintBusy ? 'Starting sprint...' : upgradePlan.linkedSprintId ? 'Continue sprint' : 'Start execution sprint'}
                 </button>
@@ -1200,7 +1867,7 @@ export default function TargetRoleWorkspace() {
                     type="button"
                     onClick={() => handleDecomposeUpgradePlan(false)}
                     disabled={decompositionBusy || decompositionStatus?.pipelineStatus === 'running' || decompositionStatus?.canStart === false}
-                    className="inline-flex rounded-2xl bg-sky-600 px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                    className={targetRolePrimaryActionClass}
                   >
                     {decompositionBusy && !decompositionStatus?.canRetry ? 'Starting...' : 'Build topic graph'}
                   </button>
@@ -1209,7 +1876,7 @@ export default function TargetRoleWorkspace() {
                       type="button"
                       onClick={() => handleDecomposeUpgradePlan(true)}
                       disabled={decompositionBusy}
-                      className="inline-flex rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-black text-amber-800 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                      className={targetRoleSecondaryActionClass}
                     >
                       {decompositionBusy ? 'Retrying...' : 'Retry failed topics'}
                     </button>
@@ -1217,7 +1884,7 @@ export default function TargetRoleWorkspace() {
                   {decompositionStatus?.goalId && (
                     <Link
                       to={`/goals/${decompositionStatus.goalId}?source=target-role`}
-                      className="inline-flex rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:-translate-y-0.5"
+                      className={targetRoleSecondaryActionClass}
                     >
                       Open goal
                     </Link>
@@ -1338,8 +2005,10 @@ export default function TargetRoleWorkspace() {
           targetRoleId={targetRole.id}
         />
       )}
+        </div>
+      )}
 
-      {readinessReport && (
+      {activeTargetRoleTab === 'readiness' && readinessReport && (
         <section className="grid gap-5 lg:grid-cols-3">
           <SurfaceCard p={5}>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-600">
@@ -1380,7 +2049,8 @@ export default function TargetRoleWorkspace() {
         </section>
       )}
 
-      <section className="grid gap-5 lg:grid-cols-2">
+      {activeTargetRoleTab === 'applications' && (
+      <section data-section="target-role-applications" className="grid gap-5 lg:grid-cols-2">
         <SurfaceCard p={5} className="bg-white/88">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
@@ -1396,7 +2066,7 @@ export default function TargetRoleWorkspace() {
             </div>
             <Link
               to={`/resume?targetRoleId=${targetRole.id}`}
-              className="inline-flex rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-sky-300 hover:text-sky-700"
+              className={targetRolePrimaryActionClass}
             >
               Compare a company JD
             </Link>
@@ -1420,16 +2090,21 @@ export default function TargetRoleWorkspace() {
             ))}
           </div>
         </SurfaceCard>
-        <WorkspacePlaceholder
-          eyebrow="Sprint"
-          title="Gap-closing execution"
-          body="Sprints should start after readiness, so the weekly plan is based on real gaps instead of vague ambition."
-          cta="View goals"
-          to="/goals"
-        />
+        <SurfaceCard p={5} className="bg-sky-50/78">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">
+            What belongs here
+          </p>
+          <h3 className="mt-2 text-xl font-black tracking-[-0.04em] text-slate-950">
+            One broad role, many company comparisons.
+          </h3>
+          <p className="mt-3 text-sm leading-7 text-slate-700">
+            Use this tab only when there is a specific company job description. Broad role readiness and proof planning stay in the earlier tabs, so each application can focus on fit, resume language, and missing JD evidence.
+          </p>
+        </SurfaceCard>
       </section>
+      )}
 
-      {readinessReport && (
+      {activeTargetRoleTab === 'readiness' && readinessReport && (
         <SurfaceCard p={{ base: 5, md: 6 }}>
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -1493,8 +2168,8 @@ export default function TargetRoleWorkspace() {
         </SurfaceCard>
       )}
 
-      {roleProfile && !readinessReport && (
-        <section className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">
+      {activeTargetRoleTab === 'market_signals' && roleProfile && (
+        <section data-section="target-role-market-signals" className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">
           <SurfaceCard p={6}>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
               Role requirements
@@ -1564,7 +2239,7 @@ export default function TargetRoleWorkspace() {
                   ))}
                   {(evidenceProfile?.claims ?? []).length === 0 && (
                     <p className="text-sm font-bold leading-6 text-slate-500">
-                      Upload or paste a resume on the Resume page to generate evidence-backed readiness.
+                      Add role evidence above to generate evidence-backed readiness.
                     </p>
                   )}
                 </div>

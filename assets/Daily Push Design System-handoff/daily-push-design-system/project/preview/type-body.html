@@ -1,60 +1,172 @@
 <!doctype html>
 <html>
-<head>
-<meta charset="utf-8">
-<title>Type — Body (Inter)</title>
-<link rel="stylesheet" href="../colors_and_type.css">
-<style>
-  html, body { margin:0; padding:0; background:#fff; color: var(--fg-1); }
-  .wrap { padding: 28px; max-width: 960px; }
-  .card { border: 1px solid var(--border-base); border-radius: 16px; padding: 20px 22px; margin-bottom: 16px; background: #fff; }
-  .eyebrow-row { display:flex; align-items:center; gap:10px; margin-bottom: 12px; color: var(--fg-3); }
-  .tag { display:inline-flex; align-items:center; gap:6px; padding: 3px 9px; border-radius: 999px; background: var(--slate-100); color: var(--fg-2); font-size: 11px; font-weight: 500; }
-  .row { display:flex; align-items:baseline; gap: 20px; padding: 10px 0; }
-  .row + .row { border-top: 1px dashed var(--border-subtle); }
-  .spec { width: 140px; flex-shrink: 0; font-family: var(--font-mono); font-size: 11px; color: var(--fg-3); line-height: 1.45; }
-  .body { flex: 1; }
-  .pairing { display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .pairing .demo { background: var(--slate-50); border-radius: 12px; padding: 18px; }
-  .pairing .demo .h { font-family: var(--font-display); font-size: 26px; line-height: 1.1; letter-spacing: -0.01em; color: var(--fg-1); margin-bottom: 6px; }
-  .pairing .demo .p { font-size: 14px; line-height: 1.55; color: var(--fg-2); margin: 0; }
-</style>
-</head>
-<body>
-<div class="wrap">
-
-  <div class="card">
-    <div class="eyebrow-row">
-      <span class="tag">Body font · Inter</span>
-      <span class="tag">400 / 500 / 600 / 700</span>
-    </div>
-    <p style="font-size: 14px; color: var(--fg-2); line-height: 1.6; margin: 0;">Inter carries paragraph text, UI labels, form inputs, and anywhere precision and legibility matter. It's a stable companion to Cagliostro's warmth — geometric where the display face is humanist.</p>
-  </div>
-
-  <div class="card">
-    <div class="eyebrow-row"><span class="tag">Body scale</span></div>
-    <div class="row"><div class="spec">lead / 18 / 400</div><p class="lead body" style="margin:0">Tell us your situation and what success looks like — we'll build the plan.</p></div>
-    <div class="row"><div class="spec">body / 16 / 400</div><p class="body" style="margin:0">Every day, we pick the next concept for you to study. Rate your confidence. Move on.</p></div>
-    <div class="row"><div class="spec">small / 14 / 400</div><p class="small body" style="margin:0">Complete this node to unlock dependent concepts in your learning path.</p></div>
-    <div class="row"><div class="spec">caption / 12 / 600</div><p class="caption body" style="margin:0">Your learning path</p></div>
-    <div class="row"><div class="spec">eyebrow / 12 / 700</div><p class="eyebrow body" style="margin:0">Review due</p></div>
-    <div class="row"><div class="spec">mono / 14</div><span class="mono body">~45 min · 12/24 nodes</span></div>
-  </div>
-
-  <div class="card">
-    <div class="eyebrow-row"><span class="tag">Pairing · Cagliostro + Inter</span></div>
-    <div class="pairing">
-      <div class="demo">
-        <div class="h">Your learning path, mapped</div>
-        <p class="p">Every day, we pick the next concept for you to study based on what you've learned, what you've forgotten, and where you want to go. Rate your confidence. Move on.</p>
+  <head>
+    <meta charset="utf-8" />
+    <title>Type — Body (Inter)</title>
+    <link rel="stylesheet" href="../colors_and_type.css" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #fff;
+        color: var(--fg-1);
+      }
+      .wrap {
+        padding: 28px;
+        max-width: 960px;
+      }
+      .card {
+        border: 1px solid var(--border-base);
+        border-radius: 16px;
+        padding: 20px 22px;
+        margin-bottom: 16px;
+        background: #fff;
+      }
+      .eyebrow-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 12px;
+        color: var(--fg-3);
+      }
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: var(--slate-100);
+        color: var(--fg-2);
+        font-size: 11px;
+        font-weight: 500;
+      }
+      .row {
+        display: flex;
+        align-items: baseline;
+        gap: 20px;
+        padding: 10px 0;
+      }
+      .row + .row {
+        border-top: 1px dashed var(--border-subtle);
+      }
+      .spec {
+        width: 140px;
+        flex-shrink: 0;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--fg-3);
+        line-height: 1.45;
+      }
+      .body {
+        flex: 1;
+      }
+      .pairing {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .pairing .demo {
+        background: var(--slate-50);
+        border-radius: 12px;
+        padding: 18px;
+      }
+      .pairing .demo .h {
+        font-family: var(--font-display);
+        font-size: 26px;
+        line-height: 1.1;
+        letter-spacing: -0.01em;
+        color: var(--fg-1);
+        margin-bottom: 6px;
+      }
+      .pairing .demo .p {
+        font-size: 14px;
+        line-height: 1.55;
+        color: var(--fg-2);
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <div class="eyebrow-row">
+          <span class="tag">Body font · Inter</span>
+          <span class="tag">400 / 500 / 600 / 700</span>
+        </div>
+        <p
+          style="
+            font-size: 14px;
+            color: var(--fg-2);
+            line-height: 1.6;
+            margin: 0;
+          "
+        >
+          Inter carries paragraph text, UI labels, form inputs, and anywhere
+          precision and legibility matter. It's a stable companion to
+          Cagliostro's warmth — geometric where the display face is humanist.
+        </p>
       </div>
-      <div class="demo">
-        <div class="h">Review due today</div>
-        <p class="p">You learned <b style="color:var(--fg-1)">Self-attention</b> three days ago. A quick review now keeps it in long-term memory.</p>
+
+      <div class="card">
+        <div class="eyebrow-row"><span class="tag">Body scale</span></div>
+        <div class="row">
+          <div class="spec">lead / 18 / 400</div>
+          <p class="lead body" style="margin: 0">
+            Tell us your situation and what success looks like — we'll build the
+            plan.
+          </p>
+        </div>
+        <div class="row">
+          <div class="spec">body / 16 / 400</div>
+          <p class="body" style="margin: 0">
+            Every day, we pick the next concept for you to study. Rate your
+            confidence. Move on.
+          </p>
+        </div>
+        <div class="row">
+          <div class="spec">small / 14 / 400</div>
+          <p class="small body" style="margin: 0">
+            Complete this node to unlock dependent concepts in your learning
+            path.
+          </p>
+        </div>
+        <div class="row">
+          <div class="spec">caption / 12 / 600</div>
+          <p class="caption body" style="margin: 0">Your learning path</p>
+        </div>
+        <div class="row">
+          <div class="spec">eyebrow / 12 / 700</div>
+          <p class="eyebrow body" style="margin: 0">Review due</p>
+        </div>
+        <div class="row">
+          <div class="spec">mono / 14</div>
+          <span class="mono body">~45 min · 12/24 nodes</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow-row">
+          <span class="tag">Pairing · Cagliostro + Inter</span>
+        </div>
+        <div class="pairing">
+          <div class="demo">
+            <div class="h">Your learning path, mapped</div>
+            <p class="p">
+              Every day, we pick the next concept for you to study based on what
+              you've learned, what you've forgotten, and where you want to go.
+              Rate your confidence. Move on.
+            </p>
+          </div>
+          <div class="demo">
+            <div class="h">Review due today</div>
+            <p class="p">
+              You learned <b style="color: var(--fg-1)">Self-attention</b> three
+              days ago. A quick review now keeps it in long-term memory.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-
-</div>
-</body>
+  </body>
 </html>

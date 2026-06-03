@@ -221,18 +221,28 @@ export default function Settings() {
                   Operator tools
                 </Text>
                 <Text fontSize="sm" color="ink.500" lineHeight="1.7">
-                  Review product metrics, AI usage, and Role Market pilot feedback signals.
+                  Review product metrics, AI usage, Role Discovery pilot feedback, and source health.
                 </Text>
               </VStack>
-              <Button
-                as={RouterLink}
-                to="/metrics"
-                colorScheme="blue"
-                variant="outline"
-                borderColor="brand.200"
-              >
-                Open metrics
-              </Button>
+              <HStack spacing={3} flexWrap="wrap">
+                <Button
+                  as={RouterLink}
+                  to="/operator/market"
+                  colorScheme="blue"
+                  variant="solid"
+                >
+                  Source health
+                </Button>
+                <Button
+                  as={RouterLink}
+                  to="/metrics"
+                  colorScheme="blue"
+                  variant="outline"
+                  borderColor="brand.200"
+                >
+                  Open metrics
+                </Button>
+              </HStack>
             </HStack>
           </SurfaceCard>
         ) : null}

@@ -9,6 +9,9 @@ import { securityHeaders } from './middleware/securityHeaders';
 import { startSRScheduler } from './services/srScheduler';
 import { startWeeklySummaryScheduler } from './services/weeklySummaryScheduler';
 import { validateRoleMarketStartupConfig } from './services/roleMarketStartupValidation';
+import { upsertConfiguredLiveMarketSources } from './services/liveMarketSourceConfig';
+import { seedCuratedMarketTaxonomy } from './services/liveMarketTaxonomyStore';
+import { startLiveMarketIngestionScheduler } from './services/liveMarketIngestionScheduler';
 
 const app = express();
 
@@ -45,14 +48,22 @@ app.use(errorHandler);
 async function start() {
   await testPostgresConnection();
   await validateRoleMarketStartupConfig();
+  if (config.roleMarket.featureLiveIngestion) {
+    await seedCuratedMarketTaxonomy();
+  }
+  await upsertConfiguredLiveMarketSources();
   await connectMongo();
   startSRScheduler();
   startWeeklySummaryScheduler();
+  const liveMarketIngestionScheduler = startLiveMarketIngestionScheduler();
   const server = app.listen(config.app.port, () => {
     console.log(`✓ Backend running on http://localhost:${config.app.port}`);
   });
 
-  const shutdown = () => server.close(() => process.exit(0));
+  const shutdown = () => {
+    liveMarketIngestionScheduler.stop();
+    server.close(() => process.exit(0));
+  };
   process.on('SIGTERM', shutdown);
   process.on('SIGINT',  shutdown);
 }

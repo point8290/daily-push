@@ -5,13 +5,17 @@ type RoleMarketFeatureKey =
   | 'role_market_public'
   | 'target_role_save'
   | 'role_readiness_report'
-  | 'role_market_ai_summary';
+  | 'role_market_ai_summary'
+  | 'role_market_live_ingestion'
+  | 'role_market_operator_review';
 
 const FEATURE_ACCESSORS: Record<RoleMarketFeatureKey, () => boolean> = {
   role_market_public: () => config.roleMarket.featurePublic,
   target_role_save: () => config.roleMarket.featureTargetRoleSave,
   role_readiness_report: () => config.roleMarket.featureReadinessReport,
   role_market_ai_summary: () => config.roleMarket.featureAiSummary,
+  role_market_live_ingestion: () => config.roleMarket.featureLiveIngestion,
+  role_market_operator_review: () => config.roleMarket.featureOperatorReview,
 };
 
 export class FeatureDisabledError extends Error {

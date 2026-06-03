@@ -1,6 +1,10 @@
-export type BillingPlanKey = 'free' | 'pro' | 'sprint';
-export type BillingIntervalKey = 'month' | 'year' | 'lifetime';
-export type EntitlementResetPeriod = 'daily' | 'weekly' | 'monthly' | 'lifetime';
+export type BillingPlanKey = "free" | "pro" | "sprint";
+export type BillingIntervalKey = "month" | "year" | "lifetime";
+export type EntitlementResetPeriod =
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "lifetime";
 
 export interface PlanEntitlementDefinition {
   enabled: boolean;
@@ -22,112 +26,315 @@ export interface BillingPlanDefinition {
 
 export const BILLING_PLANS: Record<BillingPlanKey, BillingPlanDefinition> = {
   free: {
-    key: 'free',
-    name: 'Free',
-    description: 'Start one goal, sample the AI coach, and prove the workflow fits you.',
+    key: "free",
+    name: "Free",
+    description:
+      "Start one goal, sample the AI coach, and prove the workflow fits you.",
     monthlyPriceCents: null,
     yearlyPriceCents: null,
     highlight: false,
-    ctaLabel: 'Current baseline',
+    ctaLabel: "Current baseline",
     features: [
-      '1 active goal',
-      '10 AI understanding checks each month',
-      'Core daily plan and map',
-      '5 career market direction checks each day',
-      '1 saved target role with 1 readiness report each month',
-      'Public resume fit snapshot',
-      '1 saved resume application and 1 full resume report each month',
+      "1 active goal",
+      "10 AI understanding checks each month",
+      "Core daily plan and map",
+      "5 Role Discovery direction checks each day",
+      "1 saved target role with 1 readiness report each month",
+      "Public resume audit snapshot",
+      "1 saved resume application and 1 full resume report each month",
     ],
     entitlements: {
-      'goals.active.max': { enabled: true, limitValue: 1, resetPeriod: null },
-      'ai_checks.monthly': { enabled: true, limitValue: 10, resetPeriod: 'monthly' },
-      'market_recommendations.daily': { enabled: true, limitValue: 5, resetPeriod: 'daily' },
-      'resume_snapshots.daily': { enabled: true, limitValue: 5, resetPeriod: 'daily' },
-      'resume_reports.monthly': { enabled: true, limitValue: 1, resetPeriod: 'monthly' },
-      'tailored_resumes.monthly': { enabled: false, limitValue: 0, resetPeriod: 'monthly' },
-      'applications.saved.max': { enabled: true, limitValue: 1, resetPeriod: null },
-      'target_roles.saved.max': { enabled: true, limitValue: 1, resetPeriod: null },
-      'role_readiness_reports.monthly': { enabled: true, limitValue: 1, resetPeriod: 'monthly' },
-      'role_comparisons.monthly': { enabled: false, limitValue: 0, resetPeriod: 'monthly' },
-      'readiness_reassessments.monthly': { enabled: true, limitValue: 1, resetPeriod: 'monthly' },
-      'premium_resources.enabled': { enabled: false, limitValue: null, resetPeriod: null },
-      'weekly_reports.enabled': { enabled: false, limitValue: null, resetPeriod: null },
-      'premium_sprints.enabled': { enabled: false, limitValue: null, resetPeriod: null },
-      'gap_reports.monthly': { enabled: false, limitValue: 0, resetPeriod: 'monthly' },
-      'mock_interviews.monthly': { enabled: false, limitValue: 0, resetPeriod: 'monthly' },
-      'artifacts.export.enabled': { enabled: false, limitValue: null, resetPeriod: null },
+      "goals.active.max": { enabled: true, limitValue: 1, resetPeriod: null },
+      "ai_checks.monthly": {
+        enabled: true,
+        limitValue: 10,
+        resetPeriod: "monthly",
+      },
+      "market_recommendations.daily": {
+        enabled: true,
+        limitValue: 5,
+        resetPeriod: "daily",
+      },
+      "resume_snapshots.daily": {
+        enabled: true,
+        limitValue: 5,
+        resetPeriod: "daily",
+      },
+      "resume_reports.monthly": {
+        enabled: true,
+        limitValue: 1,
+        resetPeriod: "monthly",
+      },
+      "tailored_resumes.monthly": {
+        enabled: false,
+        limitValue: 0,
+        resetPeriod: "monthly",
+      },
+      "applications.saved.max": {
+        enabled: true,
+        limitValue: 1,
+        resetPeriod: null,
+      },
+      "target_roles.saved.max": {
+        enabled: true,
+        limitValue: 1,
+        resetPeriod: null,
+      },
+      "role_readiness_reports.monthly": {
+        enabled: true,
+        limitValue: 1,
+        resetPeriod: "monthly",
+      },
+      "role_comparisons.monthly": {
+        enabled: false,
+        limitValue: 0,
+        resetPeriod: "monthly",
+      },
+      "readiness_reassessments.monthly": {
+        enabled: true,
+        limitValue: 1,
+        resetPeriod: "monthly",
+      },
+      "premium_resources.enabled": {
+        enabled: false,
+        limitValue: null,
+        resetPeriod: null,
+      },
+      "weekly_reports.enabled": {
+        enabled: false,
+        limitValue: null,
+        resetPeriod: null,
+      },
+      "premium_sprints.enabled": {
+        enabled: false,
+        limitValue: null,
+        resetPeriod: null,
+      },
+      "gap_reports.monthly": {
+        enabled: false,
+        limitValue: 0,
+        resetPeriod: "monthly",
+      },
+      "mock_interviews.monthly": {
+        enabled: false,
+        limitValue: 0,
+        resetPeriod: "monthly",
+      },
+      "artifacts.export.enabled": {
+        enabled: false,
+        limitValue: null,
+        resetPeriod: null,
+      },
     },
   },
   pro: {
-    key: 'pro',
-    name: 'Pro',
-    description: 'For engineers who want deeper feedback, richer reports, and fewer limits.',
+    key: "pro",
+    name: "Pro",
+    description:
+      "For engineers who want deeper feedback, richer reports, and fewer limits.",
     monthlyPriceCents: 1500,
     yearlyPriceCents: 14400,
     highlight: true,
-    ctaLabel: 'Upgrade to Pro',
+    ctaLabel: "Upgrade to Pro",
     features: [
-      'Unlimited active goals',
-      '150 AI understanding checks each month',
-      'Premium resource recovery tools',
-      'Unlimited career market direction checks and 10 saved target roles',
-      '25 readiness reports, role comparisons, and reassessments each month',
-      'Full resume gap reports, tailored resume drafts, and saved applications',
-      'Copy/export-ready application assets',
+      "Unlimited active goals",
+      "150 AI understanding checks each month",
+      "Premium resource recovery tools",
+      "Unlimited Role Discovery direction checks and 10 saved target roles",
+      "25 readiness reports, role comparisons, and reassessments each month",
+      "Full resume gap reports, tailored resume drafts, and saved applications",
+      "Copy/export-ready application assets",
     ],
     entitlements: {
-      'goals.active.max': { enabled: true, limitValue: null, resetPeriod: null },
-      'ai_checks.monthly': { enabled: true, limitValue: 150, resetPeriod: 'monthly' },
-      'market_recommendations.daily': { enabled: true, limitValue: null, resetPeriod: 'daily' },
-      'resume_snapshots.daily': { enabled: true, limitValue: null, resetPeriod: 'daily' },
-      'resume_reports.monthly': { enabled: true, limitValue: 25, resetPeriod: 'monthly' },
-      'tailored_resumes.monthly': { enabled: true, limitValue: 25, resetPeriod: 'monthly' },
-      'applications.saved.max': { enabled: true, limitValue: 20, resetPeriod: null },
-      'target_roles.saved.max': { enabled: true, limitValue: 10, resetPeriod: null },
-      'role_readiness_reports.monthly': { enabled: true, limitValue: 25, resetPeriod: 'monthly' },
-      'role_comparisons.monthly': { enabled: true, limitValue: 25, resetPeriod: 'monthly' },
-      'readiness_reassessments.monthly': { enabled: true, limitValue: 25, resetPeriod: 'monthly' },
-      'premium_resources.enabled': { enabled: true, limitValue: null, resetPeriod: null },
-      'weekly_reports.enabled': { enabled: true, limitValue: null, resetPeriod: null },
-      'premium_sprints.enabled': { enabled: false, limitValue: null, resetPeriod: null },
-      'gap_reports.monthly': { enabled: false, limitValue: 0, resetPeriod: 'monthly' },
-      'mock_interviews.monthly': { enabled: false, limitValue: 0, resetPeriod: 'monthly' },
-      'artifacts.export.enabled': { enabled: false, limitValue: null, resetPeriod: null },
+      "goals.active.max": {
+        enabled: true,
+        limitValue: null,
+        resetPeriod: null,
+      },
+      "ai_checks.monthly": {
+        enabled: true,
+        limitValue: 150,
+        resetPeriod: "monthly",
+      },
+      "market_recommendations.daily": {
+        enabled: true,
+        limitValue: null,
+        resetPeriod: "daily",
+      },
+      "resume_snapshots.daily": {
+        enabled: true,
+        limitValue: null,
+        resetPeriod: "daily",
+      },
+      "resume_reports.monthly": {
+        enabled: true,
+        limitValue: 25,
+        resetPeriod: "monthly",
+      },
+      "tailored_resumes.monthly": {
+        enabled: true,
+        limitValue: 25,
+        resetPeriod: "monthly",
+      },
+      "applications.saved.max": {
+        enabled: true,
+        limitValue: 20,
+        resetPeriod: null,
+      },
+      "target_roles.saved.max": {
+        enabled: true,
+        limitValue: 10,
+        resetPeriod: null,
+      },
+      "role_readiness_reports.monthly": {
+        enabled: true,
+        limitValue: 25,
+        resetPeriod: "monthly",
+      },
+      "role_comparisons.monthly": {
+        enabled: true,
+        limitValue: 25,
+        resetPeriod: "monthly",
+      },
+      "readiness_reassessments.monthly": {
+        enabled: true,
+        limitValue: 25,
+        resetPeriod: "monthly",
+      },
+      "premium_resources.enabled": {
+        enabled: true,
+        limitValue: null,
+        resetPeriod: null,
+      },
+      "weekly_reports.enabled": {
+        enabled: true,
+        limitValue: null,
+        resetPeriod: null,
+      },
+      "premium_sprints.enabled": {
+        enabled: false,
+        limitValue: null,
+        resetPeriod: null,
+      },
+      "gap_reports.monthly": {
+        enabled: false,
+        limitValue: 0,
+        resetPeriod: "monthly",
+      },
+      "mock_interviews.monthly": {
+        enabled: false,
+        limitValue: 0,
+        resetPeriod: "monthly",
+      },
+      "artifacts.export.enabled": {
+        enabled: false,
+        limitValue: null,
+        resetPeriod: null,
+      },
     },
   },
   sprint: {
-    key: 'sprint',
-    name: 'Sprint',
-    description: 'For turning resume gaps into a focused weekly plan with proof, interview practice, and accountability.',
+    key: "sprint",
+    name: "Sprint",
+    description:
+      "For turning resume gaps into a focused weekly plan with proof, interview practice, and accountability.",
     monthlyPriceCents: 4900,
     yearlyPriceCents: 47040,
     highlight: false,
-    ctaLabel: 'Start a Sprint',
+    ctaLabel: "Start a Sprint",
     features: [
-      'Unlimited active goals',
-      '400 AI understanding checks each month',
-      'Everything in Pro for resume reports and tailored drafts',
-      'Unlimited target roles, market checks, role comparisons, and reassessments',
-      'Gap-closing sprints, proof builder, mock interviews, and artifact exports',
+      "Unlimited active goals",
+      "400 AI understanding checks each month",
+      "Everything in Pro for resume reports and tailored drafts",
+      "Unlimited target roles, market checks, role comparisons, and reassessments",
+      "Gap-closing sprints, proof builder, mock interviews, and artifact exports",
     ],
     entitlements: {
-      'goals.active.max': { enabled: true, limitValue: null, resetPeriod: null },
-      'ai_checks.monthly': { enabled: true, limitValue: 400, resetPeriod: 'monthly' },
-      'market_recommendations.daily': { enabled: true, limitValue: null, resetPeriod: 'daily' },
-      'resume_snapshots.daily': { enabled: true, limitValue: null, resetPeriod: 'daily' },
-      'resume_reports.monthly': { enabled: true, limitValue: 50, resetPeriod: 'monthly' },
-      'tailored_resumes.monthly': { enabled: true, limitValue: 50, resetPeriod: 'monthly' },
-      'applications.saved.max': { enabled: true, limitValue: null, resetPeriod: null },
-      'target_roles.saved.max': { enabled: true, limitValue: null, resetPeriod: null },
-      'role_readiness_reports.monthly': { enabled: true, limitValue: null, resetPeriod: 'monthly' },
-      'role_comparisons.monthly': { enabled: true, limitValue: null, resetPeriod: 'monthly' },
-      'readiness_reassessments.monthly': { enabled: true, limitValue: null, resetPeriod: 'monthly' },
-      'premium_resources.enabled': { enabled: true, limitValue: null, resetPeriod: null },
-      'weekly_reports.enabled': { enabled: true, limitValue: null, resetPeriod: null },
-      'premium_sprints.enabled': { enabled: true, limitValue: null, resetPeriod: null },
-      'gap_reports.monthly': { enabled: true, limitValue: 10, resetPeriod: 'monthly' },
-      'mock_interviews.monthly': { enabled: true, limitValue: 8, resetPeriod: 'monthly' },
-      'artifacts.export.enabled': { enabled: true, limitValue: null, resetPeriod: null },
+      "goals.active.max": {
+        enabled: true,
+        limitValue: null,
+        resetPeriod: null,
+      },
+      "ai_checks.monthly": {
+        enabled: true,
+        limitValue: 400,
+        resetPeriod: "monthly",
+      },
+      "market_recommendations.daily": {
+        enabled: true,
+        limitValue: null,
+        resetPeriod: "daily",
+      },
+      "resume_snapshots.daily": {
+        enabled: true,
+        limitValue: null,
+        resetPeriod: "daily",
+      },
+      "resume_reports.monthly": {
+        enabled: true,
+        limitValue: 50,
+        resetPeriod: "monthly",
+      },
+      "tailored_resumes.monthly": {
+        enabled: true,
+        limitValue: 50,
+        resetPeriod: "monthly",
+      },
+      "applications.saved.max": {
+        enabled: true,
+        limitValue: null,
+        resetPeriod: null,
+      },
+      "target_roles.saved.max": {
+        enabled: true,
+        limitValue: null,
+        resetPeriod: null,
+      },
+      "role_readiness_reports.monthly": {
+        enabled: true,
+        limitValue: null,
+        resetPeriod: "monthly",
+      },
+      "role_comparisons.monthly": {
+        enabled: true,
+        limitValue: null,
+        resetPeriod: "monthly",
+      },
+      "readiness_reassessments.monthly": {
+        enabled: true,
+        limitValue: null,
+        resetPeriod: "monthly",
+      },
+      "premium_resources.enabled": {
+        enabled: true,
+        limitValue: null,
+        resetPeriod: null,
+      },
+      "weekly_reports.enabled": {
+        enabled: true,
+        limitValue: null,
+        resetPeriod: null,
+      },
+      "premium_sprints.enabled": {
+        enabled: true,
+        limitValue: null,
+        resetPeriod: null,
+      },
+      "gap_reports.monthly": {
+        enabled: true,
+        limitValue: 10,
+        resetPeriod: "monthly",
+      },
+      "mock_interviews.monthly": {
+        enabled: true,
+        limitValue: 8,
+        resetPeriod: "monthly",
+      },
+      "artifacts.export.enabled": {
+        enabled: true,
+        limitValue: null,
+        resetPeriod: null,
+      },
     },
   },
 };
@@ -144,7 +351,9 @@ export function listBillingPlans(): BillingPlanDefinition[] {
   return Object.values(BILLING_PLANS);
 }
 
-export function getBillingPlanDefinition(planKey: BillingPlanKey): BillingPlanDefinition {
+export function getBillingPlanDefinition(
+  planKey: BillingPlanKey,
+): BillingPlanDefinition {
   return BILLING_PLANS[planKey];
 }
 
@@ -152,12 +361,19 @@ export function isBillingPlanKey(value: string): value is BillingPlanKey {
   return value in BILLING_PLANS;
 }
 
-export function getUpgradePlanForFeature(featureKey: string): BillingPlanKey | null {
-  const candidatePlans = listBillingPlans().filter((plan) => plan.key !== 'free');
+export function getUpgradePlanForFeature(
+  featureKey: string,
+): BillingPlanKey | null {
+  const candidatePlans = listBillingPlans().filter(
+    (plan) => plan.key !== "free",
+  );
   for (const plan of candidatePlans) {
     const entitlement = plan.entitlements[featureKey];
     if (!entitlement) continue;
-    if (entitlement.enabled && (entitlement.limitValue === null || entitlement.limitValue > 0)) {
+    if (
+      entitlement.enabled &&
+      (entitlement.limitValue === null || entitlement.limitValue > 0)
+    ) {
       return plan.key;
     }
   }

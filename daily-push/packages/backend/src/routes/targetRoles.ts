@@ -7,7 +7,7 @@ import {
   listTargetRoles,
   saveTargetRole,
 } from '../services/targetRoles';
-import { listResumeApplications } from '../services/jobGapAnalysis';
+import { listResumeApplications, saveGlobalResume } from '../services/jobGapAnalysis';
 import { getCandidateEvidenceProfile } from '../services/candidateEvidence';
 import {
   buildRoleReadinessReport,
@@ -33,6 +33,7 @@ import {
   getTargetRoleProofEvidenceStatus,
   publishTargetRoleProofEvidence,
 } from '../services/proofEvidence';
+import { getTargetRoleMarketChange } from '../services/targetRoleMarketChange';
 import {
   assertEntitlementEnabled,
   assertQuotaAvailable,
@@ -41,6 +42,7 @@ import {
 import { trackProductEvent } from '../services/productEvents';
 import {
   assertBodyObject,
+  readEnumValue,
   readOptionalString,
   readPlainObject,
   readRequiredString,
@@ -97,6 +99,60 @@ router.get(
       }
 
       res.json(await getCandidateEvidenceProfile(userId));
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.post(
+  '/:id/evidence/import-resume',
+  requireAuth,
+  requireRoleMarketFeature('target_role_save'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const targetRoleId = assertUuid(String(req.params.id));
+      const targetRole = await getTargetRole(userId, targetRoleId);
+      if (!targetRole) {
+        res.status(404).json({ error: 'Target Role not found', code: 'not_found' });
+        return;
+      }
+
+      const body = assertBodyObject(req.body);
+      const rawText = readRequiredString(body.rawText, 'rawText', {
+        minLength: 20,
+        maxLength: 60000,
+      });
+      const source = body.source === undefined || body.source === null
+        ? 'manual'
+        : readEnumValue(body.source, 'source', ['upload', 'linkedin_paste', 'manual'] as const);
+
+      const resume = await saveGlobalResume(userId, rawText, source);
+      const evidenceProfile = await getCandidateEvidenceProfile(userId);
+      const importedClaimCount = evidenceProfile.claims.filter((claim) =>
+        claim.evidenceRefs.some((ref) => ref.sourceId === resume.resumeId),
+      ).length;
+
+      void trackProductEvent({
+        userId,
+        eventKey: 'target_role_resume_evidence_imported',
+        properties: {
+          targetRoleId,
+          roleProfileId: targetRole.roleProfileId,
+          resumeId: resume.resumeId,
+          importedClaimCount,
+          totalEvidenceClaimCount: evidenceProfile.claims.length,
+          source,
+        },
+      });
+
+      res.status(201).json({
+        resumeId: resume.resumeId,
+        resumeSummary: resume.resumeSummary,
+        evidenceProfile,
+        importedClaimCount,
+      });
     } catch (error) {
       next(error);
     }
@@ -194,6 +250,23 @@ router.get(
         ? Number.parseInt(req.query.limit, 10)
         : 8;
       res.json(await listRoleReadinessHistory(userId, targetRoleId, limit));
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/:id/market-change',
+  requireAuth,
+  requireRoleMarketFeature('role_readiness_report'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      res.json(await getTargetRoleMarketChange(
+        userId,
+        assertUuid(String(req.params.id)),
+      ));
     } catch (error) {
       next(error);
     }

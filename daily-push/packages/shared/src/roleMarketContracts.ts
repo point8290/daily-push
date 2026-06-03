@@ -12,6 +12,8 @@ export interface ContractMeta {
   sourceMode: SourceMode;
   seedVersion: string;
   warnings: ContractWarning[];
+  profileVersion?: RoleMarketProfileVersionMeta | null;
+  sourceSummary?: RoleMarketSourceSummary | null;
 }
 
 export interface ContractWarning {
@@ -22,7 +24,8 @@ export interface ContractWarning {
     | "partial_input"
     | "entitlement_limited"
     | "feature_flag_disabled"
-    | "dependency_unavailable";
+    | "dependency_unavailable"
+    | "region_unavailable";
   message: string;
 }
 
@@ -42,6 +45,34 @@ export interface SourceReference {
   publishedAt: ISODateString | null;
   capturedAt: ISODateString;
   confidence: number;
+}
+
+export interface RoleMarketProfileVersionMeta {
+  profileVersionId: string;
+  roleProfileId: string;
+  version: number;
+  status: "draft" | "in_review" | "published" | "rejected" | "archived";
+  publishedAt: ISODateString | null;
+  aggregateId: string | null;
+  changeSummary?: string | null;
+  diffMateriality?: "low" | "medium" | "high" | null;
+}
+
+export interface RoleMarketSourceSummary {
+  sourceMode: SourceMode;
+  region?: string | null;
+  sourceCount: number | null;
+  sampleSize: number | null;
+  freshnessHours: number | null;
+  windowStart: ISODateString | null;
+  windowEnd: ISODateString | null;
+}
+
+export interface RoleMarketCardMeta {
+  sourceMode: SourceMode;
+  warnings: ContractWarning[];
+  profileVersion?: RoleMarketProfileVersionMeta | null;
+  sourceSummary?: RoleMarketSourceSummary | null;
 }
 
 export interface ApiErrorResponse {
@@ -179,9 +210,58 @@ export interface CandidateRoleInput {
   freeTextContext: string | null;
 }
 
+export type RoleRecommendationMode = "discovery" | "target_fit";
+
 export interface RoleRecommendationRequest {
   input: CandidateRoleInput;
   limit?: number;
+  mode?: RoleRecommendationMode;
+  targetRoleProfileId?: string | null;
+}
+
+export type RequirementCoverageStatus = "matched" | "weak" | "missing";
+
+export type SeniorityFit = "aligned" | "stretch" | "mismatch" | "unknown";
+
+export interface RoleRequirementCoverage {
+  requirementId: string;
+  label: string;
+  priority: RequirementPriority;
+  status: RequirementCoverageStatus;
+  matchedTerms: string[];
+  candidateSignals: string[];
+  suggestedAction: string;
+  confidence: number;
+}
+
+export interface RoleRecommendationScoreBreakdown {
+  matchedRequirements: RoleRequirementCoverage[];
+  weakRequirements: RoleRequirementCoverage[];
+  missingRequirements: RoleRequirementCoverage[];
+  matchedSkills: string[];
+  matchedDirections: string[];
+  seniorityFit: SeniorityFit;
+  scoreInputs: {
+    requirementMatch: number;
+    directionMatch: number;
+    currentRoleMatch: number;
+    seniorityMatch: number;
+    workStyleMatch: number;
+    marketConfidence: number;
+  };
+}
+
+export interface RoleRecommendationMarketSignal {
+  sourceMode: SourceMode;
+  region: string | null;
+  sourceCount: number | null;
+  sampleSize: number | null;
+  freshnessHours: number | null;
+  profileVersionId: string | null;
+  publishedAt: ISODateString | null;
+  changeSummary: string | null;
+  diffMateriality: "low" | "medium" | "high" | null;
+  warnings: ContractWarning[];
 }
 
 export interface RoleRecommendation {
@@ -194,6 +274,8 @@ export interface RoleRecommendation {
   proofToBuild: string[];
   whyNow: string[];
   confidence: number;
+  scoreBreakdown: RoleRecommendationScoreBreakdown;
+  marketSignal: RoleRecommendationMarketSignal;
   lockedPremiumSections?: Array<
     "full_readiness"
     | "proof_plan"
@@ -203,6 +285,8 @@ export interface RoleRecommendation {
 }
 
 export interface RoleRecommendationResponse {
+  recommendationMode: RoleRecommendationMode;
+  targetRoleProfileId: string | null;
   recommendations: RoleRecommendation[];
   interpretedInput: CandidateRoleInput;
   marketCaveat: string;
@@ -219,6 +303,7 @@ export interface ListRolesQuery {
   category?: RoleCategory;
   roleType?: RoleType;
   aiImpact?: AiImpact;
+  region?: string;
   limit?: number;
 }
 
@@ -233,6 +318,7 @@ export interface RoleMarketCard {
   topRequirements: string[];
   lastUpdated: ISODateString;
   confidence: number;
+  meta?: RoleMarketCardMeta;
 }
 
 export interface ListRolesResponse {
@@ -568,6 +654,68 @@ export interface ProofEvidenceStatusResponse {
 export interface PublishProofEvidenceResponse extends ProofEvidenceStatusResponse {
   publishedCount: number;
   publishedClaims: EvidenceClaim[];
+}
+
+export type TargetRoleMarketChangeStatus =
+  | "not_assessed"
+  | "up_to_date"
+  | "no_current_published_profile"
+  | "version_unpinned"
+  | "report_version_unavailable"
+  | "low_change"
+  | "material_change";
+
+export type TargetRoleMarketChangeMateriality =
+  | "none"
+  | "low"
+  | "medium"
+  | "high";
+
+export type TargetRoleMarketRequirementChangeType =
+  | "added"
+  | "removed"
+  | "changed";
+
+export interface TargetRoleMarketRequirementChange {
+  label: string;
+  changeType: TargetRoleMarketRequirementChangeType;
+  beforePriority: RequirementPriority | null;
+  afterPriority: RequirementPriority | null;
+  beforeKeywords: string[];
+  afterKeywords: string[];
+  summary: string;
+}
+
+export interface TargetRoleMarketChangeSignals {
+  addedMustHaveRequirements: string[];
+  removedMustHaveRequirements: string[];
+  changedRequirements: TargetRoleMarketRequirementChange[];
+  highConfidenceTrendChanges: string[];
+  confidenceDrop: number | null;
+  requirementChangeCount: number;
+}
+
+export interface TargetRoleMarketChangeSummary {
+  targetRoleId: string;
+  roleProfileId: string;
+  latestReadinessReportId: string | null;
+  latestReadinessGeneratedAt: ISODateString | null;
+  reportProfileVersionId: string | null;
+  reportProfilePublishedAt: ISODateString | null;
+  currentProfileVersionId: string | null;
+  currentProfilePublishedAt: ISODateString | null;
+  status: TargetRoleMarketChangeStatus;
+  materiality: TargetRoleMarketChangeMateriality;
+  hasMaterialChange: boolean;
+  shouldPromptReassessment: boolean;
+  summary: string;
+  reasons: string[];
+  signals: TargetRoleMarketChangeSignals;
+  meta: ContractMeta;
+}
+
+export interface TargetRoleMarketChangeResponse {
+  summary: TargetRoleMarketChangeSummary;
 }
 
 export interface ApplicationWorkspace {

@@ -1,54 +1,87 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=JetBrains+Mono:wght@400;600&family=Manrope:wght@400;500;600;700;800&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ── Design tokens ───────────────────────────────────────────────────────────── */
 :root {
-  --sky-50:  #f0f9ff; --sky-100: #e0f2fe; --sky-200: #bae6fd;
-  --sky-300: #7dd3fc; --sky-400: #38bdf8; --sky-500: #0ea5e9;
-  --sky-600: #0284c7; --sky-700: #0369a1; --sky-800: #075985; --sky-900: #0c4a6e;
+  --sky-50: #f0f9ff;
+  --sky-100: #e0f2fe;
+  --sky-200: #bae6fd;
+  --sky-300: #7dd3fc;
+  --sky-400: #38bdf8;
+  --sky-500: #0ea5e9;
+  --sky-600: #0284c7;
+  --sky-700: #0369a1;
+  --sky-800: #075985;
+  --sky-900: #0c4a6e;
 
-  --slate-50:  #f8fafc; --slate-100: #f1f5f9; --slate-200: #e2e8f0;
-  --slate-300: #cbd5e1; --slate-400: #94a3b8; --slate-500: #64748b;
-  --slate-600: #475569; --slate-700: #334155; --slate-800: #1e293b; --slate-900: #0f172a;
+  --slate-50: #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
 
-  --amber-50: #fffbeb; --amber-100: #fef3c7; --amber-200: #fde68a;
-  --amber-400: #facc15; --amber-500: #f59e0b; --amber-600: #d97706; --amber-700: #b45309;
+  --amber-50: #fffbeb;
+  --amber-100: #fef3c7;
+  --amber-200: #fde68a;
+  --amber-400: #facc15;
+  --amber-500: #f59e0b;
+  --amber-600: #d97706;
+  --amber-700: #b45309;
 
-  --emerald-50: #ecfdf5; --emerald-100: #d1fae5; --emerald-200: #a7f3d0;
-  --emerald-400: #34d399; --emerald-500: #10b981; --emerald-600: #059669; --emerald-700: #047857;
+  --emerald-50: #ecfdf5;
+  --emerald-100: #d1fae5;
+  --emerald-200: #a7f3d0;
+  --emerald-400: #34d399;
+  --emerald-500: #10b981;
+  --emerald-600: #059669;
+  --emerald-700: #047857;
 
-  --orange-50: #fff7ed; --orange-200: #fed7aa; --orange-400: #fb923c;
-  --orange-500: #f97316; --orange-600: #ea580c;
+  --orange-50: #fff7ed;
+  --orange-200: #fed7aa;
+  --orange-400: #fb923c;
+  --orange-500: #f97316;
+  --orange-600: #ea580c;
 
-  --indigo-50: #eef2ff; --indigo-500: #6366f1; --indigo-600: #4f46e5;
+  --indigo-50: #eef2ff;
+  --indigo-500: #6366f1;
+  --indigo-600: #4f46e5;
 
-  --red-50: #fef2f2; --red-200: #fecaca; --red-400: #f87171;
-  --red-500: #ef4444; --red-600: #dc2626;
+  --red-50: #fef2f2;
+  --red-200: #fecaca;
+  --red-400: #f87171;
+  --red-500: #ef4444;
+  --red-600: #dc2626;
 
   /* Semantic */
-  --brand-primary:     #1e6eff;
+  --brand-primary: #1e6eff;
   --brand-primary-hov: #1f57e0;
-  --bg-app:    #f3f7fb;
-  --bg-nav:    #111827;
+  --bg-app: #f3f7fb;
+  --bg-nav: #111827;
   --fg-1: var(--slate-900);
   --fg-2: var(--slate-600);
   --fg-3: var(--slate-400);
   --fg-4: var(--slate-300);
-  --border-base:   var(--slate-200);
+  --border-base: var(--slate-200);
   --border-subtle: var(--slate-100);
-  --border-focus:  var(--sky-400);
+  --border-focus: var(--sky-400);
 
   /* Shadows */
-  --shadow-xs: 0 1px 2px rgba(15,23,42,.04);
-  --shadow-sm: 0 1px 3px rgba(15,23,42,.06), 0 1px 2px rgba(15,23,42,.04);
-  --shadow-md: 0 4px 12px rgba(15,23,42,.06), 0 2px 4px rgba(15,23,42,.04);
-  --shadow-lg: 0 10px 30px rgba(15,23,42,.08), 0 4px 10px rgba(15,23,42,.04);
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm:
+    0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md:
+    0 4px 12px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --shadow-lg:
+    0 10px 30px rgba(15, 23, 42, 0.08), 0 4px 10px rgba(15, 23, 42, 0.04);
 
   /* Motion */
-  --ease-out: cubic-bezier(.2,.8,.2,1);
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   --dur-fast: 120ms;
   --dur-base: 200ms;
   --dur-slow: 400ms;
@@ -56,18 +89,30 @@
 
 /* ── Base ─────────────────────────────────────────────────────────────────────── */
 body {
-  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-family: "Manrope", "Segoe UI", sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   background: var(--bg-app);
   background-image:
-    radial-gradient(circle at top left, rgba(47, 140, 255, 0.12), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(255, 125, 20, 0.1), transparent 22%);
+    radial-gradient(
+      circle at top left,
+      rgba(47, 140, 255, 0.12),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at bottom right,
+      rgba(255, 125, 20, 0.1),
+      transparent 22%
+    );
   min-height: 100vh;
 }
 
-.font-display { font-family: 'Fraunces', Georgia, serif !important; }
-.tabular-nums { font-variant-numeric: tabular-nums; }
+.font-display {
+  font-family: "Lora", Georgia, serif !important;
+}
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
 
 /* ── Eyebrow ─────────────────────────────────────────────────────────────────── */
 .eyebrow {
@@ -81,7 +126,7 @@ body {
 /* Nav active pill */
 .nav-active {
   color: #fff !important;
-  background: rgba(56,189,248,.14);
-  box-shadow: inset 0 0 0 1px rgba(56,189,248,.35);
+  background: rgba(56, 189, 248, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.35);
   border-radius: 8px;
 }

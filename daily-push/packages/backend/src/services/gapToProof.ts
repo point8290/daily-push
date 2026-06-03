@@ -18,6 +18,10 @@ import {
   getLatestRoleReadinessReport,
   getRoleReadinessReportById,
 } from './roleReadiness';
+import {
+  getProofRankingCalibrationForRole,
+  rankProofRecommendationsWithOutcomeSignals,
+} from './outcomeProofRanking';
 
 function buildMeta(warnings: ContractWarning[] = []): ContractMeta {
   return {
@@ -322,6 +326,23 @@ export async function buildGapToProofRecommendations(params: {
   proofRecommendations = addSupportTasks(roleProfile, report, proofRecommendations, maxItems)
     .slice(0, maxItems);
 
+  try {
+    const calibration = await getProofRankingCalibrationForRole(report.roleProfileId);
+    const ranking = rankProofRecommendationsWithOutcomeSignals(proofRecommendations, calibration);
+    proofRecommendations = ranking.recommendations;
+    if (ranking.applied) {
+      warnings.push({
+        code: 'partial_input',
+        message: ranking.explanation,
+      });
+    }
+  } catch {
+    warnings.push({
+      code: 'dependency_unavailable',
+      message: 'Outcome-informed proof ranking was unavailable, so deterministic proof ranking was used.',
+    });
+  }
+
   if (proofRecommendations.length === 0) {
     warnings.push({
       code: 'partial_input',
@@ -358,4 +379,3 @@ export async function buildGapToProofRecommendations(params: {
   assertValidGapToProofResponse(response);
   return response;
 }
-

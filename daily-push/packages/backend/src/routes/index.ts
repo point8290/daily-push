@@ -16,6 +16,7 @@ import newsRouter from './news';
 import reportsRouter from './reports';
 import resumeRouter from './resume';
 import marketRouter from './market';
+import operatorMarketRouter from './operatorMarket';
 import targetRolesRouter from './targetRoles';
 
 const router = Router();
@@ -32,6 +33,7 @@ router.use('/mock', mockInterviewsRouter);
 router.use('/reports', reportsRouter);
 router.use('/resume', resumeRouter);
 router.use('/market', marketRouter);
+router.use('/operator/market', operatorMarketRouter);
 router.use('/target-roles', targetRolesRouter);
 router.use('/settings', settingsRouter);
 router.use('/events', eventsRouter);
