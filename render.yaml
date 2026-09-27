@@ -40,7 +40,7 @@ services:
       - key: LLM_BASE_URL
         value: https://generativelanguage.googleapis.com/v1beta/openai/
       - key: LLM_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.5-flash-lite
       - key: OPENAI_API_KEY        # your Gemini API key from Google AI Studio
         sync: false
       - key: BILLING_PROVIDER
@@ -75,24 +75,24 @@ services:
       - key: TE_DECOMPOSITION_PROVIDER
         value: google
       - key: TE_DECOMPOSITION_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.5-flash-lite
       - key: TE_CRITIQUE_PROVIDER
         value: google
       - key: TE_CRITIQUE_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.5-flash-lite
       - key: TE_PATCH_PROVIDER
         value: google
       - key: TE_PATCH_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.5-flash-lite
       - key: TE_CLASSIFICATION_PROVIDER
         value: google
       - key: TE_CLASSIFICATION_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.5-flash-lite
       - key: TE_ANSWER_EVAL_PROVIDER
         value: google
       - key: TE_ANSWER_EVAL_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.5-flash-lite
       - key: TE_RESOURCE_SCORING_PROVIDER
         value: google
       - key: TE_RESOURCE_SCORING_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.5-flash-lite
