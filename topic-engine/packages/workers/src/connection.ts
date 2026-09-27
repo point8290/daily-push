@@ -13,7 +13,10 @@ export function getBullMQConnection() {
     return {
       host:     parsed.hostname || 'localhost',
       port:     parseInt(parsed.port || '6379', 10),
-      password: parsed.password || undefined,
+      username: parsed.username ? decodeURIComponent(parsed.username) : undefined,
+      password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
+      // rediss:// (e.g. Upstash) needs TLS
+      ...(parsed.protocol === 'rediss:' ? { tls: {} } : {}),
       db:       parsed.pathname.length > 1
                   ? parseInt(parsed.pathname.slice(1), 10)
                   : undefined,

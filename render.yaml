@@ -1,0 +1,96 @@
+# Render Blueprint for the free live demo.
+# Two free web services: the Daily Push API and the Topic Engine API.
+# Secrets are marked `sync: false`, so Render asks for them when the Blueprint is created.
+# Databases are external free tiers: Neon (Postgres + pgvector), MongoDB Atlas (M0), Upstash (Redis).
+# AI runs on the Gemini free tier: the Daily Push API uses Gemini's OpenAI-compatible endpoint,
+# and the Topic Engine uses its built-in Google provider.
+
+services:
+  - type: web
+    name: daily-push-api
+    runtime: node
+    plan: free
+    rootDir: daily-push
+    buildCommand: >-
+      npm ci --include=dev &&
+      npm run build --workspace=packages/shared &&
+      npm run build --workspace=packages/backend &&
+      npm run migrate &&
+      npm run seed --workspace=packages/backend
+    startCommand: node packages/backend/dist/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NODE_ENV
+        value: production
+      - key: POSTGRES_URL          # Neon connection string for the "daily_push" database
+        sync: false
+      - key: MONGO_URL             # MongoDB Atlas M0 connection string
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL          # the Vercel URL of the frontend
+        sync: false
+      - key: TOPIC_ENGINE_URL      # the Render URL of topic-engine-api
+        sync: false
+      - key: LLM_PROVIDER
+        value: openai
+      - key: LLM_BASE_URL
+        value: https://generativelanguage.googleapis.com/v1beta/openai/
+      - key: LLM_MODEL
+        value: gemini-2.5-flash
+      - key: OPENAI_API_KEY        # your Gemini API key from Google AI Studio
+        sync: false
+      - key: BILLING_PROVIDER
+        value: manual
+      - key: WEEKLY_SUMMARY_SCHEDULER_ENABLED
+        value: "false"
+
+  - type: web
+    name: topic-engine-api
+    runtime: node
+    plan: free
+    rootDir: topic-engine
+    buildCommand: npm ci --include=dev && npm run migrate --workspace=@topic-engine/db
+    startCommand: >-
+      cd packages/api &&
+      node ../../node_modules/.bin/ts-node --transpile-only -r tsconfig-paths/register -P tsconfig.json src/server.ts
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL          # Neon connection string for the "topic_engine" database
+        sync: false
+      - key: REDIS_URL             # Upstash Redis URL (rediss://...)
+        sync: false
+      - key: GOOGLE_API_KEY        # same Gemini API key
+        sync: false
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: TE_DECOMPOSITION_PROVIDER
+        value: google
+      - key: TE_DECOMPOSITION_MODEL
+        value: gemini-2.5-flash
+      - key: TE_CRITIQUE_PROVIDER
+        value: google
+      - key: TE_CRITIQUE_MODEL
+        value: gemini-2.5-flash
+      - key: TE_PATCH_PROVIDER
+        value: google
+      - key: TE_PATCH_MODEL
+        value: gemini-2.5-flash
+      - key: TE_CLASSIFICATION_PROVIDER
+        value: google
+      - key: TE_CLASSIFICATION_MODEL
+        value: gemini-2.5-flash
+      - key: TE_ANSWER_EVAL_PROVIDER
+        value: google
+      - key: TE_ANSWER_EVAL_MODEL
+        value: gemini-2.5-flash
+      - key: TE_RESOURCE_SCORING_PROVIDER
+        value: google
+      - key: TE_RESOURCE_SCORING_MODEL
+        value: gemini-2.5-flash

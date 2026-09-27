@@ -4,7 +4,12 @@ import axios from 'axios';
 import { config } from '../config';
 
 const anthropic    = new Anthropic({ apiKey: config.anthropic.apiKey });
-const openaiClient = new OpenAI({ apiKey: config.openai.apiKey });
+// LLM_BASE_URL lets the OpenAI client talk to any OpenAI-compatible API
+// (e.g. Gemini at https://generativelanguage.googleapis.com/v1beta/openai/).
+const openaiClient = new OpenAI({
+  apiKey: config.openai.apiKey,
+  ...(config.llm.provider === 'openai' && config.llm.baseUrl ? { baseURL: config.llm.baseUrl } : {}),
+});
 
 export const SYSTEM_PROMPT_EDUCATOR = `You are a senior software engineer and technical educator.
 Generate structured learning plans for developers.
