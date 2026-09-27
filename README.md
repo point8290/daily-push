@@ -2,6 +2,8 @@
 
 Personal upskilling OS. Describe a goal in free text → system infers what to learn → builds a prerequisite graph → delivers one focused session per day → tracks retention via spaced repetition.
 
+**Live demo:** https://daily-push-demo.vercel.app (free hosting: the first request after a quiet spell can take about a minute while the server wakes up)
+
 ---
 
 ## Repository Structure
