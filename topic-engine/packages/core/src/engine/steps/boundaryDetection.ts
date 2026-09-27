@@ -1,4 +1,7 @@
 import { z } from 'zod';
+
+// Free-text fields are trimmed rather than rejected: models sometimes write a
+// sentence or two past the limit, and rejecting failed the whole topic.
 import { generateStructured } from '../../llm/structured';
 import type { LLMProvider } from '../../llm/types';
 import { BoundaryTypeSchema } from '../types';
@@ -9,7 +12,7 @@ const BoundaryPatchSchema = z.array(
   z.object({
     id: z.string(),
     boundaryType: BoundaryTypeSchema,
-    reason: z.string().max(300),
+    reason: z.string().transform((s) => s.slice(0, 300)),
   })
 );
 

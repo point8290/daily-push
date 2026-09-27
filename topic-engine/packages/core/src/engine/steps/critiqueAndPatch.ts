@@ -1,4 +1,7 @@
 import { z } from 'zod';
+
+// Free-text fields are trimmed rather than rejected: models sometimes write a
+// sentence or two past the limit, and rejecting failed the whole topic.
 import { generateStructured } from '../../llm/structured';
 import type { LLMProvider } from '../../llm/types';
 import {
@@ -23,13 +26,13 @@ const CritiqueIssueSchema = z.object({
     'overcrowded_node',       // node covers multiple distinct learnable concepts
     'redundant_node',         // node duplicates another node at same depth
   ]),
-  description: z.string().max(200),
+  description: z.string().transform((s) => s.slice(0, 200)),
   affectedIds: z.array(z.string()),
-  suggestedFix: z.string().max(400),
+  suggestedFix: z.string().transform((s) => s.slice(0, 400)),
 });
 
 const CritiqueSchema = z.object({
-  issues: z.array(CritiqueIssueSchema).max(12),
+  issues: z.array(CritiqueIssueSchema).transform((items) => items.slice(0, 12)),
   overallQuality: z.enum(['good', 'needs_work', 'poor']),
 });
 
@@ -69,13 +72,13 @@ const PatchOpSchema = z.discriminatedUnion('op', [
   z.object({
     op: z.literal('change_time'),
     id: z.string(),
-    newMins: z.number().int().min(5).max(180),
+    newMins: z.number().transform((n) => Math.min(180, Math.max(5, Math.round(n)))),
   }),
 ]);
 
 const PatchSchema = z.object({
-  operations: z.array(PatchOpSchema).max(15),
-  reasoning: z.string().max(400),
+  operations: z.array(PatchOpSchema).transform((ops) => ops.slice(0, 15)),
+  reasoning: z.string().transform((s) => s.slice(0, 400)),
 });
 
 type PatchOp = z.infer<typeof PatchOpSchema>;
