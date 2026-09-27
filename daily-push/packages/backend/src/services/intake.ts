@@ -490,16 +490,24 @@ export async function saveProfile(
       ? profile.roleType
       : "engineer";
 
+  // years_total / available_* are SMALLINT columns, but the LLM can return
+  // decimals such as 5.5 years; Postgres rejects those and the whole intake failed.
+  const toSmallInt = (value: unknown, max: number): number | null => {
+    const n = typeof value === "string" ? Number(value) : value;
+    if (typeof n !== "number" || !Number.isFinite(n)) return null;
+    return Math.min(max, Math.max(0, Math.round(n)));
+  };
+
   const values = [
     userId,
     profile.jobTitle,
     safeRoleType,
     profile.seniorityLevel,
-    profile.yearsTotal,
+    toSmallInt(profile.yearsTotal, 80),
     profile.employmentStatus,
     JSON.stringify(profile.primaryStack),
-    profile.availableMinsDay,
-    profile.availableDaysWeek,
+    toSmallInt(profile.availableMinsDay, 1440),
+    toSmallInt(profile.availableDaysWeek, 7),
     profile.timezone,
     JSON.stringify(rawInputIds),
     new Date().toISOString(),

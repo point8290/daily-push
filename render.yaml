@@ -47,6 +47,13 @@ services:
         value: manual
       - key: WEEKLY_SUMMARY_SCHEDULER_ENABLED
         value: "false"
+      # Role Discovery and Target roles use the curated role catalogue built into the code
+      - key: FEATURE_ROLE_MARKET_PUBLIC
+        value: "true"
+      - key: FEATURE_TARGET_ROLE_SAVE
+        value: "true"
+      - key: FEATURE_ROLE_READINESS_REPORT
+        value: "true"
 
   - type: web
     name: topic-engine-api

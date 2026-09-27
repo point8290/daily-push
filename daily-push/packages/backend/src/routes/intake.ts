@@ -190,6 +190,7 @@ router.post(
 
     // Phase A: build steps in-memory (goalId already available)
     const steps = buildIntakeSteps();
+    let pipelineInitialized = false;
     const setInMemory = (id: string, status: "running" | "done") => {
       const step = steps.find((s) => s.id === id);
       if (!step) return;
@@ -337,6 +338,7 @@ router.post(
 
       // Update goalId in MongoDB with initial classification (if not already done)
       await initPipelineRun(resolvedGoalId, "intake", steps); // Phase B begins
+      pipelineInitialized = true;
 
       // ── Phase B: all remaining updates go directly to MongoDB ─────────────────
 
@@ -447,13 +449,25 @@ router.post(
     } catch (err) {
       // Mark current step failed if we have a goalId
       if (goalId) {
-        setStepStatus(
-          goalId,
-          currentStepId,
-          "failed",
-          (err as Error).message,
-        ).catch(() => {});
-        finalizePipelineRun(goalId).catch(() => {});
+        const failedGoalId = goalId;
+        const message = (err as Error).message;
+        if (!pipelineInitialized) {
+          // Failed before the run was stored (profile / classification): store the
+          // in-memory steps so the UI can show which step failed and offer a retry.
+          const step = steps.find((s) => s.id === currentStepId);
+          if (step) {
+            step.status = "failed";
+            step.completedAt = new Date();
+            step.error = message;
+          }
+          initPipelineRun(failedGoalId, "intake", steps)
+            .then(() => finalizePipelineRun(failedGoalId))
+            .catch(() => {});
+        } else {
+          setStepStatus(failedGoalId, currentStepId, "failed", message)
+            .then(() => finalizePipelineRun(failedGoalId))
+            .catch(() => {});
+        }
       }
       next(err);
     }

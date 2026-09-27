@@ -154,7 +154,10 @@ export async function getPipelineRun(
     { _id: new ObjectId(goalId), userId },
     { projection: { pipelineRun: 1 } }
   );
-  return (goal?.pipelineRun as PipelineRun) ?? null;
+  const run = goal?.pipelineRun as PipelineRun | undefined;
+  if (!run) return null;
+  // Older failed runs were stored without steps; the UI expects an array.
+  return { ...run, steps: Array.isArray(run.steps) ? run.steps : [] };
 }
 
 export async function markEmailSent(goalId: string): Promise<void> {

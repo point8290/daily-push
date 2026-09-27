@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getPipelineRun, retryDecompose, type PipelineRun, type PipelineStep } from '../api/client';
+import { getPipelineRun, processIntake, retryDecompose, type PipelineRun, type PipelineStep } from '../api/client';
 
 interface Props {
   goalId: string;
@@ -68,6 +68,9 @@ const bannerConfig: Record<PipelineRun['status'], { label: string; tone: string;
 
 export default function PipelineStatus({ goalId, type, onComplete, onRetry }: Props) {
   const [run, setRun] = useState<PipelineRun | null>(null);
+  // Intake runs are retried by re-running the intake. Runs saved by older builds
+  // after an early intake failure have neither a type nor steps.
+  const isIntakeRun = run?.type === 'intake' || (!!run && !run.type && !(run.steps?.length));
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -112,6 +115,9 @@ export default function PipelineStatus({ goalId, type, onComplete, onRetry }: Pr
     try {
       if (onRetry) {
         await onRetry();
+      } else if (isIntakeRun) {
+        // Re-runs profile -> classification -> gaps -> topics for this goal.
+        await processIntake(goalId);
       } else {
         await retryDecompose(goalId);
       }
@@ -135,11 +141,12 @@ export default function PipelineStatus({ goalId, type, onComplete, onRetry }: Pr
   const showRetry =
     (run.status === 'partial' || run.status === 'failed') &&
     !retrying &&
-    (type === 'decompose' || Boolean(onRetry));
+    (type === 'decompose' || isIntakeRun || Boolean(onRetry));
 
   const banner = bannerConfig[run.status];
-  const primarySteps = run.steps.filter((step) => !step.id.startsWith('resource_enrichment_'));
-  const enrichmentSteps = run.steps.filter((step) => step.id.startsWith('resource_enrichment_'));
+  const steps = run.steps ?? [];
+  const primarySteps = steps.filter((step) => !step.id.startsWith('resource_enrichment_'));
+  const enrichmentSteps = steps.filter((step) => step.id.startsWith('resource_enrichment_'));
 
   return (
     <div className="space-y-5">
@@ -160,7 +167,7 @@ export default function PipelineStatus({ goalId, type, onComplete, onRetry }: Pr
               onClick={() => void handleRetry()}
               className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
             >
-              Retry failed topics
+              {isIntakeRun ? 'Retry plan setup' : 'Retry failed topics'}
             </button>
           ) : null}
 
