@@ -5,13 +5,18 @@ import { getDb } from '../db/mongo';
 import { ObjectId } from 'mongodb';
 import { markEmailSent } from './pipelineTracker';
 
-const resend = new Resend(config.resend.apiKey);
+// Resend throws at construction without a key, so only create it when e-mail is configured.
+const resend = config.resend.apiKey ? new Resend(config.resend.apiKey) : null;
 
 export async function sendEmail(params: {
   to: string;
   subject: string;
   html: string;
 }): Promise<void> {
+  if (!resend) {
+    console.warn(`[email] RESEND_API_KEY not set; skipping "${params.subject}" to ${params.to}`);
+    return;
+  }
   await resend.emails.send({
     from: config.resend.fromEmail,
     to: params.to,
