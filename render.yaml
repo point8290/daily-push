@@ -10,6 +10,7 @@ services:
     name: daily-push-api
     runtime: node
     plan: free
+    region: ohio   # same region as Neon, Atlas (us-east) and Upstash
     rootDir: daily-push
     buildCommand: >-
       npm ci --include=dev &&
@@ -51,6 +52,7 @@ services:
     name: topic-engine-api
     runtime: node
     plan: free
+    region: ohio   # same region as Neon, Atlas (us-east) and Upstash
     rootDir: topic-engine
     buildCommand: npm ci --include=dev && npm run migrate --workspace=@topic-engine/db
     startCommand: >-
