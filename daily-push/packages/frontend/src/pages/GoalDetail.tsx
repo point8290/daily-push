@@ -401,7 +401,12 @@ export default function GoalDetail() {
     }).catch(() => {});
     try {
       await confirmGoal(id);
-      navigate('/today');
+      const confirmed = await getGoal(id);
+      setGoal(confirmed);
+      setConfirming(false);
+      // Start building the study graph straight away. Sending the user to Today
+      // first only showed "your study nodes are not built yet".
+      await handleDecompose();
     } catch { setConfirming(false); }
   };
 
@@ -671,6 +676,14 @@ export default function GoalDetail() {
         label: confirming ? 'Starting your journey...' : 'This looks right - start my plan',
         kind: 'confirm' as const,
       }
+    : decomposing || inProgressTopicCount > 0
+      ? {
+          eyebrow: 'In progress',
+          title: 'Building your study graph',
+          description: 'Each topic is being broken into prerequisite-ordered concepts. This takes a few minutes; progress is shown below and Today unlocks when it finishes.',
+          label: 'Building study nodes...',
+          kind: 'building' as const,
+        }
     : canDecompose
       ? {
           eyebrow: 'Next unlock',
@@ -851,6 +864,14 @@ export default function GoalDetail() {
                     disabled={confirming}
                     className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-extrabold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
+                    {nextAction.label}
+                  </button>
+                ) : nextAction.kind === 'building' ? (
+                  <button
+                    disabled
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-extrabold text-slate-950 opacity-80 disabled:cursor-wait"
+                  >
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-sky-500" />
                     {nextAction.label}
                   </button>
                 ) : nextAction.kind === 'decompose' ? (
