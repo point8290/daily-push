@@ -54,6 +54,9 @@ services:
         value: "true"
       - key: FEATURE_ROLE_READINESS_REPORT
         value: "true"
+      # Public demo: visitors get the Pro plan (with its limits) so every feature can be tried
+      - key: DEMO_DEFAULT_PLAN
+        value: pro
 
   - type: web
     name: topic-engine-api

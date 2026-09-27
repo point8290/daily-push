@@ -37,6 +37,15 @@ export interface CurrentPlanState {
   subscription: SubscriptionRecord | null;
 }
 
+/**
+ * Plan for users without a subscription. A public demo can set
+ * DEMO_DEFAULT_PLAN=pro so visitors can try every feature (Pro limits still apply).
+ */
+function defaultPlanKey(): BillingPlanKey {
+  const value = process.env.DEMO_DEFAULT_PLAN;
+  return value === 'pro' || value === 'sprint' ? value : 'free';
+}
+
 const ACTIVE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = [
   'trialing',
   'active',
@@ -85,12 +94,12 @@ export async function getActiveSubscription(
 
 export async function resolveCurrentPlanKey(userId: string): Promise<BillingPlanKey> {
   const activeSubscription = await getActiveSubscription(userId);
-  return activeSubscription?.plan_key ?? 'free';
+  return activeSubscription?.plan_key ?? defaultPlanKey();
 }
 
 export async function getCurrentPlanState(userId: string): Promise<CurrentPlanState> {
   const subscription = await getActiveSubscription(userId);
-  const planKey = subscription?.plan_key ?? 'free';
+  const planKey = subscription?.plan_key ?? defaultPlanKey();
 
   return {
     planKey,
