@@ -399,7 +399,7 @@ export default function History() {
             ) : weeklyReport ? (
               <div className="mt-4 space-y-5">
                 <p className="text-sm text-slate-600">
-                  <span className="font-semibold text-slate-900">{weeklyReport.stats.sessionsThisWeek} sessions</span>
+                  <span className="font-semibold text-slate-900">{weeklyReport.stats.sessionsThisWeek} session{weeklyReport.stats.sessionsThisWeek === 1 ? '' : 's'}</span>
                   {' · '}
                   <span className="font-semibold text-slate-900">{formatMinutes(weeklyReport.stats.studyMinutesThisWeek)}</span> studied
                   {' · '}
