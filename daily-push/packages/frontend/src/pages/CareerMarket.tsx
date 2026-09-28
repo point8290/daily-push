@@ -217,7 +217,7 @@ export function aiImpactLabel(value: string): string {
     case "changed":
       return "Changing with AI";
     case "replaced":
-      return "At risk from AI";
+      return "AI-assisted";
     default:
       return formatLabel(value);
   }
@@ -306,7 +306,7 @@ export function CareerMarketHeader() {
               Daily Push
             </p>
             <p className="text-xs font-bold text-slate-400">
-              Career progress system
+              Daily clarity
             </p>
           </div>
         </Link>

@@ -223,9 +223,9 @@ const statusLabel: Record<string, string> = {
 };
 
 const aiLabel: Record<string, string> = {
-  amplified: 'AI amplifies',
-  replaced: 'AI replaces',
-  unaffected: 'AI-neutral',
+  amplified: 'Judgment-heavy',
+  replaced: 'AI-assisted',
+  unaffected: 'Foundational',
 };
 
 function SidePanel({ node, onClose }: { node: ConceptNode; onClose: () => void }) {
@@ -279,7 +279,7 @@ function SidePanel({ node, onClose }: { node: ConceptNode; onClose: () => void }
               </span>
             </div>
             <div className="flex justify-between gap-3">
-              <span className="text-slate-400">AI relationship</span>
+              <span className="text-slate-400">Kind of work</span>
               <span className="text-right text-xs font-medium text-slate-700">
                 {aiLabel[node.ai_relationship] ?? node.ai_relationship}
               </span>

@@ -110,12 +110,12 @@ interface ConceptNode {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const urgencyLabel: Record<string, string> = {
-  exploring: 'Just exploring', planning: 'Actively planning',
-  urgent: 'Urgent', crisis: 'In crisis mode',
+  exploring: 'Exploring', planning: 'Planning',
+  urgent: 'Time-sensitive', crisis: 'Time-sensitive',
 };
 const driverLabel: Record<string, string> = {
-  growth: 'Growth', avoidance: 'Avoiding risk', social: 'Social proof',
-  validation: 'Self-validation', financial: 'Financial', curiosity: 'Curiosity',
+  growth: 'Growth', avoidance: 'Steadier ground', social: 'Reputation',
+  validation: 'Craft', financial: 'Financial', curiosity: 'Curiosity',
 };
 const longevityColor: Record<string, string> = {
   high: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -123,7 +123,7 @@ const longevityColor: Record<string, string> = {
   low: 'bg-red-50 text-red-600 border-red-200',
 };
 const aiLabel: Record<string, string> = {
-  amplified: 'AI amplifies', replaced: 'AI replaces', unaffected: 'AI-neutral',
+  amplified: 'Judgment-heavy', replaced: 'AI-assisted', unaffected: 'Foundational',
 };
 const nodeStatusStyle: Record<string, string> = {
   locked:      'bg-slate-50 border-slate-200 text-slate-400',
@@ -795,7 +795,7 @@ export default function GoalDetail() {
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="Plan"
+        eyebrow="Path"
         title={s.title || 'Goal setup'}
         description={
           goal.ownWords

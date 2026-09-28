@@ -545,20 +545,20 @@ export default function Today() {
       return (
         <div className="space-y-6">
           <PageHeader
-            eyebrow="Plan review"
-            title="Your goal is waiting for review"
-            description="Review the plan we created from your resume gaps, then confirm it when it matches what you want to pursue."
+            eyebrow="Path review"
+            title="Your path is waiting for review"
+            description="Confirm the path when it matches the direction you want to build."
           />
           <EmptyState
             title={data.pendingGoal.title}
-            description="This goal is not active yet, so Daily Push will not schedule daily sessions until you review and confirm the plan."
+            description="This direction is not active yet. Today schedules a session after you confirm the path."
             accent="brand"
             action={(
               <Link
                 to={`/goals/${data.pendingGoal.id}`}
                 className="inline-block rounded-xl bg-[var(--brand-primary)] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-primary-hov)]"
               >
-                Review goal plan
+                Review path
               </Link>
             )}
           />
@@ -571,18 +571,18 @@ export default function Today() {
         <PageHeader
           eyebrow="Daily focus"
           title="Today"
-          description="Start with one active goal and Daily Push will turn it into a focused study rhythm."
+          description="Choose a direction, confirm the path, and Today will hold one session."
         />
         <EmptyState
-          title="No active goal yet"
-          description="Set a goal and confirm the plan to unlock your first daily session."
+          title="No active direction yet"
+          description="Name where you want leverage. Confirming the path unlocks the first session."
           accent="warning"
           action={(
             <Link
               to="/goals/new"
               className="inline-block rounded-xl bg-[var(--brand-primary)] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-primary-hov)]"
             >
-              Set your goal
+              Choose a direction
             </Link>
           )}
         />
@@ -596,18 +596,18 @@ export default function Today() {
         <PageHeader
           eyebrow="Daily focus"
           title="Today"
-          description="Your goal exists, but the concept graph still needs to be built before we can schedule the next study session."
+          description="The direction is saved. The path still needs its concept graph before Today can schedule a session."
         />
         <EmptyState
-          title="Your study nodes are not built yet"
-          description="Open the goal workspace, finish decomposition, and come back once the first concepts are available."
+          title="The path is not built yet"
+          description="Open the path, finish the concept graph, and come back when the first session is ready."
           accent="brand"
           action={(
             <Link
               to={`/goals/${data.goal.id}`}
               className="inline-block rounded-xl bg-[var(--brand-primary)] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-primary-hov)]"
             >
-              Go to goal
+              Open path
             </Link>
           )}
         />
@@ -630,9 +630,9 @@ export default function Today() {
     return (
       <div className="mx-auto max-w-md space-y-6 py-8">
         <PageHeader
-          eyebrow="Goal complete"
-          title="You finished the whole plan"
-          description="Every concept node in this learning path is complete. That is real momentum."
+          eyebrow="Path complete"
+          title="You finished this path"
+          description="Every concept on this path is complete. The proof and the language for it stay on the record."
         />
 
         <SurfaceCard p={{ base: 6, md: 8 }}>
@@ -656,7 +656,7 @@ export default function Today() {
               </svg>
             </div>
             <h1 className="font-display text-2xl text-slate-900" style={{ letterSpacing: '-0.02em' }}>
-              Goal complete!
+              Path complete
             </h1>
             <p className="text-sm leading-relaxed text-slate-500">
               You finished every node in your learning plan.
@@ -1196,7 +1196,7 @@ export default function Today() {
         <Card className="space-y-3">
           <div className="flex items-baseline justify-between gap-4">
             <p className="truncate text-sm font-semibold text-slate-800">{goal.title}</p>
-            <span className="shrink-0 text-xs font-medium text-sky-700">Open plan →</span>
+            <span className="shrink-0 text-xs font-medium text-sky-700">Open path →</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-100">
             <div
@@ -1232,8 +1232,8 @@ export default function Today() {
               {weeklyLoading
                 ? 'Loading your week…'
                 : weeklyCheckinDue
-                  ? 'Two minutes: what moved, what is stuck, what to change next week.'
-                  : weeklyRecoveryPlan?.headline ?? 'You are on rhythm this week.'}
+                  ? 'Two minutes: what became visible, and whether the pace still fits.'
+                  : weeklyRecoveryPlan?.headline ?? 'The pace is holding this week.'}
             </p>
           </div>
           {weeklyCheckinDue ? (

@@ -1,6 +1,5 @@
 import {
   Avatar,
-  Badge,
   Box,
   Button,
   Container,
@@ -14,7 +13,7 @@ import {
   Spacer,
   Text,
 } from '@chakra-ui/react';
-import { useState, useEffect, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import {
   BrowserRouter,
   Routes,
@@ -46,7 +45,6 @@ import MockInterview from './pages/MockInterview';
 import ProductMetrics from './pages/ProductMetrics';
 import OperatorMarketHealth from './pages/OperatorMarketHealth';
 import { PlanRedirect, RoleRedirect } from './components/ActiveRedirects';
-import { getStreak } from './api/client';
 
 type NavItem = {
   to: string;
@@ -56,44 +54,25 @@ type NavItem = {
   matches?: string[];
 };
 
-// Five places, in the order a week of prep flows through them.
+// One loop: today's session, the path, the proof, and the language for it.
 const primaryNavItems: NavItem[] = [
   { to: '/today', label: 'Today', end: true },
-  { to: '/plan', label: 'Plan', matches: ['/goals', '/map'] },
-  { to: '/role', label: 'Role', matches: ['/target-roles', '/resume/applications'] },
-  { to: '/mock', label: 'Practice' },
-  { to: '/history', label: 'Progress' },
+  { to: '/path', label: 'Path', matches: ['/plan', '/goals', '/map'] },
+  { to: '/proof', label: 'Proof', matches: ['/role', '/target-roles', '/career-market'] },
+  { to: '/voice', label: 'Voice', matches: ['/resume', '/mock'] },
 ];
 
-// Tools you use now and then.
-const secondaryNavItems: NavItem[] = [
-  { to: '/career-market', label: 'Find a role' },
-  { to: '/resume', label: 'Check a resume', end: true },
-  { to: '/news', label: 'News' },
-  { to: '/goals', label: 'All plans', end: true },
+// Library and tools, kept in the account menu until they are views on the loop.
+const accountNavItems: NavItem[] = [
+  { to: '/history', label: 'Progress' },
   { to: '/target-roles', label: 'Saved roles', end: true },
+  { to: '/goals', label: 'All plans', end: true },
+  { to: '/mock', label: 'Interview practice' },
 ];
 
 const compactNavItems: NavItem[] = primaryNavItems;
 
-function FlameIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M13 2C13 8 6 9 6 15a6 6 0 0 0 12 0c0-4-3-5-4-8Z" />
-    </svg>
-  );
-}
-
-function TopNav({ streak }: { streak: number }) {
+function TopNav() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -102,10 +81,6 @@ function TopNav({ streak }: { streak: number }) {
     item.end
       ? location.pathname === item.to
       : [item.to, ...(item.matches ?? [])].some((path) => location.pathname.startsWith(path));
-  const hiddenCompactNavItems = secondaryNavItems;
-  const isSecondaryNavActive =
-    !primaryNavItems.some(isActiveNavItem) && secondaryNavItems.some(isActiveNavItem);
-  const isHiddenCompactNavActive = hiddenCompactNavItems.some(isActiveNavItem);
   const navButtonProps = (item: NavItem) => {
     const isActive = isActiveNavItem(item);
     return {
@@ -163,7 +138,7 @@ function TopNav({ streak }: { streak: number }) {
                 Daily Push
               </Text>
               <Text fontSize="xs" color="whiteAlpha.700" letterSpacing="0.12em" textTransform="uppercase">
-                Career progress system
+                Daily clarity
               </Text>
             </Box>
             </HStack>
@@ -198,6 +173,12 @@ function TopNav({ streak }: { streak: number }) {
                     </Text>
                   </Box>
                   <MenuDivider />
+                  {accountNavItems.map((item) => (
+                    <MenuItem key={item.to} onClick={() => navigate(item.to)}>
+                      {item.label}
+                    </MenuItem>
+                  ))}
+                  <MenuDivider />
                   <MenuItem onClick={() => navigate('/settings')}>Settings</MenuItem>
                   <MenuItem onClick={() => navigate('/pricing')}>Plans & billing</MenuItem>
                   <MenuDivider />
@@ -215,27 +196,6 @@ function TopNav({ streak }: { streak: number }) {
                 {item.label}
               </Button>
             ))}
-            <Menu>
-              <MenuButton
-                as={Button}
-                size="sm"
-                variant={isSecondaryNavActive ? 'solid' : 'ghost'}
-                bg={isSecondaryNavActive ? 'whiteAlpha.240' : 'transparent'}
-                color={isSecondaryNavActive ? 'white' : 'whiteAlpha.800'}
-                border="1px solid"
-                borderColor={isSecondaryNavActive ? 'whiteAlpha.300' : 'transparent'}
-                _hover={{ bg: 'whiteAlpha.140', color: 'white' }}
-              >
-                Explore
-              </MenuButton>
-              <MenuList rounded="2xl" borderColor="blackAlpha.100" shadow="panel" py={2}>
-                {secondaryNavItems.map((item) => (
-                  <MenuItem key={item.to} onClick={() => navigate(item.to)}>
-                    {item.label}
-                  </MenuItem>
-                ))}
-              </MenuList>
-            </Menu>
           </HStack>
 
           <HStack
@@ -251,54 +211,11 @@ function TopNav({ streak }: { streak: number }) {
                 {item.label}
               </Button>
             ))}
-            <Menu>
-              <MenuButton
-                as={Button}
-                size="sm"
-                flexShrink={0}
-                px={2.5}
-                variant={isHiddenCompactNavActive ? 'solid' : 'ghost'}
-                bg={isHiddenCompactNavActive ? 'whiteAlpha.240' : 'transparent'}
-                color={isHiddenCompactNavActive ? 'white' : 'whiteAlpha.800'}
-                border="1px solid"
-                borderColor={isHiddenCompactNavActive ? 'whiteAlpha.300' : 'transparent'}
-                _hover={{ bg: 'whiteAlpha.140', color: 'white' }}
-              >
-                Explore
-              </MenuButton>
-              <MenuList rounded="2xl" borderColor="blackAlpha.100" shadow="panel" py={2}>
-                {hiddenCompactNavItems.map((item) => (
-                  <MenuItem key={item.to} onClick={() => navigate(item.to)}>
-                    {item.label}
-                  </MenuItem>
-                ))}
-              </MenuList>
-            </Menu>
           </HStack>
 
           <Spacer display={{ base: 'none', md: 'block' }} />
 
           <HStack spacing={3} display={{ base: 'none', md: 'flex' }}>
-            {streak > 0 && (
-              <Badge
-                display={{ base: 'none', md: 'inline-flex' }}
-                alignItems="center"
-                gap={1.5}
-                bg="rgba(255,153,58,0.18)"
-                color="orange.200"
-                border="1px solid rgba(255,153,58,0.28)"
-                px={3}
-                py={2}
-                rounded="full"
-                fontSize="xs"
-              >
-                <FlameIcon />
-                <Text as="span" fontFamily="mono" fontWeight="700">
-                  {streak}
-                </Text>
-              </Badge>
-            )}
-
             <Menu>
               <MenuButton
                 as={Button}
@@ -331,6 +248,12 @@ function TopNav({ streak }: { streak: number }) {
                     {user?.email}
                   </Text>
                 </Box>
+                <MenuDivider />
+                {accountNavItems.map((item) => (
+                  <MenuItem key={item.to} onClick={() => navigate(item.to)}>
+                    {item.label}
+                  </MenuItem>
+                ))}
                 <MenuDivider />
                 <MenuItem onClick={() => navigate('/settings')}>Settings</MenuItem>
                 <MenuItem onClick={() => navigate('/pricing')}>Plans & billing</MenuItem>
@@ -365,15 +288,7 @@ function AppContentFrame({ children }: { children: ReactNode }) {
 
 function ProtectedLayout({ children }: { children?: ReactNode }) {
   const { user, loading } = useAuth();
-  const [streak, setStreak] = useState(0);
   const location = useLocation();
-
-  useEffect(() => {
-    if (!user) return;
-    getStreak()
-      .then((d) => setStreak(d.streak ?? 0))
-      .catch(() => {});
-  }, [user]);
 
   if (loading) {
     return (
@@ -391,7 +306,7 @@ function ProtectedLayout({ children }: { children?: ReactNode }) {
 
   return (
     <Flex minH="100vh" direction="column">
-      <TopNav streak={streak} />
+      <TopNav />
       {children ? <AppContentFrame>{children}</AppContentFrame> : <MainContent />}
     </Flex>
   );
@@ -423,8 +338,11 @@ function MainContent() {
     <AppContentFrame>
       <Routes>
         <Route path="/today" element={<Today />} />
+        <Route path="/path" element={<PlanRedirect />} />
         <Route path="/plan" element={<PlanRedirect />} />
+        <Route path="/proof" element={<RoleRedirect />} />
         <Route path="/role" element={<RoleRedirect />} />
+        <Route path="/voice" element={<Navigate to="/resume" replace />} />
         <Route path="/career-market" element={<CareerMarket />} />
         <Route path="/career-market/find-direction" element={<CareerMarket />} />
         <Route path="/career-market/roles/:roleId" element={<RoleMarketDetail />} />

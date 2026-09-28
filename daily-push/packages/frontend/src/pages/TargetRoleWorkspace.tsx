@@ -641,7 +641,7 @@ export default function TargetRoleWorkspace() {
       const message =
         typeof apiError === 'string'
           ? apiError
-          : apiError?.message ?? 'Could not create an upgrade plan right now.';
+          : apiError?.message ?? 'Could not draft the path right now.';
       setPlanError(message);
     } finally {
       setPlanBusy(false);
@@ -674,7 +674,7 @@ export default function TargetRoleWorkspace() {
             }
           : current,
       );
-      setSprintSuccess('Execution sprint is ready. Proof tasks are available today, and you can add a deeper topic breakdown from this workspace.');
+      setSprintSuccess('The path is ready. Proof tasks are available today, and you can add a deeper topic breakdown from this workspace.');
       setDecompositionStatus(await getTargetRoleDecompositionStatus(targetRole.id, upgradePlan.id).catch(() => null));
       setProofEvidenceStatus(await getTargetRoleProofEvidenceStatus(targetRole.id).catch(() => null));
     } catch (err: any) {
@@ -685,8 +685,8 @@ export default function TargetRoleWorkspace() {
           ? apiError
           : apiError?.message ?? (
               status === 402
-                ? 'Execution sprints are available on the Sprint plan.'
-                : 'Could not start the sprint right now.'
+                ? 'This schedule is part of the paid record.'
+                : 'Could not start the path right now.'
             );
       setSprintError(message);
     } finally {
@@ -729,7 +729,7 @@ export default function TargetRoleWorkspace() {
           ? apiError
           : apiError?.message ?? (
               status === 402
-                ? 'Deeper topic breakdowns are available on the Sprint plan.'
+                ? 'Deeper topic breakdowns are part of the paid record.'
                 : 'Could not start topic breakdown right now.'
             );
       setDecompositionError(message);
@@ -1716,7 +1716,7 @@ export default function TargetRoleWorkspace() {
                 disabled={planBusy}
                 className={targetRolePrimaryActionClass}
               >
-                {planBusy ? 'Creating plan...' : 'Create upgrade plan'}
+                {planBusy ? 'Creating path...' : 'Draft the path'}
               </button>
             </div>
             {planError && (
@@ -1780,13 +1780,13 @@ export default function TargetRoleWorkspace() {
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold text-slate-400">
-                  Upgrade plan
+                  Path
                 </p>
                 <h2 className="mt-2 text-3xl font-semibold tracking-[-0.06em] text-slate-950">
                   {upgradePlan.title}
                 </h2>
                 <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
-                  A focused plan for turning role gaps into visible proof. Review this before starting an execution sprint.
+                  A focused path for turning gaps into visible proof. Review it before you start.
                 </p>
               </div>
               <div className="flex flex-col items-start gap-2 sm:items-end">
@@ -1796,7 +1796,7 @@ export default function TargetRoleWorkspace() {
                   disabled={sprintBusy}
                   className={targetRolePrimaryActionClass}
                 >
-                  {sprintBusy ? 'Starting sprint...' : upgradePlan.linkedSprintId ? 'Continue sprint' : 'Start execution sprint'}
+                  {sprintBusy ? 'Starting path...' : upgradePlan.linkedSprintId ? 'Continue path' : 'Start this path'}
                 </button>
                 {upgradePlan.linkedGoalId && (
                   <Link
@@ -1816,7 +1816,7 @@ export default function TargetRoleWorkspace() {
                   onClick={() => trackMarketUpgradeClick('sprint_error', 'sprint')}
                   className="underline"
                 >
-                  See Sprint plan
+                  See plans
                 </Link>
               </div>
             )}
@@ -1916,7 +1916,7 @@ export default function TargetRoleWorkspace() {
                     onClick={() => trackMarketUpgradeClick('topic_breakdown_error', 'sprint')}
                     className="underline"
                   >
-                    See Sprint plan
+                    See plans
                   </Link>
                 </div>
               )}
@@ -1998,7 +1998,7 @@ export default function TargetRoleWorkspace() {
                 </div>
                 <div className="rounded-[28px] bg-amber-50 p-5">
                   <p className="text-sm font-semibold text-amber-700">
-                    Risks to manage
+                    Scope to watch
                   </p>
                   <div className="mt-3 space-y-2">
                     {(upgradePlan.risks.length ? upgradePlan.risks : ['Keep the scope small enough to finish and document.']).slice(0, 5).map((item) => (
@@ -2101,7 +2101,7 @@ export default function TargetRoleWorkspace() {
               >
                 <p className="text-sm font-semibold text-slate-950">{application.title}</p>
                 <p className="mt-1 text-xs font-bold text-slate-500">
-                  {application.targetCompany ?? application.targetRole ?? 'Company application'} - {application.linkedSprintCreatedAt ? 'Sprint created' : application.linkedGoalId ? 'Goal created' : 'Resume report saved'}
+                  {application.targetCompany ?? application.targetRole ?? 'Company application'} - {application.linkedSprintCreatedAt ? 'Path started' : application.linkedGoalId ? 'Path drafted' : 'Resume report saved'}
                 </p>
               </Link>
             ))}

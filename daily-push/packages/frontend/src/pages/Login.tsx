@@ -111,7 +111,7 @@ export default function Login() {
                 textTransform="uppercase"
                 color="brand.700"
               >
-                Career progress system
+                Daily clarity
               </Text>
               <Heading
                 mt={4}
@@ -124,8 +124,8 @@ export default function Login() {
                 {isResumeFlow
                   ? "Save your resume audit report and keep improving."
                   : isRoleDiscoveryFlow
-                    ? "Save your role direction and turn it into a plan."
-                    : "Turn ambitious career goals into steady progress."}
+                    ? "Save this direction and confirm the path."
+                    : "A path, proof of the work, and language that matches it."}
               </Heading>
               <Text
                 mt={5}
@@ -138,7 +138,7 @@ export default function Login() {
                   ? "Your snapshot will continue after signup, so you can save the full report, tailor the resume, and decide whether to turn the gaps into a plan."
                   : isRoleDiscoveryFlow
                     ? "Keep your target role direction, compare it with real jobs, and build the proof that makes the move believable."
-                    : "Daily Push turns your career goal into a study map and one focused session a day, with AI feedback on what you wrote."}
+                    : "Choose a direction, confirm the path, and keep one session a day. The proof and the words for it stay on the record."}
               </Text>
 
               <Stack

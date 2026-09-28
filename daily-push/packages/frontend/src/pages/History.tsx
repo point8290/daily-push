@@ -293,7 +293,7 @@ export default function History() {
     <Stack spacing={6}>
       <PageHeader
         title="Progress"
-        description="How often you studied, how this week went, and what to change next week."
+        description="How often you studied, what became visible this week, and whether the pace still fits."
         actions={(
           <HStack spacing={3} flexWrap="wrap">
             <Badge colorScheme="blue" px={3} py={1.5} rounded="full" fontSize="0.72rem">
@@ -432,7 +432,7 @@ export default function History() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm font-semibold text-slate-900">Next week</p>
                       <span className="text-xs font-semibold text-slate-500">
-                        {({ steady: 'On track', catch_up: 'Catch up', reduce_scope: 'Trim scope' } as Record<string, string>)[recoveryPlan.status] ?? 'Restart gently'}
+                        {({ steady: 'On track', catch_up: 'Pick up the pace', reduce_scope: 'Narrow the path' } as Record<string, string>)[recoveryPlan.status] ?? 'Adjust the pace'}
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-slate-700">{recoveryPlan.headline}</p>

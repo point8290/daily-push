@@ -2,57 +2,51 @@ import { Link, Navigate } from "react-router-dom";
 import { HAS_DEMO } from "../lib/demo";
 import { useAuth } from "../contexts/AuthContext";
 
-const guideCards = [
+const loopSteps = [
   {
     number: "01",
-    label: "Pick a role",
-    question: "Which roles are realistic for me?",
-    body: "See what each role expects: must-have skills, what employers want as proof, and interview topics.",
-    link: "Browse roles ->",
-    to: "/career-market",
+    label: "Direction",
+    question: "Where do you want leverage?",
+    body: "Name a craft or role. Daily Push turns it into an ordered path from the skills you already have.",
   },
   {
     number: "02",
-    label: "Check your resume",
-    question: "Does my resume show the right work?",
-    body: "Compare your resume with a job post to see your strengths, your gaps, and what to fix first.",
-    link: "Check a resume ->",
-    to: "/resume",
+    label: "Path",
+    question: "What is the next high-leverage step?",
+    body: "One session a day on the concept that unlocks the rest. You confirm the path before it starts scheduling.",
   },
   {
     number: "03",
-    label: "Close the gaps",
-    question: "What should I learn, and in what order?",
-    body: "Your goal becomes a study map and one short session a day, with AI feedback and mock interviews.",
-    link: "Get role suggestions ->",
-    to: "/career-market/find-direction",
+    label: "Proof and voice",
+    question: "What can you show, and how do you say it?",
+    body: "Each session leaves an artifact. That record becomes the language you use on a resume or in an interview.",
   },
 ];
 
 const previewItems = [
   {
-    label: "Role expectation",
-    title: "Backend-heavy ownership",
-    body: "Production APIs, auth/RBAC, database design, deployment debugging, and clear trade-off explanations.",
+    label: "Path",
+    title: "The order is visible",
+    body: "Judgment-heavy work, AI-assisted work, and foundations sit in one graph, with a reason for what comes next.",
   },
   {
-    label: "Evidence gap",
-    title: "Outcome proof is thin",
-    body: "Technology exposure is visible, but business impact, scale, and debugging stories need clearer evidence.",
+    label: "Proof",
+    title: "The work is on the record",
+    body: "Explanations, designs, and small builds stay attached to the direction, so progress is something you can point to.",
   },
   {
-    label: "Preparation work",
-    title: "Build one proof artifact",
-    body: "Document a system design case study with architecture, bottlenecks, metrics, and interview-ready trade-offs.",
+    label: "Voice",
+    title: "The words match the work",
+    body: "Resume lines and interview answers cite the same proof, including when a specific role sharpens the story.",
   },
 ];
 
 const guideSteps = [
-  "Choose a target role",
-  "Find your skill gaps",
-  "Get a study map",
-  "Do one session a day",
-  "Practice mock interviews",
+  "Choose a direction",
+  "Confirm the path",
+  "Do one session",
+  "Keep the proof",
+  "Say it clearly",
 ];
 
 export default function Landing() {
@@ -82,7 +76,7 @@ export default function Landing() {
                 Daily Push
               </p>
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                Career progress system
+                Daily clarity
               </p>
             </div>
           </Link>
@@ -91,13 +85,13 @@ export default function Landing() {
               to="/career-market"
               className="hidden transition hover:text-slate-950 sm:inline-flex"
             >
-              Role Discovery
+              Directions
             </Link>
             <Link
               to="/resume"
               className="hidden transition hover:text-slate-950 sm:inline-flex"
             >
-              Resume
+              Voice
             </Link>
             <Link to="/login" className="transition hover:text-slate-950">
               Sign in
@@ -110,13 +104,14 @@ export default function Landing() {
         <section className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:items-center xl:gap-12">
           <div className="min-w-0 max-w-3xl lg:col-span-7">
             <h1 className="font-display text-4xl font-bold leading-[0.98] tracking-[-0.055em] text-slate-950 sm:text-6xl md:text-7xl xl:text-[80px]">
-              <span className="block">Switching jobs</span>
-              <span className="block">needs a clear</span>
-              <span className="block">preparation path.</span>
+              <span className="block">Daily clarity</span>
+              <span className="block">for the work you</span>
+              <span className="block">want to own.</span>
             </h1>
             <p className="mt-7 max-w-2xl text-base leading-8 text-slate-600 md:text-lg md:leading-9">
-              Daily Push shows what your next role expects, finds your skill gaps, and turns
-              them into one focused study session a day, with AI feedback and mock interviews.
+              The tech landscape is shifting faster than ever. Daily Push helps ambitious
+              engineers map a high-leverage path, build proof of their skills, and describe
+              that work with confidence.
             </p>
             {HAS_DEMO && (
               <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -130,7 +125,7 @@ export default function Landing() {
               </div>
             )}
             <div className="mt-8 flex flex-wrap gap-2 sm:gap-3">
-              {["Role expectations", "Daily study plan", "Mock interviews"].map((item) => (
+              {["Path", "Proof", "Voice"].map((item) => (
                 <span
                   key={item}
                   className="rounded-full border border-slate-200 bg-white/78 px-3 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-500 shadow-sm sm:px-4 sm:text-xs"
@@ -144,17 +139,16 @@ export default function Landing() {
           <aside className="min-w-0 rounded-[2.25rem] bg-slate-950 p-2 text-white shadow-[0_34px_90px_rgba(15,23,42,0.22)] lg:col-span-5">
             <div className="rounded-[1.8rem] border border-white/10 bg-[radial-gradient(circle_at_85%_12%,rgba(56,189,248,0.18),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] p-5 md:p-6">
               <p className="text-[11px] font-black uppercase tracking-[0.22em] text-sky-200/80">
-                Job switch guide
+                One loop
               </p>
               <h2 className="mt-3 font-display text-2xl font-semibold tracking-[-0.04em]">
-                Start from one useful question.
+                Direction, then a session, then a record.
               </h2>
               <div className="mt-6 space-y-3">
-                {guideCards.map((card) => (
-                  <Link
+                {loopSteps.map((card) => (
+                  <div
                     key={card.question}
-                    to={card.to}
-                    className="group block rounded-[1.35rem] border border-white/10 bg-white/[0.065] p-4 transition duration-200 hover:border-sky-200/60 hover:bg-white/[0.105]"
+                    className="rounded-[1.35rem] border border-white/10 bg-white/[0.065] p-4"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-[11px] font-black uppercase tracking-[0.16em] text-sky-200">
@@ -170,10 +164,7 @@ export default function Landing() {
                     <p className="mt-2 text-sm leading-6 text-white/58">
                       {card.body}
                     </p>
-                    <p className="mt-3 inline-flex border-b border-sky-200/30 pb-1 text-sm font-black text-sky-100 transition group-hover:border-sky-100">
-                      {card.link}
-                    </p>
-                  </Link>
+                  </div>
                 ))}
               </div>
             </div>
@@ -184,14 +175,14 @@ export default function Landing() {
           <div className="grid gap-0 lg:grid-cols-[0.85fr_1.15fr]">
             <div className="border-b border-slate-200/70 p-6 md:p-8 lg:border-b-0 lg:border-r">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
-                Preparation map
+                The record
               </p>
               <h2 className="mt-4 max-w-lg text-3xl font-black tracking-[-0.055em] text-slate-950 md:text-5xl">
-                What changes after the first check.
+                One direction. Three things you can trust.
               </h2>
               <p className="mt-5 text-sm leading-8 text-slate-600">
-                Market context, resume evidence, and preparation tasks become connected instead
-                of living in separate notes, chats, and application tabs.
+                The path, the proof, and the words stay on the same direction, so a finished
+                session is something you can show and explain.
               </p>
             </div>
             <div className="grid divide-y divide-slate-200/70">
@@ -222,26 +213,26 @@ export default function Landing() {
         <section className="mt-10 grid gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-stretch">
           <div className="rounded-[2rem] border border-white/75 bg-white/78 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur md:p-7">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-              Role Discovery
+              Directions
             </p>
             <h2 className="mt-3 text-3xl font-black tracking-[-0.055em] text-slate-950">
-              Browse role expectations before preparation starts.
+              Start from the work you want to be known for.
             </h2>
             <p className="mt-4 text-sm leading-8 text-slate-600">
-              Review software job paths, changing requirements, proof signals, interview focus areas,
-              and market context without needing a job description first.
+              Browse directions when you want a concrete craft to aim at. A job post can sharpen
+              the same path later. It is not required to begin.
             </p>
             <Link
               to="/career-market"
               className="mt-6 inline-flex border-b border-sky-200 pb-1 text-sm font-black text-sky-700 transition hover:border-slate-950 hover:text-slate-950"
             >
-              Review role expectations {"->"}
+              Browse directions {"->"}
             </Link>
           </div>
 
           <div className="rounded-[2rem] border border-slate-900/10 bg-white/78 p-6 shadow-[0_18px_60px_rgba(15,23,42,0.08)] backdrop-blur md:p-7">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-              How the guide works
+              How a week works
             </p>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {guideSteps.map((step, index) => (
@@ -258,7 +249,7 @@ export default function Landing() {
               ))}
             </div>
             <p className="mt-5 text-sm leading-8 text-slate-600">
-              Everything stays in one place: the role you want, your gaps, your daily sessions, and your progress.
+              Today holds one session. Path, Proof, and Voice hold the rest of the record.
             </p>
           </div>
         </section>
@@ -268,17 +259,17 @@ export default function Landing() {
             <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                  Not sure where to begin?
+                  Begin with a direction
                 </p>
                 <h2 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
-                  Open Role Discovery and review role expectations first.
+                  Pick a craft, confirm the path, and let Today name the session.
                 </h2>
               </div>
               <Link
                 to="/career-market"
                 className="inline-flex border-b border-sky-200 pb-1 text-sm font-black text-sky-700 transition hover:border-slate-950 hover:text-slate-950"
               >
-                Open Role Discovery {"->"}
+                Browse directions {"->"}
               </Link>
             </div>
           </div>

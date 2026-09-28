@@ -31,7 +31,7 @@ export function PlanRedirect() {
     };
   }, []);
 
-  if (!target) return <Loading label="Opening your plan…" />;
+  if (!target) return <Loading label="Opening your path…" />;
   return <Navigate to={target} replace />;
 }
 
@@ -65,6 +65,6 @@ export function RoleRedirect() {
     };
   }, []);
 
-  if (!target) return <Loading label="Opening your role…" />;
+  if (!target) return <Loading label="Opening your proof…" />;
   return <Navigate to={target} replace />;
 }

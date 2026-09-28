@@ -21,7 +21,7 @@ function formatDate(value: string): string {
 
 function nextActionLabel(role: TargetRole): string {
   if (role.latestAssessmentId) return "Review readiness";
-  if (role.linkedSprintId) return "Open sprint";
+  if (role.linkedSprintId) return "Open path";
   if (role.linkedGoalId) return "Review goal";
   return "Generate readiness";
 }

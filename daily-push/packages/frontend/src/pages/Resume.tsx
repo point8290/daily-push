@@ -76,7 +76,7 @@ function ResumeHeader() {
               Daily Push
             </p>
             <p className="text-xs font-bold text-slate-400">
-              Career progress system
+              Daily clarity
             </p>
           </div>
         </Link>

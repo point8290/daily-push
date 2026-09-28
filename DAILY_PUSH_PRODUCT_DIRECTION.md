@@ -147,7 +147,7 @@ Work in order. Each phase is shippable. Routes and tables stay until a later pha
 
 | Phase | Name | Status |
 |---|---|---|
-| 1 | Language and shell | `not_started` |
+| 1 | Language and shell | `done` |
 | 2 | Four surfaces over current APIs | `not_started` |
 | 3 | Today states the loop | `not_started` |
 | 4 | Artifact, claim, and voice line | `not_started` |
@@ -180,6 +180,12 @@ New:
 - No new routes required if Path and Voice still alias `/plan` and a temporary composition route is deferred to Phase 2. If a label would point at the wrong page, add a thin route that renders the old page rather than sending the engineer to a second product.
 
 Exit: a signed-in engineer sees four destinations and copy that matches the thesis. Every old URL still works.
+
+Shipped:
+
+- Nav in `App.tsx` is Today, Path, Proof, Voice. `/path` and `/plan` open the existing plan redirect. `/proof` and `/role` open the existing role redirect. `/voice` redirects to `/resume`. Progress, Saved roles, All plans, and Interview practice sit in the account menu. The Explore menu and the header streak badge are gone. The header subtitle is “Daily clarity.”
+- Landing, login, and the public resume and direction headers use the thesis. Pricing shows Free and Pro, and hides Sprint unless that is the current plan. Feature bullets in `billingPlans.ts` describe the record. Entitlement numbers are unchanged.
+- Map and goal labels use Judgment-heavy, AI-assisted, and Foundational. Today, History, Settings, and the role workspace use path and pace language on the strings Phase 1 called out. Goal setup, resume sprint buttons, and mock-interview plan gates still say Sprint until Phase 5.
 
 ### Phase 2 — Four surfaces over current APIs
 
