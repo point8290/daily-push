@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
+chmod +x "$ROOT/dev.sh" "$ROOT/.cursor/scripts/"*.sh 2>/dev/null || true
+
 LOGS="$ROOT/.logs"
 PIDS="$ROOT/.pids"
 mkdir -p "$LOGS" "$PIDS"
