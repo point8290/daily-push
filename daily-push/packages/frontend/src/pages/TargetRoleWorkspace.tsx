@@ -13,6 +13,7 @@ import {
   getTargetRoleReadiness,
   getTargetRoleReadinessHistory,
   getTargetRoleDecompositionStatus,
+  getTargetRoleArtifactCitations,
   getTargetRoleEvidence,
   getTargetRoleProofEvidenceStatus,
   getTargetRoleApplications,
@@ -24,6 +25,7 @@ import {
   retryTargetRoleUpgradePlanDecomposition,
   startTargetRoleUpgradeSprint,
   trackEvent,
+  type ArtifactCitation,
   type CandidateEvidenceProfile,
   type GapToProofResponse,
   type ProofEvidenceStatusResponse,
@@ -37,6 +39,7 @@ import {
   type TargetRoleMarketChangeResponse,
   type UpgradePlan,
 } from '../api/client';
+import ArtifactCitations from '../components/ArtifactCitations';
 import RoleMarketPilotFeedback from '../components/RoleMarketPilotFeedback';
 import DocumentDropzone from '../components/ui/DocumentDropzone';
 import AppModal from '../components/ui/AppModal';
@@ -409,6 +412,7 @@ export default function TargetRoleWorkspace({
   const [decompositionBusy, setDecompositionBusy] = useState(false);
   const [decompositionError, setDecompositionError] = useState('');
   const [proofEvidenceStatus, setProofEvidenceStatus] = useState<ProofEvidenceStatusResponse | null>(null);
+  const [artifactCitations, setArtifactCitations] = useState<ArtifactCitation[]>([]);
   const [linkedApplications, setLinkedApplications] = useState<ResumeApplicationWorkspace[]>([]);
   const [proofEvidenceBusy, setProofEvidenceBusy] = useState(false);
   const [proofEvidenceError, setProofEvidenceError] = useState('');
@@ -445,7 +449,7 @@ export default function TargetRoleWorkspace({
     setLoading(true);
     getTargetRole(id)
       .then(async (role) => {
-        const [profile, evidence, readiness, history, marketChangeSummary, latestPlan, proofEvidence, applications] = await Promise.all([
+        const [profile, evidence, readiness, history, marketChangeSummary, latestPlan, proofEvidence, applications, citations] = await Promise.all([
           getMarketRole(role.roleProfileId, { region: role.candidateInput?.region ?? undefined }),
           getTargetRoleEvidence(role.id).catch(() => null),
           getTargetRoleReadiness(role.id).catch(() => null),
@@ -454,6 +458,7 @@ export default function TargetRoleWorkspace({
           getLatestTargetRoleUpgradePlan(role.id).catch(() => null),
           getTargetRoleProofEvidenceStatus(role.id).catch(() => null),
           getTargetRoleApplications(role.id).catch(() => []),
+          getTargetRoleArtifactCitations(role.id).catch(() => []),
         ]);
         const plan = latestPlan?.upgradePlan ?? null;
         const decomposition = plan
@@ -469,6 +474,7 @@ export default function TargetRoleWorkspace({
           setUpgradePlan(plan);
           setDecompositionStatus(decomposition);
           setProofEvidenceStatus(proofEvidence);
+          setArtifactCitations(citations);
           setLinkedApplications(applications);
           setError('');
         }
@@ -764,6 +770,7 @@ export default function TargetRoleWorkspace({
       setProofEvidenceStatus(result);
       const evidence = await getTargetRoleEvidence(targetRole.id).catch(() => null);
       if (evidence) setEvidenceProfile(evidence);
+      setArtifactCitations(await getTargetRoleArtifactCitations(targetRole.id).catch(() => artifactCitations));
     } catch (err: any) {
       const apiError = err?.response?.data?.error;
       const message =
@@ -1182,6 +1189,7 @@ export default function TargetRoleWorkspace({
             Add evidence
           </button>
         </div>
+        <ArtifactCitations citations={artifactCitations} />
         <AppModal
           isOpen={evidenceOpen}
           onClose={() => setEvidenceOpen(false)}
@@ -2091,6 +2099,15 @@ export default function TargetRoleWorkspace({
 
       {activeTargetRoleTab === 'applications' && (
       <section data-section="target-role-applications" className="grid gap-5 lg:grid-cols-2">
+        <SurfaceCard p={5} className="bg-white/88 lg:col-span-2">
+          <p className="text-sm font-semibold text-slate-400">Resume and interview lines</p>
+          <ArtifactCitations citations={artifactCitations} />
+          {artifactCitations.length === 0 ? (
+            <p className="mt-3 text-sm leading-7 text-slate-500">
+              Finish a session on Today. The sentence you can say will cite that note.
+            </p>
+          ) : null}
+        </SurfaceCard>
         <SurfaceCard p={5} className="bg-white/88">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>

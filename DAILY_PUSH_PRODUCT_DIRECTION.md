@@ -150,7 +150,7 @@ Work in order. Each phase is shippable. Routes and tables stay until a later pha
 | 1 | Language and shell | `done` |
 | 2 | Four surfaces over current APIs | `done` |
 | 3 | Today states the loop | `done` |
-| 4 | Artifact, claim, and voice line | `not_started` |
+| 4 | Artifact, claim, and voice line | `done` |
 | 5 | Remove deprecated doors | `not_started` |
 
 ### Phase 1 — Language and shell
@@ -275,6 +275,13 @@ New:
 - One migration, one read on Proof, one read on Voice.
 
 Exit: the reference walk’s last step is a sentence that cites the artifact from the session just finished.
+
+Shipped:
+
+- No new column. `candidate_evidence_claims.source_id` already stores the session artifact id when `source_type` is `sprint_artifact`, and the claim metadata stores `artifactId`, `sessionId`, and the concept title.
+- Finishing a session calls the existing evidence writer (`publishSessionArtifactAsEvidence`), the same one artifact evaluation already uses. Scoring stays optional.
+- `GET /target-roles/:id/artifact-citations` reads that join and builds the sentence from the task type, the concept title, and an excerpt of the note. No new model call.
+- Proof and Voice both render that sentence. Voice uses it as the resume and interview line.
 
 ### Phase 5 — Remove deprecated doors
 

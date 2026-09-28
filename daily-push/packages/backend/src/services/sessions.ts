@@ -4,6 +4,7 @@ import { ObjectId } from 'mongodb';
 import { runUnlockLogic } from './decomposition';
 import { getGoalPlanHealth } from './sprintPlanner';
 import { syncGoalGaps, type GapChange } from './gapProgress';
+import { publishSessionArtifactAsEvidence } from './candidateEvidence';
 
 // ─────────────────────────────────────────────
 // SR interval ladder: days between reviews
@@ -192,6 +193,10 @@ export async function completeSession(
     sessionId,
     confidence: confidenceAfter,
   }).catch(() => ({ changes: [] as GapChange[] }));
+
+  // The same writer the evaluator uses. A finished note becomes a claim
+  // the voice line can cite, whether or not it was scored.
+  await publishSessionArtifactAsEvidence(sessionId, userId).catch(() => {});
 
   return {
     unlockedNodeTitles,
