@@ -575,8 +575,6 @@ export async function createGoalDocument(
     skillGaps: [],
     learningTopics: [],
     milestones: [],
-    adjustments: [],
-    reflections: [],
     status: "assessing",
     stage: "intention",
     isPrimary: true,

@@ -225,8 +225,8 @@ export async function markRead(userId: string, itemId: string): Promise<void> {
     );
   }
 
-  // SR bump: only for nodes that have been studied
-  if (node_status === 'done' || node_status === 'review_due') {
+  // Reading about a studied concept counts as a light review, once per story.
+  if (!read_at && (node_status === 'done' || node_status === 'review_due')) {
     const { rows: srRows } = await pool.query<{ interval_days: number }>(
       `SELECT interval_days FROM spaced_repetition_queue
        WHERE node_id = $1 AND user_id = $2`,
@@ -242,6 +242,12 @@ export async function markRead(userId: string, itemId: string): Promise<void> {
              due_at = NOW() + ($1 || ' days')::INTERVAL
          WHERE node_id = $2 AND user_id = $3`,
         [newInterval, concept_node_id, userId],
+      );
+    }
+    if (node_status === 'review_due') {
+      await pool.query(
+        `UPDATE concept_nodes SET status = 'done' WHERE id = $1 AND user_id = $2`,
+        [concept_node_id, userId],
       );
     }
   }

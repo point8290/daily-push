@@ -373,7 +373,8 @@ export type EvidenceSourceType =
   | "portfolio"
   | "sprint_artifact"
   | "application_outcome"
-  | "user_correction";
+  | "user_correction"
+  | "mock_interview";
 
 export interface EvidenceRef {
   id: string;

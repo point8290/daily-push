@@ -593,6 +593,113 @@ router.post(
   },
 );
 
+// POST /api/target-roles/:id/build-plan — one step from a saved role to a
+// working plan: readiness check (if there is none yet), upgrade plan, a plan
+// with gaps and topics, then the study map is built in the background.
+router.post(
+  '/:id/build-plan',
+  requireAuth,
+  requireRoleMarketFeature('role_readiness_report'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const targetRoleId = assertUuid(String(req.params.id));
+      const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body)
+        ? assertBodyObject(req.body)
+        : {};
+      const weeklyCommitmentHours =
+        typeof body.weeklyCommitmentHours === 'number' && Number.isFinite(body.weeklyCommitmentHours)
+          ? body.weeklyCommitmentHours
+          : undefined;
+      const durationWeeks =
+        typeof body.durationWeeks === 'number' && Number.isFinite(body.durationWeeks)
+          ? body.durationWeeks
+          : undefined;
+
+      const steps: string[] = [];
+      let report = await getLatestRoleReadinessReport(userId, targetRoleId);
+      if (!report) {
+        await assertQuotaAvailable(userId, 'role_readiness_reports.monthly');
+        const generated = await buildRoleReadinessReport(userId, targetRoleId, { includeAiSummary: false });
+        report = await persistRoleReadinessReport(userId, targetRoleId, generated);
+        await consumeQuota(userId, 'role_readiness_reports.monthly', {
+          source: 'target_role_build_plan',
+          properties: { targetRoleId, score: report.score.overall },
+        });
+        steps.push('Checked your readiness');
+      }
+
+      let upgradePlan = await getLatestUpgradePlanForTargetRole(userId, targetRoleId);
+      if (!upgradePlan || upgradePlan.readinessReportId !== report.id) {
+        const created = await createUpgradePlanForTargetRole({
+          userId,
+          targetRoleId,
+          readinessReportId: report.id,
+          durationWeeks,
+          weeklyCommitmentHours,
+        });
+        upgradePlan = created.upgradePlan;
+        steps.push('Picked the gaps to close');
+      }
+
+      let goalId: string;
+      let hasDeadline = false;
+      try {
+        await assertEntitlementEnabled(userId, 'premium_sprints.enabled');
+        const sprint = await startSprintFromTargetRoleUpgradePlan({
+          userId,
+          targetRoleId,
+          upgradePlanId: upgradePlan.id,
+        });
+        goalId = sprint.goalId;
+        hasDeadline = true;
+      } catch (error: any) {
+        if (error?.statusCode !== 402 && error?.statusCode !== 403) throw error;
+        const goal = await createGoalFromTargetRoleUpgradePlan({
+          userId,
+          targetRoleId,
+          upgradePlanId: upgradePlan.id,
+        });
+        goalId = goal.goalId;
+      }
+      steps.push('Created your plan');
+
+      let buildingMap = false;
+      try {
+        const decomposition = await startTargetRoleDecomposition({
+          userId,
+          targetRoleId,
+          upgradePlanId: upgradePlan.id,
+          retryMode: false,
+        });
+        buildingMap = Boolean(decomposition.accepted);
+      } catch {
+        // Map building can be started again from the plan page.
+      }
+
+      void trackProductEvent({
+        userId,
+        goalId,
+        eventKey: 'role_plan_built',
+        properties: { targetRoleId, upgradePlanId: upgradePlan.id, hasDeadline, buildingMap },
+      });
+
+      res.status(201).json({
+        goalId,
+        upgradePlanId: upgradePlan.id,
+        readinessReportId: report.id,
+        readinessScore: report.score.overall,
+        hasDeadline,
+        buildingMap,
+        steps,
+        planUrl: `/plan`,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 router.get(
   '/:id/proof-evidence',
   requireAuth,

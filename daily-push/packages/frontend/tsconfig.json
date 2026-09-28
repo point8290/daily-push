@@ -17,11 +17,5 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
-  "exclude": [
-    "src/pages/News.tsx",
-    "src/pages/Roadmap.tsx",
-    "src/pages/Dashboard.tsx",
-    "src/pages/Courses.tsx"
-  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

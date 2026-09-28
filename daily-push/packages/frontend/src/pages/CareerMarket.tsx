@@ -568,6 +568,7 @@ export default function CareerMarket() {
   const [freeTextContext, setFreeTextContext] = useState("");
   const [recommendationResponse, setRecommendationResponse] =
     useState<RoleRecommendationResponse | null>(null);
+  const [pendingSaveRoleId, setPendingSaveRoleId] = useState<string | null>(null);
   const [recommendationError, setRecommendationError] = useState("");
   const [recommendationUpgradePlan, setRecommendationUpgradePlan] = useState<
     string | null
@@ -652,6 +653,10 @@ export default function CareerMarket() {
           : {}),
       },
     }).catch(() => {});
+    // Finish the save the visitor started before signing up.
+    if (typeof intent.roleProfileId === "string") {
+      setPendingSaveRoleId(intent.roleProfileId);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -884,6 +889,16 @@ export default function CareerMarket() {
       }).catch(() => {});
     }
   };
+
+  useEffect(() => {
+    if (!pendingSaveRoleId || !user || !recommendationResponse) return;
+    const recommendation = recommendationResponse.recommendations.find(
+      (item) => item.roleProfileId === pendingSaveRoleId,
+    );
+    setPendingSaveRoleId(null);
+    if (recommendation) void handleSaveRecommendation(recommendation);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSaveRoleId, user, recommendationResponse]);
 
   const handleSaveRecommendation = async (
     recommendation: RoleRecommendation,

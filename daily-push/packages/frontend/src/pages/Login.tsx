@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { DEMO_EMAIL, DEMO_PASSWORD, HAS_DEMO } from "../lib/demo";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Alert,
@@ -44,6 +45,29 @@ export default function Login() {
   useEffect(() => {
     setMode(searchParams.get("mode") === "register" ? "register" : "login");
   }, [searchParams]);
+
+  const signInAsDemo = async () => {
+    setMode("login");
+    setEmail(DEMO_EMAIL);
+    setPassword(DEMO_PASSWORD);
+    setError("");
+    setLoading(true);
+    try {
+      const data = await login({ email: DEMO_EMAIL, password: DEMO_PASSWORD });
+      signIn(data.token, data.user);
+      navigate("/today");
+    } catch (err: any) {
+      setError(err?.response?.data?.error ?? "The demo is waking up. Try again in a few seconds.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // /login?demo=1 (from "Try the demo" on the landing page) signs straight in.
+  useEffect(() => {
+    if (HAS_DEMO && searchParams.get("demo") === "1") void signInAsDemo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -203,6 +227,23 @@ export default function Login() {
                 <Tab>Create account</Tab>
               </TabList>
             </Tabs>
+
+            {HAS_DEMO && (
+              <Box mt={6} p={4} rounded="xl" bg="blue.50" border="1px solid" borderColor="blue.100">
+                <Text fontSize="sm" fontWeight="700" color="ink.900">
+                  Just looking around?
+                </Text>
+                <Text mt={1} fontSize="sm" color="ink.600">
+                  Use the demo account: a full-stack engineer three weeks into their plan. It resets every night.
+                </Text>
+                <Text mt={2} fontSize="xs" color="ink.500" fontFamily="mono">
+                  {DEMO_EMAIL} · {DEMO_PASSWORD}
+                </Text>
+                <Button mt={3} size="sm" colorScheme="blue" onClick={signInAsDemo} isLoading={loading}>
+                  Use demo account
+                </Button>
+              </Box>
+            )}
 
             <Box as="form" mt={6} onSubmit={handleSubmit}>
               <Stack spacing={4}>

@@ -54,15 +54,10 @@ router.post(
       const { userId } = req as AuthRequest;
       const db = getDb();
 
-      // Opening the "new goal" page should not pile up empty drafts. Reuse the
-      // most recent draft that has no text yet instead of creating another one.
+      // Opening the "new goal" page resumes the unfinished draft instead of
+      // piling up drafts (which also counted against the goal limit).
       const blankDraft = await db.collection("goals").findOne(
-        {
-          userId,
-          status: "intake_in_progress",
-          "raw.input": "",
-          "structured.title": { $exists: false },
-        },
+        { userId, status: "intake_in_progress" },
         { sort: { createdAt: -1 } },
       );
       if (blankDraft) {
@@ -96,9 +91,6 @@ router.post(
         skillGaps: [],
         learningTopics: [],
         milestones: [],
-        adjustments: [],
-        reflections: [],
-        sprint: null,
         status: "intake_in_progress",
         stage: "intake",
         // A draft only becomes the primary goal once it is confirmed, so an

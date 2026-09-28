@@ -404,8 +404,19 @@ export interface GoalGapReportRecord {
   lastAnalyzedAt: string | null;
 }
 
+export type ApplicationStatus =
+  | "saved"
+  | "applied"
+  | "interviewing"
+  | "offer"
+  | "rejected"
+  | "withdrawn";
+
 export interface ResumeApplicationWorkspace extends GoalGapReportRecord {
   id: string;
+  status?: ApplicationStatus;
+  statusUpdatedAt?: string | null;
+  appliedAt?: string | null;
   targetRoleId: string | null;
   targetRoleTitle: string | null;
   title: string;
@@ -453,6 +464,13 @@ export interface MockInterviewEvaluation {
   improvements: string[];
   retryPlan: string[];
   suggestedSprintEdits: string[];
+  planUpdate?: {
+    gapSkillArea: string | null;
+    weak: boolean;
+    strong: boolean;
+    proofAdded: boolean;
+    changes: GapChange[];
+  } | null;
 }
 
 export interface MockInterviewRun {
@@ -499,7 +517,12 @@ export interface WeeklyRecoveryPlan {
   riskSummary: string;
   shouldReduceScope: boolean;
   nextReviewDate: string | null;
+  quickFixes?: RecoveryQuickFix[];
 }
+
+export type RecoveryQuickFix =
+  | { action: "move_date"; weeks: number; label: string }
+  | { action: "reduce_hours"; hours: number; label: string };
 
 export interface WeeklyCheckinRecord {
   weekStart: string;
@@ -637,76 +660,6 @@ export const getPipelineRun = (id: string) =>
   api.get(`/goals/${id}/pipeline`).then((r) => r.data as PipelineRun);
 export const retryDecompose = (id: string) =>
   api.post(`/goals/${id}/decompose/retry`).then((r) => r.data);
-export const saveGoalResume = (
-  id: string,
-  data: {
-    rawText: string;
-    source?: "upload" | "linkedin_paste" | "manual";
-  },
-) =>
-  api
-    .post(`/goals/${id}/resume`, data)
-    .then((r) => r.data as { resumeId: string; resumeSummary: ResumeSummary });
-export const saveGoalJobDescription = (
-  id: string,
-  data: {
-    targetRole?: string | null;
-    targetCompany?: string | null;
-    jdText: string;
-  },
-) =>
-  api
-    .post(`/goals/${id}/job-description`, data)
-    .then((r) => r.data as { parsedJd: ParsedJobDescription });
-export const saveGoalRepoImport = (
-  id: string,
-  data: {
-    repoUrl: string;
-    repoContext?: string | null;
-  },
-) =>
-  api
-    .post(`/goals/${id}/repo-import`, data)
-    .then((r) => r.data as { repoSummary: RepoSummary });
-export const getGoalGapReport = (id: string) =>
-  api.get(`/goals/${id}/gap-report`).then((r) => r.data as GoalGapReportRecord);
-export const rebuildGoalGapReport = (id: string) =>
-  api
-    .post(`/goals/${id}/gap-report/rebuild`)
-    .then((r) => r.data as GoalGapReportResponse);
-export const generateTailoredResume = (id: string) =>
-  api
-    .post(`/goals/${id}/tailored-resume`)
-    .then((r) => r.data as GoalGapReportRecord);
-export const getResumeWorkspace = () =>
-  api.get("/resume/workspace").then((r) => r.data as GoalGapReportRecord);
-export const saveResumeWorkspaceResume = (
-  data: {
-    rawText: string;
-    source?: "upload" | "linkedin_paste" | "manual";
-  },
-) =>
-  api
-    .post("/resume/resume", data)
-    .then((r) => r.data as { resumeId: string; resumeSummary: ResumeSummary });
-export const saveResumeWorkspaceJobDescription = (
-  data: {
-    targetRole?: string | null;
-    targetCompany?: string | null;
-    jdText: string;
-  },
-) =>
-  api
-    .post("/resume/job-description", data)
-    .then((r) => r.data as { parsedJd: ParsedJobDescription });
-export const rebuildResumeWorkspaceGapReport = () =>
-  api
-    .post("/resume/gap-report/rebuild")
-    .then((r) => r.data as GoalGapReportResponse);
-export const generateResumeWorkspaceTailoredResume = () =>
-  api
-    .post("/resume/tailored-resume")
-    .then((r) => r.data as GoalGapReportRecord);
 export const previewResumeFit = (data: {
   rawText: string;
   jdText: string;
@@ -1174,36 +1127,21 @@ export const completeSession = (
       durationMins,
       notes,
     })
-    .then((r) => r.data);
+    .then(
+      (r) =>
+        r.data as {
+          unlockedNodeTitles: string[];
+          newMilestones: string[];
+          nextNode: { id: string; title: string } | null;
+          requeued?: boolean;
+          gapChanges?: GapChange[];
+        },
+    );
 export const getSessionCalendar = (days = 90) =>
   api
     .get(`/sessions/calendar?days=${days}`)
     .then((r) => r.data as Array<{ date: string; count: number }>);
 export const getStreak = () => api.get("/sessions/streak").then((r) => r.data);
-export const checkUnderstanding = (sessionId: string, answer: string) =>
-  api.post(`/sessions/${sessionId}/check`, { answer }).then(
-    (r) =>
-      r.data as {
-        score: number;
-        feedback: string;
-        correct: boolean;
-        rubricScores?: Array<{
-          dimension: "correctness" | "clarity" | "depth" | "application";
-          score: number;
-          feedback: string;
-        }>;
-        strengths?: string[];
-        improvements?: string[];
-        retryPrompt?: string;
-        quota?: {
-          featureKey: string;
-          remaining: number | null;
-          limitValue: number | null;
-        };
-      },
-  );
-
-// Mock interviews
 export const startMockInterview = (data: {
   goalId: string;
   mode: MockInterviewMode;
@@ -1320,25 +1258,6 @@ export const triggerOperatorMarketIngestion = (
     .then((r) => r.data as OperatorMarketIngestionTriggerResponse);
 
 // Reflections
-export const getReflectionPrompt = (goalId: string) =>
-  api.get(`/goals/${goalId}/reflection/prompt`).then(
-    (r) =>
-      r.data as {
-        due: boolean;
-        prompt: { question: string; context: string } | null;
-      },
-  );
-export const saveReflection = (
-  goalId: string,
-  data: {
-    answer: string;
-    promptQuestion: string;
-    momentumRating?: number;
-    relevanceRating?: number;
-  },
-) => api.post(`/goals/${goalId}/reflection`, data).then((r) => r.data);
-
-// Next goal suggestions
 export const getSuggestedNextGoals = (goalId: string) =>
   api.get(`/goals/${goalId}/suggest-next`).then(
     (r) =>
@@ -1432,3 +1351,105 @@ export const createBillingPortalSession = () =>
         currentPlan: CurrentPlanState;
       },
   );
+
+// ─── Plan progress: gaps, work, and the links between features ───────────
+
+export type GapStatus = "open" | "closing" | "closed" | "proven";
+
+export interface GapChange {
+  skillArea: string;
+  from: GapStatus | string;
+  to: GapStatus | string;
+}
+
+export interface GapProgress {
+  gapId: string;
+  skillArea: string;
+  skillCategory: string | null;
+  priority: number;
+  currentLevel: string | null;
+  requiredLevel: string | null;
+  identifiedBy: string | null;
+  status: GapStatus;
+  conceptsDone: number;
+  conceptsTotal: number;
+  proofCount: number;
+  needsPractice: boolean;
+  lastMock: { runId: string; mode: string; score: number; at: string } | null;
+  topicTitles: string[];
+}
+
+export interface GoalGapProgress {
+  goalId: string;
+  gaps: GapProgress[];
+  readinessPct: number;
+  counts: Record<GapStatus, number>;
+  recentEvents: Array<{
+    skillArea: string;
+    fromStatus: string | null;
+    toStatus: string;
+    source: string;
+    detail: Record<string, unknown>;
+    createdAt: string;
+  }>;
+}
+
+export interface WorkItem {
+  id: string;
+  sessionId: string;
+  conceptTitle: string;
+  topicId: string | null;
+  prompt: string | null;
+  content: string | null;
+  status: string;
+  score: number | null;
+  feedback: string | null;
+  strengths: string[];
+  improvements: string[];
+  updatedAt: string;
+}
+
+export const getGoalProgress = (goalId: string) =>
+  api.get(`/goals/${goalId}/progress`).then((r) => r.data as GoalGapProgress);
+
+export const getGoalWork = (goalId: string) =>
+  api.get(`/goals/${goalId}/work`).then((r) => r.data as WorkItem[]);
+
+export const addApplicationGapsToPlan = (goalId: string, applicationId: string) =>
+  api
+    .post(`/goals/${goalId}/gaps/from-application`, { applicationId })
+    .then((r) => r.data as { added: string[]; skipped: string[]; building: boolean });
+
+export const applyRecoveryAction = (
+  goalId: string,
+  change:
+    | { action: "move_date"; weeks: number }
+    | { action: "reduce_hours"; hours: number }
+    | { action: "focus_gap"; gapId: string },
+) =>
+  api
+    .post(`/goals/${goalId}/recovery/apply`, change)
+    .then((r) => r.data as { applied: string });
+
+export const updateApplicationStatus = (applicationId: string, status: ApplicationStatus) =>
+  api
+    .patch(`/resume/applications/${applicationId}/status`, { status })
+    .then((r) => r.data as ResumeApplicationWorkspace & { planAchieved: boolean });
+
+export const buildTargetRolePlan = (
+  targetRoleId: string,
+  options: { weeklyCommitmentHours?: number; durationWeeks?: number } = {},
+) =>
+  api.post(`/target-roles/${targetRoleId}/build-plan`, options).then(
+    (r) =>
+      r.data as {
+        goalId: string;
+        upgradePlanId: string;
+        readinessReportId: string;
+        readinessScore: number;
+        hasDeadline: boolean;
+        buildingMap: boolean;
+        steps: string[];
+      },
+  );
+

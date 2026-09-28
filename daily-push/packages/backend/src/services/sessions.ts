@@ -3,6 +3,7 @@ import { getDb } from '../db/mongo';
 import { ObjectId } from 'mongodb';
 import { runUnlockLogic } from './decomposition';
 import { getGoalPlanHealth } from './sprintPlanner';
+import { syncGoalGaps, type GapChange } from './gapProgress';
 
 // ─────────────────────────────────────────────
 // SR interval ladder: days between reviews
@@ -54,6 +55,9 @@ export interface CompleteResult {
   unlockedNodeTitles: string[];
   newMilestones: string[];
   nextNode: NodeSummary | null;
+  /** True when a low confidence rating kept the concept open for another pass. */
+  requeued: boolean;
+  gapChanges: GapChange[];
 }
 
 interface NodeSummary {
@@ -95,16 +99,30 @@ export async function completeSession(
     [durationMins, confidenceAfter, notes, sessionId]
   );
 
-  // Mark node done + record confidence + last studied
+  // A rating of 1–2 means "I don't have this yet": keep the concept open,
+  // bring it back tomorrow, and don't unlock what depends on it.
+  const requeued = confidenceAfter <= 2;
+
   await pool.query(
     `UPDATE concept_nodes
-     SET status = 'done', confidence = $1, last_studied_at = NOW()
+     SET status = $4, confidence = $1, last_studied_at = NOW()
      WHERE id = $2 AND user_id = $3`,
-    [confidenceAfter, node_id, userId]
+    [confidenceAfter, node_id, userId, requeued ? 'available' : 'done']
   );
 
   // SR queue: add for new sessions, update for reviews
-  if (session_type === 'new') {
+  if (requeued) {
+    await pool.query(
+      `INSERT INTO spaced_repetition_queue
+         (node_id, user_id, due_at, interval_days, repetition_count, last_confidence)
+       VALUES ($1, $2, NOW() + INTERVAL '1 day', 1, 0, $3)
+       ON CONFLICT (user_id, node_id) DO UPDATE
+         SET due_at = EXCLUDED.due_at,
+             interval_days = 1,
+             last_confidence = EXCLUDED.last_confidence`,
+      [node_id, userId, confidenceAfter]
+    );
+  } else if (session_type === 'new') {
     await pool.query(
       `INSERT INTO spaced_repetition_queue
          (node_id, user_id, due_at, interval_days, repetition_count, last_confidence)
@@ -138,7 +156,9 @@ export async function completeSession(
   );
   const prevAvailableIds = new Set(prevAvailable.map(r => r.id));
 
-  await runUnlockLogic(userId, goal_id);
+  if (!requeued) {
+    await runUnlockLogic(userId, goal_id);
+  }
 
   // Find newly unlocked nodes
   const { rows: nowAvailable } = await pool.query<{ id: string; title: string }>(
@@ -168,10 +188,17 @@ export async function completeSession(
     writePathOutcome(userId, goal_id).catch(() => {});
   }
 
+  const { changes: gapChanges } = await syncGoalGaps(userId, goal_id, 'session', {
+    sessionId,
+    confidence: confidenceAfter,
+  }).catch(() => ({ changes: [] as GapChange[] }));
+
   return {
     unlockedNodeTitles,
     newMilestones,
     nextNode: nextRows[0] ?? null,
+    requeued,
+    gapChanges,
   };
 }
 
@@ -225,7 +252,7 @@ async function writePathOutcome(userId: string, goalId: string): Promise<void> {
   if (!goal) return;
 
   const { rows: statsRows } = await pool.query<{ total: string; done: string }>(
-    `SELECT COUNT(*)::TEXT AS total, COUNT(*) FILTER (WHERE status = 'done')::TEXT AS done
+    `SELECT COUNT(*)::TEXT AS total, COUNT(*) FILTER (WHERE status IN ('done', 'review_due'))::TEXT AS done
      FROM concept_nodes WHERE user_id = $1 AND goal_id = $2`,
     [userId, goalId]
   );
@@ -314,7 +341,7 @@ async function detectMilestones(
   }>(
     `SELECT
        COUNT(*)::TEXT AS total,
-       COUNT(*) FILTER (WHERE status = 'done')::TEXT AS done,
+       COUNT(*) FILTER (WHERE status IN ('done', 'review_due'))::TEXT AS done,
        NULL::TEXT AS depth_level,
        NULL::TEXT AS depth_total,
        NULL::TEXT AS depth_done
@@ -324,7 +351,7 @@ async function detectMilestones(
        NULL, NULL,
        depth_level,
        COUNT(*)::TEXT,
-       COUNT(*) FILTER (WHERE status = 'done')::TEXT
+       COUNT(*) FILTER (WHERE status IN ('done', 'review_due'))::TEXT
      FROM concept_nodes WHERE user_id = $1 AND goal_id = $2
      GROUP BY depth_level`,
     [userId, goalId]
@@ -493,7 +520,7 @@ export async function getTodayData(userId: string): Promise<TodayData> {
   const { rows: statsRows } = await pool.query<{ total: string; done: string }>(
     `SELECT
        COUNT(*) FILTER (WHERE goal_id = $1)::TEXT AS total,
-       COUNT(*) FILTER (WHERE goal_id = $1 AND status = 'done')::TEXT AS done
+       COUNT(*) FILTER (WHERE goal_id = $1 AND status IN ('done', 'review_due'))::TEXT AS done
      FROM concept_nodes WHERE user_id = $2`,
     [goalId, userId]
   );
@@ -519,11 +546,8 @@ export async function getTodayData(userId: string): Promise<TodayData> {
   // Today and the goal page never disagree. Fall back to a rough estimate.
   // The stored sprint date can be stale, so compute it live the same way
   // the goal page does.
-  const liveHealth = goal.sprint
-    ? await getGoalPlanHealth(userId, goalId).catch(() => null)
-    : null;
-  const forecastIso =
-    liveHealth?.forecastedCompletionDate ?? goal.sprint?.forecastedCompletionDate ?? null;
+  const liveHealth = await getGoalPlanHealth(userId, goalId).catch(() => null);
+  const forecastIso = liveHealth?.hasSprint ? liveHealth.forecastedCompletionDate : null;
   const forecast = forecastIso ? new Date(forecastIso) : null;
   const forecastWeeks =
     forecast && !Number.isNaN(forecast.getTime())

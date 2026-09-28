@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Badge,
   Box,
@@ -108,7 +108,9 @@ export default function GoalSetup() {
   const navigate = useNavigate();
   const { entitlements } = useEntitlements();
   const [step, setStep] = useState<Step>('goal');
-  const [goalText, setGoalText] = useState('');
+  const [searchParams] = useSearchParams();
+  // Prefilled when you pick a suggested next goal.
+  const [goalText, setGoalText] = useState(() => searchParams.get('prompt') ?? '');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [sprintForm, setSprintForm] = useState<SprintFormState>(DEFAULT_SPRINT_FORM);

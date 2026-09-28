@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import { ensureFreshDemoAccount, isDemoEmail } from '../services/demoAccount';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { pool } from '../db/postgres';
@@ -86,6 +87,13 @@ router.post('/login', authRateLimit, async (req: Request, res: Response, next: N
     }
 
     await pool.query('UPDATE users SET last_active_at = NOW() WHERE id = $1', [user.id]);
+
+    // The shared demo account gets a fresh copy of its data once a day.
+    if (isDemoEmail(user.email)) {
+      await ensureFreshDemoAccount().catch((err) => {
+        console.error('[demo] reset failed', err);
+      });
+    }
 
     const token = jwt.sign({ sub: user.id }, config.jwt.secret, {
       expiresIn: '30d',

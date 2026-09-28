@@ -5,7 +5,6 @@ import { requireAuth, AuthRequest } from "../middleware/auth";
 import { getDb } from "../db/mongo";
 import { pool } from "../db/postgres";
 import {
-  saveGoalInput,
   getGoalInputs,
   saveGoalCorrection,
   getGoalCorrections,
@@ -21,12 +20,9 @@ import {
   getGoalNodes,
   DecomposeTrackerHooks,
 } from "../services/decomposition";
-import {
-  generateReflectionPrompt,
-  isReflectionDue,
-  saveReflection,
-} from "../services/reflections";
 import { suggestNextGoals } from "../services/similarity";
+import { getResumeApplication, linkResumeApplicationGoal } from "../services/jobGapAnalysis";
+import { syncGoalGaps } from "../services/gapProgress";
 import { config } from "../config";
 import { requireEntitlement } from "../middleware/requireEntitlement";
 import {
@@ -40,21 +36,15 @@ import {
 import { sendPipelineCompleteEmail } from "../services/emailService";
 import { trackProductEvent } from "../services/productEvents";
 import {
+  applyRecoveryAction,
+  attachSprint,
   getGoalPlanHealth,
+  type RecoveryAction,
   isPremiumSprintType,
   rebaselineGoalSprint,
   saveGoalSprintDefinition,
 } from "../services/sprintPlanner";
-import {
-  assertEntitlementEnabled,
-  consumeQuota,
-} from "../services/entitlements";
-import {
-  getGoalGapReportRecord,
-  rebuildGoalGapReport,
-  saveGoalJobDescription,
-  saveGoalResume,
-} from "../services/jobGapAnalysis";
+import { assertEntitlementEnabled } from "../services/entitlements";
 
 const router = Router();
 
@@ -215,7 +205,7 @@ router.get(
         res.status(404).json({ error: "No primary goal found" });
         return;
       }
-      res.json(goal);
+      res.json(await attachSprint(goal as any));
     } catch (err) {
       next(err);
     }
@@ -244,7 +234,98 @@ router.get(
         res.status(404).json({ error: "Goal not found" });
         return;
       }
-      res.json(goal);
+      // The user's own first description of the goal, shown next to the AI summary.
+      const inputs = await getGoalInputs(id.toString(), userId).catch(() => []);
+      const ownWords =
+        inputs.find((input) => input.source === "goal_intake" && input.content?.trim())?.content?.trim() ??
+        null;
+      res.json({ ...(await attachSprint(goal as any)), ownWords });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// GET /api/goals/:id/progress — gap by gap: open, closing, closed, proven,
+// plus readiness progress and what changed recently.
+router.get(
+  "/:id/progress",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const goalId = String(req.params.id);
+      if (!ObjectId.isValid(goalId)) {
+        res.status(400).json({ error: "Invalid goal id" });
+        return;
+      }
+      const { progress } = await syncGoalGaps(userId, goalId, "view");
+      if (!progress) {
+        res.status(404).json({ error: "Goal not found" });
+        return;
+      }
+      res.json(progress);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// GET /api/goals/:id/work — the user's written work for this plan, newest
+// first, with the feedback it got. This is their best proof.
+router.get(
+  "/:id/work",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const goalId = String(req.params.id);
+      if (!ObjectId.isValid(goalId)) {
+        res.status(400).json({ error: "Invalid goal id" });
+        return;
+      }
+      const { rows } = await pool.query<{
+        id: string;
+        session_id: string;
+        node_title: string;
+        topic_id: string | null;
+        prompt: string | null;
+        content: string | null;
+        status: string;
+        score: number | null;
+        feedback: string | null;
+        evaluation: Record<string, unknown> | null;
+        updated_at: Date;
+      }>(
+        `SELECT sa.id::text, sa.session_id::text, cn.title AS node_title,
+                cn.learning_topic_id AS topic_id, sa.prompt, sa.content, sa.status,
+                sa.score, sa.feedback, sa.evaluation, sa.updated_at
+           FROM session_artifacts sa
+           JOIN concept_nodes cn ON cn.id = sa.node_id
+          WHERE sa.user_id = $1
+            AND cn.goal_id = $2
+            AND sa.content IS NOT NULL
+            AND LENGTH(TRIM(sa.content)) > 0
+          ORDER BY sa.updated_at DESC
+          LIMIT 100`,
+        [userId, goalId],
+      );
+      res.json(
+        rows.map((row) => ({
+          id: row.id,
+          sessionId: row.session_id,
+          conceptTitle: row.node_title,
+          topicId: row.topic_id,
+          prompt: row.prompt,
+          content: row.content,
+          status: row.status,
+          score: row.score,
+          feedback: row.feedback,
+          strengths: Array.isArray((row.evaluation as any)?.strengths) ? (row.evaluation as any).strengths : [],
+          improvements: Array.isArray((row.evaluation as any)?.improvements) ? (row.evaluation as any).improvements : [],
+          updatedAt: row.updated_at.toISOString(),
+        })),
+      );
     } catch (err) {
       next(err);
     }
@@ -662,6 +743,199 @@ router.post(
   },
 );
 
+// POST /api/goals/:id/gaps/from-application — add a resume check's missing
+// skills to this plan (skipping ones the plan already covers) and break the
+// new ones into concepts.
+router.post(
+  "/:id/gaps/from-application",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const goalId = String(req.params.id);
+      const applicationId = String(req.body?.applicationId ?? "");
+      if (!ObjectId.isValid(goalId) || !/^[0-9a-f-]{36}$/i.test(applicationId)) {
+        res.status(400).json({ error: "A goal id and an application id are required" });
+        return;
+      }
+      const db = getDb();
+      const goal = await db.collection("goals").findOne({ _id: new ObjectId(goalId), userId });
+      if (!goal) {
+        res.status(404).json({ error: "Goal not found" });
+        return;
+      }
+      const application = await getResumeApplication(userId, applicationId);
+      if (!application) {
+        res.status(404).json({ error: "Resume check not found" });
+        return;
+      }
+      const missing = application.gapReport?.missingSkills ?? [];
+      if (missing.length === 0) {
+        res.status(400).json({ error: "This resume check has no missing skills to add" });
+        return;
+      }
+
+      const norm = (value: unknown) =>
+        String(value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      const gaps: any[] = Array.isArray(goal.skillGaps) ? [...goal.skillGaps] : [];
+      const topics: any[] = Array.isArray(goal.learningTopics) ? [...goal.learningTopics] : [];
+      const covered = (name: string) => {
+        const n = norm(name);
+        return gaps.some((gap) => {
+          const area = norm(gap?.structured?.skillArea);
+          return Boolean(n) && Boolean(area) && (area.includes(n) || n.includes(area));
+        });
+      };
+
+      const added: string[] = [];
+      const skipped: string[] = [];
+      let nextPriority = gaps.reduce(
+        (max, gap) => Math.max(max, Number(gap?.structured?.priority) || 0),
+        0,
+      );
+      const priorityRank: Record<string, number> = { high: 0, medium: 1, low: 2 };
+      const ordered = [...missing].sort(
+        (a, b) => (priorityRank[a.priority] ?? 1) - (priorityRank[b.priority] ?? 1),
+      );
+      for (const skill of ordered.slice(0, 5)) {
+        if (covered(skill.name)) {
+          skipped.push(skill.name);
+          continue;
+        }
+        nextPriority += 1;
+        const gapId = new ObjectId();
+        gaps.push({
+          _id: gapId,
+          raw: null,
+          userConfirmed: true,
+          structured: {
+            skillArea: skill.name,
+            skillCategory: "engineering",
+            currentLevel: "aware",
+            requiredLevel: "proficient",
+            priority: nextPriority,
+            priorityReason: skill.reason,
+            identifiedBy: "resume_parse",
+            status: "open",
+            sourceApplicationId: applicationId,
+          },
+        });
+        topics.push({
+          _id: new ObjectId(),
+          skillGapId: gapId,
+          raw: null,
+          createdAt: new Date(),
+          completedAt: null,
+          structured: {
+            title: skill.name,
+            skillGapArea: skill.name,
+            rationale: skill.reason,
+            estimatedWeeks: 1,
+            priority: nextPriority,
+            decompositionStatus: "pending",
+            decompositionAttempts: 0,
+            status: "pending",
+            position: topics.length + 1,
+            actualWeeks: null,
+          },
+        });
+        added.push(skill.name);
+      }
+
+      if (added.length > 0) {
+        await db.collection("goals").updateOne(
+          { _id: goal._id, userId },
+          { $set: { skillGaps: gaps, learningTopics: topics, updatedAt: new Date() } },
+        );
+      }
+      await linkResumeApplicationGoal(userId, applicationId, goalId);
+
+      const mapBuilt = topics.some(
+        (topic) => topic?.structured?.decompositionStatus === "completed",
+      );
+      let building = false;
+      if (added.length > 0 && goal.status === "active" && mapBuilt) {
+        const { rows: profileRows } = await pool.query<{ seniority_level: string }>(
+          "SELECT seniority_level FROM user_profiles_structured WHERE user_id = $1",
+          [userId],
+        );
+        const newTopics = topics
+          .map((topic, index) => ({ topic, index }))
+          .filter(({ topic }) => topic?.structured?.decompositionStatus === "pending");
+        await initPipelineRun(
+          goalId,
+          "decompose",
+          buildDecomposeSteps(
+            newTopics.map(({ topic, index }) => ({ title: topic.structured.title, index })),
+          ),
+        );
+        building = true;
+        void runDecompositionInBackground({
+          userId,
+          goalId,
+          seniorityLevel: profileRows[0]?.seniority_level ?? null,
+          requestedTopicCount: newTopics.length,
+          retryMode: false,
+          tracker: buildTrackerHooks(goalId),
+          logLabel: "gaps/from-application",
+        });
+      }
+
+      void trackProductEvent({
+        userId,
+        goalId,
+        eventKey: "resume_gaps_added_to_plan",
+        properties: { applicationId, added: added.length, skipped: skipped.length },
+      });
+      res.json({ added, skipped, building });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+// POST /api/goals/:id/recovery/apply — one-click fixes from the weekly check-in.
+router.post(
+  "/:id/recovery/apply",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const goalId = String(req.params.id);
+      if (!ObjectId.isValid(goalId)) {
+        res.status(400).json({ error: "Invalid goal id" });
+        return;
+      }
+      const body = req.body ?? {};
+      let change: RecoveryAction;
+      if (body.action === "move_date" && Number(body.weeks) > 0) {
+        change = { action: "move_date", weeks: Number(body.weeks) };
+      } else if (body.action === "reduce_hours" && Number(body.hours) > 0) {
+        change = { action: "reduce_hours", hours: Number(body.hours) };
+      } else if (body.action === "focus_gap" && typeof body.gapId === "string") {
+        change = { action: "focus_gap", gapId: body.gapId };
+      } else {
+        res.status(400).json({ error: "Choose move_date (weeks), reduce_hours (hours) or focus_gap (gapId)" });
+        return;
+      }
+      const result = await applyRecoveryAction(userId, goalId, change);
+      void trackProductEvent({
+        userId,
+        goalId,
+        eventKey: "recovery_action_applied",
+        properties: { action: change.action },
+      });
+      res.json(result);
+    } catch (err: any) {
+      if (err?.message === "Gap not found" || err?.message?.startsWith("This plan has no")) {
+        res.status(400).json({ error: err.message });
+        return;
+      }
+      next(err);
+    }
+  },
+);
+
 // GET /api/goals/:id/nodes — return all concept nodes for a goal
 router.get(
   "/:id/nodes",
@@ -766,54 +1040,6 @@ router.post(
 
       const updated = await db.collection("goals").findOne({ _id: id, userId });
       res.json(updated);
-    } catch (err) {
-      next(err);
-    }
-  },
-);
-
-// GET /api/goals/:id/reflection/prompt — get this week's reflection question
-router.get(
-  "/:id/reflection/prompt",
-  requireAuth,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const goalId = String(req.params.id);
-      const due = await isReflectionDue(goalId);
-      if (!due) {
-        res.json({ due: false, prompt: null });
-        return;
-      }
-      const prompt = await generateReflectionPrompt(goalId);
-      res.json({ due: true, prompt });
-    } catch (err) {
-      next(err);
-    }
-  },
-);
-
-// POST /api/goals/:id/reflection — save a reflection response
-router.post(
-  "/:id/reflection",
-  requireAuth,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { userId } = req as AuthRequest;
-      const goalId = String(req.params.id);
-      const { answer, promptQuestion, momentumRating, relevanceRating } =
-        req.body;
-      if (!answer?.trim()) {
-        res.status(400).json({ error: "answer is required" });
-        return;
-      }
-
-      await saveReflection(goalId, userId, {
-        promptQuestion: promptQuestion ?? "",
-        answer: answer.trim(),
-        momentumRating: momentumRating ?? undefined,
-        relevanceRating: relevanceRating ?? undefined,
-      });
-      res.json({ saved: true });
     } catch (err) {
       next(err);
     }
@@ -1222,11 +1448,45 @@ router.delete(
       const goal = await db.collection("goals").findOne({ _id: id, userId });
       if (!goal) { res.status(404).json({ error: "Goal not found" }); return; }
 
-      // Delete PostgreSQL rows first (cascades to edges, sessions, SR queue, news_items)
-      await pool.query(
-        "DELETE FROM concept_nodes WHERE goal_id = $1 AND user_id = $2",
-        [goalId, userId],
-      );
+      // Delete everything that belongs to this goal. Concept nodes cascade to
+      // edges, sessions, reviews, work and news; the rest is keyed by goal id.
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(
+          "DELETE FROM concept_nodes WHERE goal_id = $1 AND user_id = $2",
+          [goalId, userId],
+        );
+        for (const table of [
+          "goal_sprints",
+          "mock_interview_runs",
+          "weekly_checkins",
+          "weekly_summary_deliveries",
+          "gap_events",
+        ]) {
+          await client.query(
+            `DELETE FROM ${table} WHERE goal_id = $1 AND user_id = $2`,
+            [goalId, userId],
+          );
+        }
+        // Keep roles, plans and applications, but drop the link to this goal.
+        for (const table of [
+          "candidate_target_roles",
+          "candidate_upgrade_plans",
+          "resume_applications",
+        ]) {
+          await client.query(
+            `UPDATE ${table} SET linked_goal_id = NULL WHERE linked_goal_id = $1 AND user_id = $2`,
+            [goalId, userId],
+          );
+        }
+        await client.query("COMMIT");
+      } catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+      } finally {
+        client.release();
+      }
 
       // Delete MongoDB documents
       await Promise.all([

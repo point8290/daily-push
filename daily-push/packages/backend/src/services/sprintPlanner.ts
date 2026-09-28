@@ -329,12 +329,128 @@ export function deriveAvailableMinsDayOverride(
   return Math.max(15, Math.round((sprint.weeklyCommitmentHours * 60) / days));
 }
 
+interface GoalSprintRow {
+  sprint_type: SprintType;
+  target_role: string | null;
+  target_company: string | null;
+  target_date: string | null;
+  weekly_commitment_hours: number | null;
+  current_blockers: unknown;
+  success_evidence: unknown;
+  status: SprintStatus;
+  risk_score: number | null;
+  completion_score: number | null;
+  weekly_target_minutes: number | null;
+  recommended_daily_minutes: number | null;
+  forecasted_completion_date: string | null;
+  buffer_days: number | null;
+  next_review_at: Date | null;
+  metadata: Record<string, unknown> | null;
+  target_role_id: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+
+function toDate(value: string | Date | null | undefined): Date | null {
+  if (!value) return null;
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function toStringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
+
+function mapSprintRow(row: GoalSprintRow): StoredGoalSprint & { targetRoleId: string | null } {
+  const metadata = row.metadata ?? {};
+  return {
+    sprintType: row.sprint_type,
+    templateLabel:
+      typeof metadata.templateLabel === "string"
+        ? metadata.templateLabel
+        : SPRINT_LABELS[row.sprint_type] ?? "Standard Sprint",
+    targetRole: row.target_role,
+    targetCompany: row.target_company,
+    targetDate: toDate(row.target_date),
+    weeklyCommitmentHours: row.weekly_commitment_hours,
+    currentBlockers: toStringList(row.current_blockers),
+    successEvidence: toStringList(row.success_evidence),
+    status: row.status,
+    riskScore: row.risk_score,
+    completionScore: row.completion_score,
+    weeklyTargetMinutes: row.weekly_target_minutes,
+    recommendedDailyMinutes: row.recommended_daily_minutes,
+    forecastedCompletionDate: toDate(row.forecasted_completion_date),
+    bufferDays: row.buffer_days,
+    nextReviewAt: toDate(row.next_review_at),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    lastHealthComputedAt: toDate(metadata.lastHealthComputedAt as string | null),
+    targetRoleId: row.target_role_id,
+  };
+}
+
+/**
+ * The plan's deadline and pace. Postgres `goal_sprints` is the only place
+ * this is stored; goal documents get it attached when they are read.
+ */
+export async function loadGoalSprint(
+  userId: string,
+  goalId: string,
+): Promise<(StoredGoalSprint & { targetRoleId: string | null }) | null> {
+  const { rows } = await pool.query<GoalSprintRow>(
+    `SELECT sprint_type, target_role, target_company, target_date::text,
+            weekly_commitment_hours, current_blockers, success_evidence, status,
+            risk_score, completion_score, weekly_target_minutes,
+            recommended_daily_minutes, forecasted_completion_date::text,
+            buffer_days, next_review_at, metadata, target_role_id::text,
+            created_at, updated_at
+       FROM goal_sprints
+      WHERE user_id = $1 AND goal_id = $2
+      LIMIT 1`,
+    [userId, goalId],
+  );
+  return rows[0] ? mapSprintRow(rows[0]) : null;
+}
+
+/** Attach the stored plan to one or more goal documents (for API responses). */
+export async function attachSprint<T extends { _id?: unknown; userId?: string } | null>(
+  goal: T,
+): Promise<T> {
+  if (!goal || !goal._id || !goal.userId) return goal;
+  const sprint = await loadGoalSprint(goal.userId, String(goal._id));
+  return { ...goal, sprint } as T;
+}
+
+export async function attachSprints<T extends { _id?: unknown; userId?: string }>(
+  goals: T[],
+): Promise<T[]> {
+  if (goals.length === 0) return goals;
+  const userId = goals[0].userId;
+  if (!userId) return goals;
+  const ids = goals.map((goal) => String(goal._id));
+  const { rows } = await pool.query<GoalSprintRow & { goal_id: string }>(
+    `SELECT goal_id, sprint_type, target_role, target_company, target_date::text,
+            weekly_commitment_hours, current_blockers, success_evidence, status,
+            risk_score, completion_score, weekly_target_minutes,
+            recommended_daily_minutes, forecasted_completion_date::text,
+            buffer_days, next_review_at, metadata, target_role_id::text,
+            created_at, updated_at
+       FROM goal_sprints
+      WHERE user_id = $1 AND goal_id = ANY($2::varchar[])`,
+    [userId, ids],
+  );
+  const byGoal = new Map(rows.map((row) => [row.goal_id, mapSprintRow(row)]));
+  return goals.map((goal) => ({ ...goal, sprint: byGoal.get(String(goal._id)) ?? null }));
+}
+
 async function getGoalDocument(userId: string, goalId: string): Promise<any> {
   const db = getDb();
-  return db.collection("goals").findOne({
+  const goal = await db.collection("goals").findOne({
     _id: new ObjectId(goalId),
     userId,
   });
+  return attachSprint(goal as any);
 }
 
 function buildStoredSprintDoc(
@@ -384,12 +500,7 @@ export async function saveGoalSprintDefinition(
   const db = getDb();
   await db.collection("goals").updateOne(
     { _id: new ObjectId(goalId), userId },
-    {
-      $set: {
-        sprint: sprintDoc,
-        updatedAt: new Date(),
-      },
-    },
+    { $set: { updatedAt: new Date() }, $unset: { sprint: "" } },
   );
 
   await pool.query(
@@ -488,7 +599,7 @@ async function getGoalMetrics(userId: string, goalId: string): Promise<{
     }>(
       `SELECT
          COUNT(*)::int AS total_nodes,
-         COUNT(*) FILTER (WHERE status = 'done')::int AS completed_nodes,
+         COUNT(*) FILTER (WHERE status IN ('done', 'review_due'))::int AS completed_nodes,
          COUNT(*) FILTER (WHERE status = 'available')::int AS available_nodes
        FROM concept_nodes
        WHERE goal_id = $1 AND user_id = $2`,
@@ -698,17 +809,6 @@ async function persistPlanHealth(
     return;
   }
 
-  const db = getDb();
-  await db.collection("goals").updateOne(
-    { _id: new ObjectId(goalId), userId },
-    {
-      $set: {
-        sprint: health.sprint,
-        updatedAt: new Date(),
-      },
-    },
-  );
-
   await pool.query(
     `UPDATE goal_sprints
         SET status = $3,
@@ -767,3 +867,67 @@ export async function rebaselineGoalSprint(
   await persistPlanHealth(userId, goalId, health);
   return health;
 }
+
+export type RecoveryAction =
+  | { action: 'move_date'; weeks: number }
+  | { action: 'reduce_hours'; hours: number }
+  | { action: 'focus_gap'; gapId: string };
+
+/**
+ * Apply one change from the weekly recovery plan: push the deadline, lower the
+ * weekly hours, or move one gap to the top. Then recompute plan health.
+ */
+export async function applyRecoveryAction(
+  userId: string,
+  goalId: string,
+  change: RecoveryAction,
+): Promise<{ applied: string; planHealth: GoalPlanHealthSummary }> {
+  const goal = await getGoalDocument(userId, goalId);
+  if (!goal) throw new Error('Goal not found');
+  let applied = '';
+
+  if (change.action === 'focus_gap') {
+    const gaps: any[] = Array.isArray(goal.skillGaps) ? goal.skillGaps : [];
+    const target = gaps.find((gap) => String(gap?._id) === change.gapId);
+    if (!target) throw new Error('Gap not found');
+    const previous = Number(target?.structured?.priority) || gaps.length;
+    const next = gaps.map((gap) => {
+      const p = Number(gap?.structured?.priority) || gaps.length;
+      if (gap === target) return { ...gap, structured: { ...gap.structured, priority: 1 } };
+      if (p < previous) return { ...gap, structured: { ...gap.structured, priority: p + 1 } };
+      return gap;
+    });
+    await getDb().collection('goals').updateOne(
+      { _id: new ObjectId(goalId), userId },
+      { $set: { skillGaps: next, updatedAt: new Date() } },
+    );
+    applied = `Moved "${target?.structured?.skillArea ?? 'gap'}" to the top of your plan`;
+  } else {
+    const sprint = goal.sprint as StoredGoalSprint | null;
+    if (!sprint) throw new Error('This plan has no deadline or weekly hours yet');
+    const input: GoalSprintInput = {
+      sprintType: sprint.sprintType,
+      targetRole: sprint.targetRole,
+      targetCompany: sprint.targetCompany,
+      targetDate: sprint.targetDate ? sprint.targetDate.toISOString().slice(0, 10) : null,
+      weeklyCommitmentHours: sprint.weeklyCommitmentHours,
+      currentBlockers: sprint.currentBlockers,
+      successEvidence: sprint.successEvidence,
+    };
+    if (change.action === 'move_date') {
+      const weeks = Math.min(12, Math.max(1, Math.round(change.weeks)));
+      const base = sprint.targetDate ?? new Date();
+      input.targetDate = new Date(base.getTime() + weeks * 7 * 86_400_000).toISOString().slice(0, 10);
+      applied = `Deadline moved to ${input.targetDate}`;
+    } else {
+      const hours = Math.min(60, Math.max(1, Math.round(change.hours)));
+      input.weeklyCommitmentHours = hours;
+      applied = `Weekly plan set to ${hours} h`;
+    }
+    await saveGoalSprintDefinition(userId, goalId, input);
+  }
+
+  const planHealth = await rebaselineGoalSprint(userId, goalId);
+  return { applied, planHealth };
+}
+

@@ -6,7 +6,6 @@ import {
   Container,
   Flex,
   HStack,
-  IconButton,
   Menu,
   MenuButton,
   MenuDivider,
@@ -46,34 +45,36 @@ import Pricing from './pages/Pricing';
 import MockInterview from './pages/MockInterview';
 import ProductMetrics from './pages/ProductMetrics';
 import OperatorMarketHealth from './pages/OperatorMarketHealth';
-import ReflectionModal from './components/ReflectionModal';
-import { getPrimaryGoal, getReflectionPrompt, getStreak } from './api/client';
+import { PlanRedirect, RoleRedirect } from './components/ActiveRedirects';
+import { getStreak } from './api/client';
 
 type NavItem = {
   to: string;
   label: string;
   end?: boolean;
+  /** Other paths that belong to this section, for highlighting. */
+  matches?: string[];
 };
 
+// Five places, in the order a week of prep flows through them.
 const primaryNavItems: NavItem[] = [
   { to: '/today', label: 'Today', end: true },
-  { to: '/map', label: 'Map' },
-  { to: '/goals', label: 'Goals' },
-  { to: '/career-market', label: 'Role Discovery' },
-  { to: '/target-roles', label: 'Targets' },
+  { to: '/plan', label: 'Plan', matches: ['/goals', '/map'] },
+  { to: '/role', label: 'Role', matches: ['/target-roles', '/resume/applications'] },
+  { to: '/mock', label: 'Practice' },
+  { to: '/history', label: 'Progress' },
 ];
 
+// Tools you use now and then.
 const secondaryNavItems: NavItem[] = [
-  { to: '/resume', label: 'Resume' },
+  { to: '/career-market', label: 'Find a role' },
+  { to: '/resume', label: 'Check a resume', end: true },
   { to: '/news', label: 'News' },
-  { to: '/history', label: 'History' },
+  { to: '/goals', label: 'All plans', end: true },
+  { to: '/target-roles', label: 'Saved roles', end: true },
 ];
 
-const compactNavItems: NavItem[] = [
-  { to: '/today', label: 'Today', end: true },
-  { to: '/goals', label: 'Goals' },
-  { to: '/career-market', label: 'Role Discovery' },
-];
+const compactNavItems: NavItem[] = primaryNavItems;
 
 function FlameIcon() {
   return (
@@ -92,36 +93,18 @@ function FlameIcon() {
   );
 }
 
-function BellIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-    </svg>
-  );
-}
-
 function TopNav({ streak }: { streak: number }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const firstName = user?.name?.split(' ')[0] ?? 'You';
   const isActiveNavItem = (item: NavItem) =>
-    item.end ? location.pathname === item.to : location.pathname.startsWith(item.to);
-  const hiddenCompactNavItems = [
-    ...primaryNavItems.filter((item) => !compactNavItems.some((compact) => compact.to === item.to)),
-    ...secondaryNavItems,
-  ];
-  const isSecondaryNavActive = secondaryNavItems.some(isActiveNavItem);
+    item.end
+      ? location.pathname === item.to
+      : [item.to, ...(item.matches ?? [])].some((path) => location.pathname.startsWith(path));
+  const hiddenCompactNavItems = secondaryNavItems;
+  const isSecondaryNavActive =
+    !primaryNavItems.some(isActiveNavItem) && secondaryNavItems.some(isActiveNavItem);
   const isHiddenCompactNavActive = hiddenCompactNavItems.some(isActiveNavItem);
   const navButtonProps = (item: NavItem) => {
     const isActive = isActiveNavItem(item);
@@ -186,13 +169,6 @@ function TopNav({ streak }: { streak: number }) {
             </HStack>
             <Spacer display={{ base: 'block', md: 'none' }} />
             <HStack spacing={2} display={{ base: 'flex', md: 'none' }}>
-              <IconButton
-                aria-label="Notifications"
-                variant="ghost"
-                color="whiteAlpha.800"
-                _hover={{ bg: 'whiteAlpha.140', color: 'white' }}
-                icon={<BellIcon />}
-              />
               <Menu>
                 <MenuButton
                   as={Button}
@@ -250,7 +226,7 @@ function TopNav({ streak }: { streak: number }) {
                 borderColor={isSecondaryNavActive ? 'whiteAlpha.300' : 'transparent'}
                 _hover={{ bg: 'whiteAlpha.140', color: 'white' }}
               >
-                More
+                Explore
               </MenuButton>
               <MenuList rounded="2xl" borderColor="blackAlpha.100" shadow="panel" py={2}>
                 {secondaryNavItems.map((item) => (
@@ -288,7 +264,7 @@ function TopNav({ streak }: { streak: number }) {
                 borderColor={isHiddenCompactNavActive ? 'whiteAlpha.300' : 'transparent'}
                 _hover={{ bg: 'whiteAlpha.140', color: 'white' }}
               >
-                More
+                Explore
               </MenuButton>
               <MenuList rounded="2xl" borderColor="blackAlpha.100" shadow="panel" py={2}>
                 {hiddenCompactNavItems.map((item) => (
@@ -323,14 +299,6 @@ function TopNav({ streak }: { streak: number }) {
               </Badge>
             )}
 
-            <IconButton
-              aria-label="Notifications"
-              variant="ghost"
-              color="whiteAlpha.800"
-              _hover={{ bg: 'whiteAlpha.140', color: 'white' }}
-              icon={<BellIcon />}
-            />
-
             <Menu>
               <MenuButton
                 as={Button}
@@ -349,14 +317,9 @@ function TopNav({ streak }: { streak: number }) {
                     bgGradient="linear(to-br, brand.400, accent.500)"
                     color="white"
                   />
-                  <Box textAlign="left" display={{ base: 'none', md: 'block' }}>
-                    <Text fontSize="sm" fontWeight="700" lineHeight="1.1">
-                      {firstName}
-                    </Text>
-                    <Text fontSize="xs" color="whiteAlpha.700">
-                      {user?.email}
-                    </Text>
-                  </Box>
+                  <Text display={{ base: 'none', md: 'block' }} fontSize="sm" fontWeight="700">
+                    {firstName}
+                  </Text>
                 </HStack>
               </MenuButton>
               <MenuList rounded="2xl" borderColor="blackAlpha.100" shadow="panel" py={2}>
@@ -403,30 +366,13 @@ function AppContentFrame({ children }: { children: ReactNode }) {
 function ProtectedLayout({ children }: { children?: ReactNode }) {
   const { user, loading } = useAuth();
   const [streak, setStreak] = useState(0);
-  const [reflectionState, setReflectionState] = useState<{
-    goalId: string;
-    prompt: { question: string; context: string };
-  } | null>(null);
+  const location = useLocation();
 
   useEffect(() => {
     if (!user) return;
     getStreak()
       .then((d) => setStreak(d.streak ?? 0))
       .catch(() => {});
-    const timer = setTimeout(async () => {
-      try {
-        const goal = await getPrimaryGoal();
-        if (!goal?._id) return;
-        const goalId = goal._id.toString();
-        const { due, prompt } = await getReflectionPrompt(goalId);
-        if (due && prompt) {
-          setReflectionState({ goalId, prompt });
-        }
-      } catch {
-        // Non-critical prompt fetch.
-      }
-    }, 3000);
-    return () => clearTimeout(timer);
   }, [user]);
 
   if (loading) {
@@ -438,20 +384,15 @@ function ProtectedLayout({ children }: { children?: ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    // Keep where the visitor was going so login can send them back there.
+    const next = `${location.pathname}${location.search}`;
+    return <Navigate to={`/login?next=${encodeURIComponent(next)}`} replace />;
   }
 
   return (
     <Flex minH="100vh" direction="column">
       <TopNav streak={streak} />
       {children ? <AppContentFrame>{children}</AppContentFrame> : <MainContent />}
-      {reflectionState && (
-        <ReflectionModal
-          goalId={reflectionState.goalId}
-          prompt={reflectionState.prompt}
-          onDismiss={() => setReflectionState(null)}
-        />
-      )}
     </Flex>
   );
 }
@@ -482,6 +423,8 @@ function MainContent() {
     <AppContentFrame>
       <Routes>
         <Route path="/today" element={<Today />} />
+        <Route path="/plan" element={<PlanRedirect />} />
+        <Route path="/role" element={<RoleRedirect />} />
         <Route path="/career-market" element={<CareerMarket />} />
         <Route path="/career-market/find-direction" element={<CareerMarket />} />
         <Route path="/career-market/roles/:roleId" element={<RoleMarketDetail />} />

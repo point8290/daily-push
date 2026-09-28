@@ -1,4 +1,5 @@
 import { Link, Navigate } from "react-router-dom";
+import { HAS_DEMO } from "../lib/demo";
 import { useAuth } from "../contexts/AuthContext";
 
 const guideCards = [
@@ -117,6 +118,17 @@ export default function Landing() {
               Daily Push shows what your next role expects, finds your skill gaps, and turns
               them into one focused study session a day, with AI feedback and mock interviews.
             </p>
+            {HAS_DEMO && (
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                <Link
+                  to="/login?demo=1"
+                  className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5"
+                >
+                  Try the demo
+                </Link>
+                <span className="text-sm text-slate-500">No sign-up. See a plan three weeks in.</span>
+              </div>
+            )}
             <div className="mt-8 flex flex-wrap gap-2 sm:gap-3">
               {["Role expectations", "Daily study plan", "Mock interviews"].map((item) => (
                 <span

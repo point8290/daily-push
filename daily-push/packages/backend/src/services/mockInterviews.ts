@@ -1,4 +1,7 @@
 import { ObjectId } from 'mongodb';
+import { applyMockInterviewToGaps } from './gapProgress';
+import { publishMockInterviewEvidence } from './candidateEvidence';
+import { attachSprint } from './sprintPlanner';
 import { getDb } from '../db/mongo';
 import { pool } from '../db/postgres';
 import { callClaudeWithUsage, parseJSON } from './claude';
@@ -33,6 +36,14 @@ export interface MockInterviewEvaluation {
   improvements: string[];
   retryPlan: string[];
   suggestedSprintEdits: string[];
+  /** What this scorecard changed in the plan (filled in after scoring). */
+  planUpdate?: {
+    gapSkillArea: string | null;
+    weak: boolean;
+    strong: boolean;
+    proofAdded: boolean;
+    changes: Array<{ skillArea: string; from: string; to: string }>;
+  } | null;
 }
 
 export interface MockInterviewRun {
@@ -149,6 +160,10 @@ function safeEvaluation(value: unknown): MockInterviewEvaluation | null {
     improvements: uniqueStrings(evaluation.improvements ?? []).slice(0, 6),
     retryPlan: uniqueStrings(evaluation.retryPlan ?? []).slice(0, 6),
     suggestedSprintEdits: uniqueStrings(evaluation.suggestedSprintEdits ?? []).slice(0, 5),
+    planUpdate:
+      evaluation.planUpdate && typeof evaluation.planUpdate === 'object'
+        ? evaluation.planUpdate
+        : null,
   };
 }
 
@@ -500,10 +515,12 @@ export async function startMockInterviewRun(
   },
 ): Promise<MockInterviewRun> {
   const db = getDb();
-  const goal = await db.collection('goals').findOne({
-    _id: new ObjectId(input.goalId),
-    userId,
-  });
+  const goal = await attachSprint(
+    (await db.collection('goals').findOne({
+      _id: new ObjectId(input.goalId),
+      userId,
+    })) as any,
+  );
 
   if (!goal) {
     throw new Error('Goal not found');
@@ -534,9 +551,9 @@ export async function startMockInterviewRun(
 
   const { rows } = await pool.query<{ id: string }>(
     `INSERT INTO mock_interview_runs
-       (user_id, goal_id, mode, status, target_role, focus_area, prompt_context, opening_prompt, latest_prompt, quota_snapshot, created_at, updated_at)
+       (user_id, goal_id, mode, status, target_role, focus_area, prompt_context, opening_prompt, latest_prompt, quota_snapshot, target_role_id, created_at, updated_at)
      VALUES
-       ($1, $2, $3, 'in_progress', $4, $5, $6, $7, $7, $8::jsonb, NOW(), NOW())
+       ($1, $2, $3, 'in_progress', $4, $5, $6, $7, $7, $8::jsonb, $9, NOW(), NOW())
      RETURNING id`,
     [
       userId,
@@ -547,6 +564,7 @@ export async function startMockInterviewRun(
       promptContext,
       openingPrompt,
       JSON.stringify(input.quota ?? {}),
+      goal?.sprint?.targetRoleId ?? null,
     ],
   );
 
@@ -647,10 +665,12 @@ export async function evaluateMockInterviewRun(
   }
 
   const db = getDb();
-  const goal = await db.collection('goals').findOne({
-    _id: new ObjectId(runRow.goal_id),
-    userId,
-  });
+  const goal = await attachSprint(
+    (await db.collection('goals').findOne({
+      _id: new ObjectId(runRow.goal_id),
+      userId,
+    })) as any,
+  );
 
   const gapRecord = await getGoalGapReportRecord(userId, runRow.goal_id).catch(() => null);
   const turns = await getRunTurns(runId);
@@ -716,6 +736,44 @@ export async function evaluateMockInterviewRun(
     throw error;
   } finally {
     client.release();
+  }
+
+  // Feed the result back into the plan: weak areas move up, strong answers count as proof.
+  try {
+    const applied = await applyMockInterviewToGaps(userId, runRow.goal_id, {
+      runId,
+      mode: runRow.mode,
+      overallScore: evaluation.overallScore,
+      dimensionScores: evaluation.rubricScores.map((dimension) => dimension.score),
+    });
+    let proofAdded = false;
+    if (applied.strong) {
+      const claim = await publishMockInterviewEvidence(userId, {
+        runId,
+        goalId: runRow.goal_id,
+        mode: runRow.mode,
+        overallScore: evaluation.overallScore,
+        summary: evaluation.summary,
+        targetRoleTitle: runRow.target_role,
+        targetRoleId: goal?.sprint?.targetRoleId ?? null,
+      }).catch(() => null);
+      proofAdded = Boolean(claim);
+    }
+    const planUpdate = {
+      gapSkillArea: applied.gapSkillArea,
+      weak: applied.weak,
+      strong: applied.strong,
+      proofAdded,
+      changes: applied.changes,
+    };
+    await pool.query(
+      `UPDATE mock_interview_runs
+          SET evaluation = evaluation || jsonb_build_object('planUpdate', $2::jsonb)
+        WHERE id = $1`,
+      [runId, JSON.stringify(planUpdate)],
+    );
+  } catch {
+    // The scorecard is still useful even if the plan could not be updated.
   }
 
   return getMockInterviewRun(userId, runId);

@@ -11,15 +11,13 @@ import {
 import {
   buildResumeFitSnapshot,
   createResumeApplication,
-  generateGlobalTailoredResume,
   generateResumeApplicationTailoredResume,
-  getGlobalResumeRecord,
   getResumeApplication,
   linkResumeApplicationGoal,
   listResumeApplications,
-  rebuildGlobalGapReport,
-  saveGlobalJobDescription,
-  saveGlobalResume,
+  updateResumeApplicationStatus,
+  APPLICATION_STATUSES,
+  type ApplicationStatus,
 } from "../services/jobGapAnalysis";
 import {
   saveGoalInput,
@@ -179,9 +177,6 @@ async function createGoalFromApplication(userId: string, applicationId: string):
     skillGaps: [],
     learningTopics: [],
     milestones: [],
-    adjustments: [],
-    reflections: [],
-    sprint: null,
     status: "intake_in_progress",
     stage: "intake",
     isPrimary: true,
@@ -208,19 +203,6 @@ async function createGoalFromApplication(userId: string, applicationId: string):
   await linkResumeApplicationGoal(userId, applicationId, goalId);
   return goalId;
 }
-
-router.get(
-  "/workspace",
-  requireAuth,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { userId } = req as AuthRequest;
-      res.json(await getGlobalResumeRecord(userId));
-    } catch (err) {
-      next(err);
-    }
-  },
-);
 
 router.post(
   "/preview",
@@ -347,6 +329,68 @@ router.get(
   },
 );
 
+// PATCH /api/resume/applications/:id/status — track where this application is.
+// An offer on an application linked to a plan marks that plan achieved.
+router.patch(
+  "/applications/:id/status",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const body = assertBodyObject(req.body);
+      const status = readEnumValue(
+        body.status,
+        "status",
+        APPLICATION_STATUSES as unknown as readonly ApplicationStatus[],
+      ) as ApplicationStatus | null;
+      if (!status) {
+        res.status(400).json({ error: "status is required" });
+        return;
+      }
+      const applicationId = assertUuid(String(req.params.id));
+      const application = await updateResumeApplicationStatus(userId, applicationId, status);
+      if (!application) {
+        res.status(404).json({ error: "Resume application not found" });
+        return;
+      }
+
+      let planAchieved = false;
+      if (status === "offer" && application.linkedGoalId && ObjectId.isValid(application.linkedGoalId)) {
+        const result = await getDb().collection("goals").updateOne(
+          {
+            _id: new ObjectId(application.linkedGoalId),
+            userId,
+            status: { $ne: "achieved" },
+          },
+          { $set: { status: "achieved", achievedAt: new Date(), updatedAt: new Date() } },
+        );
+        planAchieved = result.modifiedCount > 0;
+      }
+
+      const eventKey =
+        status === "offer"
+          ? "offer_outcome_recorded"
+          : status === "interviewing"
+            ? "interview_outcome_recorded"
+            : "application_outcome_recorded";
+      void trackProductEvent({
+        userId,
+        goalId: application.linkedGoalId ?? null,
+        eventKey,
+        properties: {
+          applicationId,
+          outcome: status,
+          targetRoleId: application.targetRoleId,
+        },
+      });
+
+      res.json({ ...application, planAchieved });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 router.post(
   "/applications/:id/tailored-resume",
   requireAuth,
@@ -444,175 +488,6 @@ router.post(
 
       res.status(201).json({ goalId, sprint: planHealth.sprint, planHealth });
     } catch (err) {
-      next(err);
-    }
-  },
-);
-
-router.post(
-  "/resume",
-  requireAuth,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { userId } = req as AuthRequest;
-      const body = assertBodyObject(req.body);
-      const rawText = readRequiredString(body.rawText, "rawText", {
-        minLength: 10,
-        maxLength: 40000,
-      });
-      const source =
-        body.source === undefined
-          ? "manual"
-          : readEnumValue(body.source, "source", [
-              "manual",
-              "upload",
-              "linkedin_paste",
-            ] as const);
-
-      const result = await saveGlobalResume(userId, rawText, source);
-      void trackProductEvent({
-        userId,
-        eventKey: "global_resume_saved",
-        properties: {
-          source,
-          skillCount: result.resumeSummary.coreSkills.length,
-          evidenceCount: result.resumeSummary.evidenceAreas.length,
-        },
-      });
-
-      res.status(201).json(result);
-    } catch (err) {
-      next(err);
-    }
-  },
-);
-
-router.post(
-  "/job-description",
-  requireAuth,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { userId } = req as AuthRequest;
-      const body = assertBodyObject(req.body);
-      const jdText = readRequiredString(body.jdText, "jdText", {
-        minLength: 20,
-        maxLength: 50000,
-      });
-      const targetRole = readOptionalString(body.targetRole, "targetRole", {
-        maxLength: 160,
-      });
-      const targetCompany = readOptionalString(
-        body.targetCompany,
-        "targetCompany",
-        { maxLength: 160 },
-      );
-
-      const result = await saveGlobalJobDescription(userId, {
-        targetRole,
-        targetCompany,
-        jdText,
-      });
-
-      void trackProductEvent({
-        userId,
-        eventKey: "global_job_description_saved",
-        properties: {
-          targetRole: result.parsedJd.targetRole,
-          mustHaveSkillCount: result.parsedJd.mustHaveSkills.length,
-          evidenceSignalCount: result.parsedJd.evidenceSignals.length,
-        },
-      });
-
-      res.status(201).json(result);
-    } catch (err) {
-      next(err);
-    }
-  },
-);
-
-router.post(
-  "/gap-report/rebuild",
-  requireAuth,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { userId } = req as AuthRequest;
-      const entitlement = await consumeQuota(userId, "resume_reports.monthly", {
-        source: "global_resume_gap_report",
-      });
-
-      const record = await rebuildGlobalGapReport(userId);
-
-      void trackProductEvent({
-        userId,
-        eventKey: "global_gap_report_generated",
-        properties: {
-          readinessLabel: record.gapReport?.readinessLabel ?? null,
-          missingSkillCount: record.gapReport?.missingSkills.length ?? 0,
-          missingProofCount: record.gapReport?.missingProof.length ?? 0,
-          remainingReports: entitlement.remaining,
-        },
-      });
-
-      res.json({
-        ...record,
-        quota: {
-          featureKey: "resume_reports.monthly",
-          remaining: entitlement.remaining,
-          limitValue: entitlement.limitValue,
-        },
-      });
-    } catch (err: any) {
-      if (
-        err?.message === "Save a resume before generating a gap report." ||
-        err?.message ===
-          "Save a target job description before generating a gap report."
-      ) {
-        res.status(400).json({ error: err.message });
-        return;
-      }
-      next(err);
-    }
-  },
-);
-
-router.post(
-  "/tailored-resume",
-  requireAuth,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { userId } = req as AuthRequest;
-      const entitlement = await consumeQuota(userId, "tailored_resumes.monthly", {
-        source: "global_resume_tailored_resume",
-      });
-      const record = await generateGlobalTailoredResume(userId);
-
-      void trackProductEvent({
-        userId,
-        eventKey: "global_tailored_resume_generated",
-        properties: {
-          targetRole: record.tailoredResume?.targetRole ?? null,
-          skillCount: record.tailoredResume?.skills.length ?? 0,
-          warningCount: record.tailoredResume?.missingEvidenceWarnings.length ?? 0,
-        },
-      });
-
-      res.json({
-        ...record,
-        quota: {
-          featureKey: "tailored_resumes.monthly",
-          remaining: entitlement.remaining,
-          limitValue: entitlement.limitValue,
-        },
-      });
-    } catch (err: any) {
-      if (
-        err?.message === "Save a resume before generating a tailored resume." ||
-        err?.message ===
-          "Save a target job description before generating a tailored resume."
-      ) {
-        res.status(400).json({ error: err.message });
-        return;
-      }
       next(err);
     }
   },

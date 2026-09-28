@@ -6,9 +6,9 @@ import { buildGoalArtifactExport } from '../../services/artifactExports';
 import { createCheckoutSession } from '../../services/billing';
 import { getEntitlementSummaries } from '../../services/entitlements';
 import {
-  rebuildGoalGapReport,
-  saveGoalJobDescription,
-  saveGoalResume,
+  createResumeApplication,
+  getGoalGapReportRecord,
+  linkResumeApplicationGoal,
 } from '../../services/jobGapAnalysis';
 import {
   evaluateMockInterviewRun,
@@ -202,36 +202,22 @@ async function run(): Promise<void> {
     'Artifact export should contain the saved artifact text',
   );
 
-  const resume = await saveGoalResume(
-    user.id,
-    goal.id,
-    `Senior backend engineer with 6 years of experience in TypeScript, Node.js, Docker, PostgreSQL, and OpenAI-powered tooling.
+  const application = await createResumeApplication(user.id, {
+    rawText: `Senior backend engineer with 6 years of experience in TypeScript, Node.js, Docker, PostgreSQL, and OpenAI-powered tooling.
 Owned production APIs, shipped AI-assisted workflows, and led cross-functional delivery work.`,
-    'manual',
-  );
-  assert.ok(
-    resume.resumeSummary.coreSkills.length > 0,
-    'Resume parsing should return core skills',
-  );
-
-  const jobDescription = await saveGoalJobDescription(user.id, goal.id, {
-    targetRole: 'Senior AI Engineer',
-    targetCompany: 'Acme AI',
     jdText:
       'We are hiring a Senior AI Engineer with strong TypeScript, Node.js, Docker, system design, and OpenAI API experience. You will own production systems, work cross-functionally, and design scalable AI features.',
+    title: 'Senior AI Engineer at Acme AI',
   });
   assert.ok(
-    jobDescription.parsedJd.mustHaveSkills.length > 0,
-    'Job description parsing should return must-have skills',
+    (application.resumeSummary?.coreSkills.length ?? 0) > 0,
+    'Resume parsing should return core skills',
   );
+  assert.ok(application.gapReport, 'Gap report should be generated');
 
-  const gapRecord = await rebuildGoalGapReport(user.id, goal.id);
-  assert.ok(gapRecord.gapReport, 'Gap report should be generated');
-  assert.equal(
-    gapRecord.gapReport?.targetRole,
-    'Senior AI Engineer',
-    'Gap report should keep the target role',
-  );
+  await linkResumeApplicationGoal(user.id, application.id, goal.id);
+  const gapRecord = await getGoalGapReportRecord(user.id, goal.id);
+  assert.ok(gapRecord.gapReport, 'Goal should see the linked application gap report');
 
   const mockRun = await startMockInterviewRun(user.id, {
     goalId: goal.id,

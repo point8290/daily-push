@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import { attachSprint } from '../services/sprintPlanner';
 import { ObjectId } from 'mongodb';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { getDb } from '../db/mongo';
@@ -48,7 +49,7 @@ router.post('/start', requireAuth, async (req: Request, res: Response, next: Nex
     }
 
     const db = getDb();
-    const goal = await db.collection('goals').findOne({ _id: objectId, userId });
+    const goal = await attachSprint((await db.collection('goals').findOne({ _id: objectId, userId })) as any);
     if (!goal) {
       res.status(404).json({ error: 'Goal not found' });
       return;

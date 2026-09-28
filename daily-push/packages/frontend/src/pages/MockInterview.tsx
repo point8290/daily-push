@@ -172,16 +172,48 @@ function EvaluationCard({ run }: { run: MockInterviewRun }) {
               {evaluation.retryPlan.map((item) => <p key={item}>- {item}</p>)}
             </div>
           </div>
-          <div className="rounded-xl border border-slate-200 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-              Sprint edits
+          <div className="rounded-xl border border-sky-200 bg-sky-50 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-sky-700">
+              What this changed in your plan
             </p>
-            <div className="mt-3 space-y-2 text-sm text-slate-600">
-              {evaluation.suggestedSprintEdits.length > 0 ? (
-                evaluation.suggestedSprintEdits.map((item) => <p key={item}>- {item}</p>)
+            <div className="mt-3 space-y-2 text-sm text-sky-900">
+              {evaluation.planUpdate ? (
+                <>
+                  {evaluation.planUpdate.weak && evaluation.planUpdate.gapSkillArea && (
+                    <p>
+                      <span className="font-semibold">{evaluation.planUpdate.gapSkillArea}</span> moved to the top of
+                      your plan, and its finished concepts are back for review today.
+                    </p>
+                  )}
+                  {evaluation.planUpdate.strong && (
+                    <p>
+                      This answer counts as proof
+                      {evaluation.planUpdate.gapSkillArea ? (
+                        <> for <span className="font-semibold">{evaluation.planUpdate.gapSkillArea}</span></>
+                      ) : null}
+                      .
+                    </p>
+                  )}
+                  {!evaluation.planUpdate.weak && !evaluation.planUpdate.strong && (
+                    <p>Solid, but not strong enough to count as proof yet. A 4/5 run does.</p>
+                  )}
+                  {evaluation.planUpdate.changes.map((change) => (
+                    <p key={change.skillArea}>
+                      {change.skillArea}: {change.from} → {change.to}
+                    </p>
+                  ))}
+                </>
               ) : (
-                <p>Keep practicing this mode weekly until the story sounds natural.</p>
+                <p>Scores from this run are saved to your practice history.</p>
               )}
+              <div className="flex flex-wrap gap-3 pt-1">
+                <RouterLink to="/plan" className="text-sm font-semibold text-sky-700 underline-offset-2 hover:underline">
+                  Open plan
+                </RouterLink>
+                <RouterLink to="/today" className="text-sm font-semibold text-sky-700 underline-offset-2 hover:underline">
+                  Go to Today
+                </RouterLink>
+              </div>
             </div>
           </div>
         </div>
@@ -229,6 +261,13 @@ export default function MockInterview() {
     try {
       const items = await getMockInterviewHistory(goalId);
       setHistory(items);
+      // Show the latest scorecard instead of an empty panel.
+      const latest = items.find((item) => item.status === 'completed');
+      if (latest && !runIdFromQuery) {
+        getMockInterviewRun(latest.id)
+          .then((loaded) => setRun((current) => current ?? loaded))
+          .catch(() => {});
+      }
     } finally {
       setHistoryLoading(false);
     }

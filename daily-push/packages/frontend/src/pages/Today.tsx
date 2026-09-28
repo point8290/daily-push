@@ -8,6 +8,7 @@ import SurfaceCard from '../components/ui/SurfaceCard';
 import {
   completeSession,
   evaluateSessionArtifact,
+  getGoalProgress,
   getGoalWeeklyCheckin,
   getNodeResources,
   getSuggestedNextGoals,
@@ -17,6 +18,8 @@ import {
   saveSessionArtifact,
   startSession,
   trackEvent,
+  type GapChange,
+  type GoalGapProgress,
   type GoalWeeklyCheckinState,
   type NodeResource,
   type SessionArtifactEvaluation,
@@ -232,6 +235,9 @@ export default function Today() {
   const [submitting, setSubmitting] = useState(false);
   const [unlockedTitles, setUnlockedTitles] = useState<string[]>([]);
   const [milestones, setMilestones] = useState<string[]>([]);
+  const [gapChanges, setGapChanges] = useState<GapChange[]>([]);
+  const [requeued, setRequeued] = useState(false);
+  const [gapProgress, setGapProgress] = useState<GoalGapProgress | null>(null);
   const [sessionStartedAt, setSessionStartedAt] = useState<Date | null>(null);
   const [resources, setResources] = useState<NodeResource[]>([]);
   const [task, setTask] = useState<SessionTask | null>(null);
@@ -286,6 +292,9 @@ export default function Today() {
     try {
       const todayData = await getToday();
       setData(todayData);
+      if (todayData.goal?.id) {
+        getGoalProgress(todayData.goal.id).then(setGapProgress).catch(() => setGapProgress(null));
+      }
       void trackEvent({
         eventKey: 'today_viewed',
         goalId: todayData.goal?.id,
@@ -496,16 +505,22 @@ export default function Today() {
 
       setUnlockedTitles(result.unlockedNodeTitles ?? []);
       setMilestones(result.newMilestones ?? []);
+      setGapChanges(result.gapChanges ?? []);
+      setRequeued(Boolean(result.requeued));
       setStage('done');
 
       if (result.newMilestones?.includes('100% complete') && data?.goal?.id) {
         getSuggestedNextGoals(data.goal.id).then(setNextGoals).catch(() => {});
       }
 
+      // Give people time to read what changed in their plan.
+      const hasNews = (result.gapChanges?.length ?? 0) > 0 || result.requeued;
       setTimeout(async () => {
         resetSessionState();
+        setGapChanges([]);
+        setRequeued(false);
         await load();
-      }, 2500);
+      }, hasNews ? 5000 : 2500);
     } catch {
       setError('Failed to save session. Try again.');
       setSubmitting(false);
@@ -660,7 +675,7 @@ export default function Today() {
             {nextGoals.map((suggestion) => (
               <Link
                 key={suggestion.profileId}
-                to="/goals/new"
+                to={`/goals/new?prompt=${encodeURIComponent(suggestion.title)}`}
                 className="block rounded-xl border border-slate-200 bg-white p-4 shadow-[var(--shadow-xs)] transition-colors hover:border-sky-300"
               >
                 <div className="flex items-start justify-between gap-2">
@@ -709,6 +724,27 @@ export default function Today() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
+        {requeued && (
+          <div className="max-w-md rounded-xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800">
+            You rated this low, so it stays open. It comes back tomorrow, and what depends on it waits until then.
+          </div>
+        )}
+        {gapChanges.length > 0 && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-800">
+            {gapChanges.map((change) => (
+              <p key={change.skillArea}>
+                <span className="font-semibold">{change.skillArea}</span>
+                {change.to === 'closed'
+                  ? ' is now closed'
+                  : change.to === 'proven'
+                    ? ' is closed and proven'
+                    : change.to === 'closing'
+                      ? ' is on its way (closing)'
+                      : ` is now ${change.to}`}
+              </p>
+            ))}
+          </div>
+        )}
         {unlockedTitles.length > 0 && (
           <div className="rounded-xl border border-sky-200 bg-sky-50 px-5 py-3 text-sm font-medium text-sky-700">
             Unlocked: {unlockedTitles.join(', ')}
@@ -1168,7 +1204,7 @@ export default function Today() {
         <Card className="space-y-3">
           <div className="flex items-baseline justify-between gap-4">
             <p className="truncate text-sm font-semibold text-slate-800">{goal.title}</p>
-            <span className="shrink-0 text-xs font-medium text-sky-700">View goal →</span>
+            <span className="shrink-0 text-xs font-medium text-sky-700">Open plan →</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-100">
             <div
@@ -1180,6 +1216,16 @@ export default function Today() {
             {goal.doneNodes} of {goal.totalNodes} concepts done · {weeksLeftLabel}
             {streak > 0 ? ` · ${streak}-day streak` : ''}
           </p>
+          {gapProgress && gapProgress.gaps.length > 0 && (
+            <p className="text-xs text-slate-500">
+              <span className="font-semibold text-slate-700">{gapProgress.readinessPct}% ready</span>
+              {' · '}
+              {gapProgress.counts.closed + gapProgress.counts.proven} of {gapProgress.gaps.length} gaps closed
+              {gapProgress.gaps.find((gap) => gap.needsPractice)
+                ? ` · practice needed: ${gapProgress.gaps.find((gap) => gap.needsPractice)?.skillArea}`
+                : ''}
+            </p>
+          )}
         </Card>
       </Link>
 

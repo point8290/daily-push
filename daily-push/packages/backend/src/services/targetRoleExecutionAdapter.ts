@@ -213,6 +213,82 @@ async function updateTargetRoleExecutionLinks(params: {
       params.sprintId ?? null,
     ],
   );
+  // The plan's deadline row points at the role it prepares for.
+  await pool.query(
+    `UPDATE goal_sprints SET target_role_id = $2
+      WHERE user_id = $1 AND goal_id = $3`,
+    [params.userId, params.targetRoleId, params.goalId],
+  );
+}
+
+/**
+ * A newer upgrade plan (for example after a reassessment) adds its new gaps
+ * and topics to the plan the user is already working on. Finished work stays.
+ */
+async function mergeUpgradePlanIntoGoal(params: {
+  userId: string;
+  goal: any;
+  targetRole: TargetRole;
+  upgradePlan: UpgradePlan;
+}): Promise<number> {
+  const { goal, upgradePlan } = params;
+  if (goal?.raw?.upgradePlanId === upgradePlan.id) return 0;
+  const plan = buildPlanFromTargetRole({ targetRole: params.targetRole, upgradePlan });
+  const norm = (value: unknown) =>
+    String(value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const gaps: any[] = Array.isArray(goal.skillGaps) ? [...goal.skillGaps] : [];
+  const topics: any[] = Array.isArray(goal.learningTopics) ? [...goal.learningTopics] : [];
+  const covered = (area: string) =>
+    gaps.some((gap) => {
+      const existing = norm(gap?.structured?.skillArea);
+      const incoming = norm(area);
+      return Boolean(existing) && Boolean(incoming) && (existing.includes(incoming) || incoming.includes(existing));
+    });
+
+  let added = 0;
+  for (let index = 0; index < plan.skillGaps.length; index += 1) {
+    const gap = plan.skillGaps[index];
+    if (covered(gap.skillArea)) continue;
+    const gapId = new ObjectId();
+    gaps.push({
+      _id: gapId,
+      raw: null,
+      userConfirmed: false,
+      structured: { ...gap, status: 'open', userConfirmed: false },
+    });
+    const topic = plan.learningTopics[index];
+    if (topic) {
+      topics.push({
+        _id: new ObjectId(),
+        skillGapId: gapId,
+        raw: null,
+        createdAt: new Date(),
+        completedAt: null,
+        structured: {
+          ...topic,
+          decompositionStatus: 'pending',
+          decompositionAttempts: 0,
+          status: 'pending',
+          position: topics.length + 1,
+          actualWeeks: null,
+        },
+      });
+    }
+    added += 1;
+  }
+
+  await getDb().collection('goals').updateOne(
+    { _id: goal._id, userId: params.userId },
+    {
+      $set: {
+        skillGaps: gaps,
+        learningTopics: topics,
+        'raw.upgradePlanId': upgradePlan.id,
+        updatedAt: new Date(),
+      },
+    },
+  );
+  return added;
 }
 
 async function getSprintId(userId: string, goalId: string): Promise<string | null> {
@@ -365,6 +441,12 @@ export async function createGoalFromTargetRoleUpgradePlan(params: {
   });
   if (existingGoal) {
     const goalId = existingGoal._id.toString();
+    await mergeUpgradePlanIntoGoal({
+      userId: params.userId,
+      goal: existingGoal,
+      targetRole,
+      upgradePlan,
+    });
     await updateTargetRoleExecutionLinks({
       userId: params.userId,
       targetRoleId: params.targetRoleId,
@@ -416,9 +498,6 @@ export async function createGoalFromTargetRoleUpgradePlan(params: {
     skillGaps: [],
     learningTopics: [],
     milestones: [],
-    adjustments: [],
-    reflections: [],
-    sprint: null,
     status: 'intake_in_progress',
     stage: 'intake',
     isPrimary: true,

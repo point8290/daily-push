@@ -1,10 +1,7 @@
-import { ObjectId } from "mongodb";
-import { config } from "../config";
-import { getDb } from "../db/mongo";
 import { pool } from "../db/postgres";
 import { callClaudeWithUsage, parseJSON } from "./claude";
 import { recordLlmUsage } from "./llmUsage";
-import { analyzeRepoEvidence, type RepoSummary } from "./repoAnalysis";
+import type { RepoSummary } from "./repoAnalysis";
 import { getRoleMarketProfile } from "./roleMarketCatalog";
 import { getTargetRole } from "./targetRoles";
 import { buildUserContext } from "./userContext";
@@ -158,8 +155,21 @@ export interface GoalJobTargetRecord {
   lastAnalyzedAt: string | null;
 }
 
+export const APPLICATION_STATUSES = [
+  "saved",
+  "applied",
+  "interviewing",
+  "offer",
+  "rejected",
+  "withdrawn",
+] as const;
+export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
+
 export interface ResumeApplicationWorkspace extends GoalJobTargetRecord {
   id: string;
+  status: ApplicationStatus;
+  statusUpdatedAt: string | null;
+  appliedAt: string | null;
   targetRoleId: string | null;
   targetRoleTitle: string | null;
   title: string;
@@ -167,34 +177,6 @@ export interface ResumeApplicationWorkspace extends GoalJobTargetRecord {
   linkedSprintCreatedAt: string | null;
   createdAt: string;
   updatedAt: string;
-}
-
-interface JobTargetRow {
-  resume_id: string | null;
-  target_role: string | null;
-  target_company: string | null;
-  jd_text: string | null;
-  parsed_jd: ParsedJobDescription | Record<string, unknown>;
-  resume_summary: ResumeSummary | Record<string, unknown>;
-  gap_report: GoalGapReport | Record<string, unknown>;
-  tailored_resume: TailoredResume | Record<string, unknown>;
-  tailored_resume_generated_at: string | null;
-  repo_url: string | null;
-  repo_summary: RepoSummary | Record<string, unknown>;
-  last_analyzed_at: string | null;
-}
-
-interface GlobalResumeWorkspaceRow {
-  resume_id: string | null;
-  target_role: string | null;
-  target_company: string | null;
-  jd_text: string | null;
-  parsed_jd: ParsedJobDescription | Record<string, unknown>;
-  resume_summary: ResumeSummary | Record<string, unknown>;
-  gap_report: GoalGapReport | Record<string, unknown>;
-  tailored_resume: TailoredResume | Record<string, unknown>;
-  tailored_resume_generated_at: string | null;
-  last_analyzed_at: string | null;
 }
 
 interface ResumeApplicationRow {
@@ -215,6 +197,9 @@ interface ResumeApplicationRow {
   linked_goal_id: string | null;
   linked_sprint_created_at: string | null;
   last_analyzed_at: string | null;
+  status: ApplicationStatus;
+  status_updated_at: string | null;
+  applied_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1809,39 +1794,6 @@ Return JSON:
   }
 }
 
-export async function saveGoalResume(
-  userId: string,
-  goalId: string,
-  rawText: string,
-  source: "upload" | "linkedin_paste" | "manual" = "manual",
-): Promise<{ resumeId: string; resumeSummary: ResumeSummary }> {
-  const parsed = await parseResume(userId, goalId, rawText);
-  const { rows } = await pool.query<{ id: string }>(
-    `INSERT INTO user_resume
-       (user_id, raw_text, parsed_data, parsed_at, source, created_at, updated_at)
-     VALUES
-       ($1, $2, $3::jsonb, NOW(), $4, NOW(), NOW())
-     RETURNING id`,
-    [userId, rawText, JSON.stringify(parsed), source],
-  );
-
-  const resumeId = rows[0].id;
-  await pool.query(
-    `INSERT INTO job_targets
-       (user_id, goal_id, resume_id, resume_summary, updated_at)
-     VALUES
-       ($1, $2, $3, $4::jsonb, NOW())
-     ON CONFLICT (user_id, goal_id)
-     DO UPDATE SET
-       resume_id = EXCLUDED.resume_id,
-       resume_summary = EXCLUDED.resume_summary,
-       updated_at = NOW()`,
-    [userId, goalId, resumeId, JSON.stringify(parsed)],
-  );
-
-  return { resumeId, resumeSummary: parsed };
-}
-
 export async function saveGlobalResume(
   userId: string,
   rawText: string,
@@ -1857,202 +1809,7 @@ export async function saveGlobalResume(
     [userId, rawText, JSON.stringify(parsed), source],
   );
 
-  const resumeId = rows[0].id;
-  await pool.query(
-    `INSERT INTO user_resume_workspaces
-       (user_id, resume_id, resume_summary, updated_at)
-     VALUES
-       ($1, $2, $3::jsonb, NOW())
-     ON CONFLICT (user_id)
-     DO UPDATE SET
-       resume_id = EXCLUDED.resume_id,
-       resume_summary = EXCLUDED.resume_summary,
-       updated_at = NOW()`,
-    [userId, resumeId, JSON.stringify(parsed)],
-  );
-
-  return { resumeId, resumeSummary: parsed };
-}
-
-export async function saveGoalJobDescription(
-  userId: string,
-  goalId: string,
-  input: {
-    targetRole?: string | null;
-    targetCompany?: string | null;
-    jdText: string;
-  },
-): Promise<{ parsedJd: ParsedJobDescription }> {
-  const targetRole = trimToNull(input.targetRole) ?? null;
-  const targetCompany = trimToNull(input.targetCompany) ?? null;
-  const jdText = input.jdText.trim();
-  if (!jdText) {
-    throw new Error("Job description text is required");
-  }
-
-  const parsedJd = await parseJobDescription(
-    userId,
-    goalId,
-    jdText,
-    targetRole,
-  );
-  await pool.query(
-    `INSERT INTO job_targets
-       (user_id, goal_id, target_role, target_company, jd_text, parsed_jd, updated_at)
-     VALUES
-       ($1, $2, $3, $4, $5, $6::jsonb, NOW())
-     ON CONFLICT (user_id, goal_id)
-     DO UPDATE SET
-       target_role = EXCLUDED.target_role,
-       target_company = EXCLUDED.target_company,
-       jd_text = EXCLUDED.jd_text,
-       parsed_jd = EXCLUDED.parsed_jd,
-       updated_at = NOW()`,
-    [
-      userId,
-      goalId,
-      parsedJd.targetRole ?? targetRole,
-      targetCompany,
-      jdText,
-      JSON.stringify(parsedJd),
-    ],
-  );
-
-  return { parsedJd };
-}
-
-export async function saveGlobalJobDescription(
-  userId: string,
-  input: {
-    targetRole?: string | null;
-    targetCompany?: string | null;
-    jdText: string;
-  },
-): Promise<{ parsedJd: ParsedJobDescription }> {
-  const targetRole = trimToNull(input.targetRole) ?? null;
-  const targetCompany = trimToNull(input.targetCompany) ?? null;
-  const jdText = input.jdText.trim();
-  if (!jdText) {
-    throw new Error("Job description text is required");
-  }
-
-  const parsedJd = await parseJobDescription(
-    userId,
-    "global-resume",
-    jdText,
-    targetRole,
-  );
-  await pool.query(
-    `INSERT INTO user_resume_workspaces
-       (user_id, target_role, target_company, jd_text, parsed_jd, updated_at)
-     VALUES
-       ($1, $2, $3, $4, $5::jsonb, NOW())
-     ON CONFLICT (user_id)
-     DO UPDATE SET
-       target_role = EXCLUDED.target_role,
-       target_company = EXCLUDED.target_company,
-       jd_text = EXCLUDED.jd_text,
-       parsed_jd = EXCLUDED.parsed_jd,
-       updated_at = NOW()`,
-    [
-      userId,
-      parsedJd.targetRole ?? targetRole,
-      targetCompany,
-      jdText,
-      JSON.stringify(parsedJd),
-    ],
-  );
-
-  return { parsedJd };
-}
-
-export async function saveGoalRepoImport(
-  userId: string,
-  goalId: string,
-  input: {
-    repoUrl: string;
-    repoContext?: string | null;
-    targetRole?: string | null;
-    targetCompany?: string | null;
-  },
-): Promise<{ repoSummary: RepoSummary }> {
-  const repoUrl = trimToNull(input.repoUrl);
-  if (!repoUrl) {
-    throw new Error("Repository URL is required");
-  }
-  if (!config.career.gapReportRepoEvidenceEnabled) {
-    throw new Error(
-      "Repository evidence is currently disabled for gap reports.",
-    );
-  }
-
-  const current = await getGoalGapReportRecord(userId, goalId);
-  const repoSummary = await analyzeRepoEvidence({
-    repoUrl,
-    repoContext: trimToNull(input.repoContext),
-    targetRole: trimToNull(input.targetRole) ?? current.targetRole,
-    targetCompany: trimToNull(input.targetCompany) ?? current.targetCompany,
-    parsedJd: current.parsedJd,
-  });
-
-  await pool.query(
-    `INSERT INTO job_targets
-       (user_id, goal_id, repo_url, repo_summary, updated_at)
-     VALUES
-       ($1, $2, $3, $4::jsonb, NOW())
-     ON CONFLICT (user_id, goal_id)
-     DO UPDATE SET
-       repo_url = EXCLUDED.repo_url,
-       repo_summary = EXCLUDED.repo_summary,
-       updated_at = NOW()`,
-    [userId, goalId, repoSummary.repoUrl, JSON.stringify(repoSummary)],
-  );
-
-  return { repoSummary };
-}
-
-async function getLatestResumeForGoal(
-  userId: string,
-  goalId: string,
-): Promise<ResumeRow | null> {
-  const { rows } = await pool.query<ResumeRow>(
-    `SELECT ur.id, ur.raw_text, ur.parsed_data
-       FROM job_targets jt
-       LEFT JOIN user_resume ur
-         ON ur.id = jt.resume_id
-      WHERE jt.user_id = $1
-        AND jt.goal_id = $2
-      LIMIT 1`,
-    [userId, goalId],
-  );
-  return rows[0] ?? null;
-}
-
-async function getJobTargetRow(
-  userId: string,
-  goalId: string,
-): Promise<JobTargetRow | null> {
-  const { rows } = await pool.query<JobTargetRow>(
-    `SELECT
-       resume_id,
-       target_role,
-       target_company,
-       jd_text,
-       parsed_jd,
-       resume_summary,
-       gap_report,
-       tailored_resume,
-       tailored_resume_generated_at::text,
-       repo_url,
-       repo_summary,
-       last_analyzed_at::text
-     FROM job_targets
-     WHERE user_id = $1
-       AND goal_id = $2
-     LIMIT 1`,
-    [userId, goalId],
-  );
-  return rows[0] ?? null;
+  return { resumeId: rows[0].id, resumeSummary: parsed };
 }
 
 async function getLatestGlobalResume(
@@ -2060,76 +1817,13 @@ async function getLatestGlobalResume(
 ): Promise<ResumeRow | null> {
   const { rows } = await pool.query<ResumeRow>(
     `SELECT ur.id, ur.raw_text, ur.parsed_data
-       FROM user_resume_workspaces rw
-       LEFT JOIN user_resume ur
-         ON ur.id = rw.resume_id
-      WHERE rw.user_id = $1
+       FROM user_resume ur
+      WHERE ur.user_id = $1
+      ORDER BY ur.created_at DESC
       LIMIT 1`,
     [userId],
   );
   return rows[0] ?? null;
-}
-
-async function getGlobalResumeWorkspaceRow(
-  userId: string,
-): Promise<GlobalResumeWorkspaceRow | null> {
-  const { rows } = await pool.query<GlobalResumeWorkspaceRow>(
-    `SELECT
-       resume_id,
-       target_role,
-       target_company,
-       jd_text,
-       parsed_jd,
-       resume_summary,
-       gap_report,
-       tailored_resume,
-       tailored_resume_generated_at::text,
-       last_analyzed_at::text
-     FROM user_resume_workspaces
-     WHERE user_id = $1
-     LIMIT 1`,
-    [userId],
-  );
-  return rows[0] ?? null;
-}
-
-export async function getGlobalResumeRecord(
-  userId: string,
-): Promise<GoalJobTargetRecord> {
-  const [workspace, resumeRow] = await Promise.all([
-    getGlobalResumeWorkspaceRow(userId),
-    getLatestGlobalResume(userId),
-  ]);
-
-  const resumeSummary =
-    safeJsonObject<ResumeSummary>(workspace?.resume_summary) ??
-    safeJsonObject<ResumeSummary>(resumeRow?.parsed_data) ??
-    null;
-  const parsedJd =
-    safeJsonObject<ParsedJobDescription>(workspace?.parsed_jd) ?? null;
-  const gapReport = safeJsonObject<GoalGapReport>(workspace?.gap_report);
-  const tailoredResume = safeJsonObject<TailoredResume>(
-    workspace?.tailored_resume,
-  );
-
-  return {
-    targetRole: trimToNull(workspace?.target_role) ?? null,
-    targetCompany: trimToNull(workspace?.target_company) ?? null,
-    jdText: trimToNull(workspace?.jd_text) ?? null,
-    resumeText: trimToNull(resumeRow?.raw_text) ?? null,
-    resumeSummary,
-    parsedJd,
-    repoUrl: null,
-    repoSummary: null,
-    gapReport:
-      gapReport && Object.keys(gapReport).length > 0 ? gapReport : null,
-    tailoredResume:
-      tailoredResume && Object.keys(tailoredResume).length > 0
-        ? tailoredResume
-        : null,
-    tailoredResumeGeneratedAt: workspace?.tailored_resume_generated_at ?? null,
-    lastAnalyzedAt: workspace?.last_analyzed_at ?? null,
-  };
 }
 
 function mapResumeApplicationRow(
@@ -2165,6 +1859,9 @@ function mapResumeApplicationRow(
     lastAnalyzedAt: row.last_analyzed_at,
     linkedGoalId: trimToNull(row.linked_goal_id),
     linkedSprintCreatedAt: row.linked_sprint_created_at,
+    status: row.status ?? "saved",
+    statusUpdatedAt: row.status_updated_at ?? null,
+    appliedAt: row.applied_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -2193,6 +1890,9 @@ async function getResumeApplicationRow(
        ra.linked_goal_id,
        ra.linked_sprint_created_at::text,
        ra.last_analyzed_at::text,
+       ra.status,
+       ra.status_updated_at::text,
+       ra.applied_at::text,
        ra.created_at::text,
        ra.updated_at::text
      FROM resume_applications ra
@@ -2233,6 +1933,9 @@ export async function listResumeApplications(
        ra.linked_goal_id,
        ra.linked_sprint_created_at::text,
        ra.last_analyzed_at::text,
+       ra.status,
+       ra.status_updated_at::text,
+       ra.applied_at::text,
        ra.created_at::text,
        ra.updated_at::text
      FROM resume_applications ra
@@ -2437,279 +2140,82 @@ export async function linkResumeApplicationGoal(
   );
 }
 
+/**
+ * The resume/job-post analysis that belongs to a goal. Applications are the
+ * single home for these reports; a goal uses the most recent application
+ * linked to it (created from "Turn gaps into a plan"), and otherwise just the
+ * user's latest resume.
+ */
 export async function getGoalGapReportRecord(
   userId: string,
   goalId: string,
 ): Promise<GoalJobTargetRecord> {
-  const [jobTarget, resumeRow] = await Promise.all([
-    getJobTargetRow(userId, goalId),
-    getLatestResumeForGoal(userId, goalId),
-  ]);
-
-  const resumeSummary =
-    safeJsonObject<ResumeSummary>(jobTarget?.resume_summary) ??
-    safeJsonObject<ResumeSummary>(resumeRow?.parsed_data) ??
-    null;
-  const parsedJd =
-    safeJsonObject<ParsedJobDescription>(jobTarget?.parsed_jd) ?? null;
-  const repoSummaryRaw = config.career.gapReportRepoEvidenceEnabled
-    ? safeJsonObject<RepoSummary>(jobTarget?.repo_summary)
+  const { rows } = await pool.query<{ id: string }>(
+    `SELECT id
+       FROM resume_applications
+      WHERE user_id = $1
+        AND linked_goal_id = $2
+      ORDER BY updated_at DESC
+      LIMIT 1`,
+    [userId, goalId],
+  );
+  const applicationRow = rows[0]
+    ? await getResumeApplicationRow(userId, rows[0].id)
     : null;
-  const repoSummary =
-    repoSummaryRaw && Object.keys(repoSummaryRaw).length > 0
-      ? repoSummaryRaw
-      : null;
-  const gapReport = safeJsonObject<GoalGapReport>(jobTarget?.gap_report);
-  const tailoredResume = safeJsonObject<TailoredResume>(
-    jobTarget?.tailored_resume,
-  );
 
+  if (applicationRow) {
+    const application = mapResumeApplicationRow(applicationRow);
+    return {
+      targetRole: application.targetRole,
+      targetCompany: application.targetCompany,
+      jdText: application.jdText,
+      resumeText: application.resumeText,
+      resumeSummary: application.resumeSummary,
+      parsedJd: application.parsedJd,
+      repoUrl: null,
+      repoSummary: null,
+      gapReport: application.gapReport,
+      tailoredResume: application.tailoredResume,
+      tailoredResumeGeneratedAt: application.tailoredResumeGeneratedAt,
+      lastAnalyzedAt: application.lastAnalyzedAt,
+    };
+  }
+
+  const resumeRow = await getLatestGlobalResume(userId);
   return {
-    targetRole: trimToNull(jobTarget?.target_role) ?? null,
-    targetCompany: trimToNull(jobTarget?.target_company) ?? null,
-    jdText: trimToNull(jobTarget?.jd_text) ?? null,
+    targetRole: null,
+    targetCompany: null,
+    jdText: null,
     resumeText: trimToNull(resumeRow?.raw_text) ?? null,
-    resumeSummary,
-    parsedJd,
-    repoUrl: config.career.gapReportRepoEvidenceEnabled
-      ? (trimToNull(jobTarget?.repo_url) ?? repoSummary?.repoUrl ?? null)
-      : null,
-    repoSummary,
-    gapReport:
-      gapReport && Object.keys(gapReport).length > 0 ? gapReport : null,
-    tailoredResume:
-      tailoredResume && Object.keys(tailoredResume).length > 0
-        ? tailoredResume
-        : null,
-    tailoredResumeGeneratedAt: jobTarget?.tailored_resume_generated_at ?? null,
-    lastAnalyzedAt: jobTarget?.last_analyzed_at ?? null,
-  };
-}
-
-export async function rebuildGoalGapReport(
-  userId: string,
-  goalId: string,
-): Promise<GoalJobTargetRecord> {
-  const db = getDb();
-  const goal = await db.collection("goals").findOne({
-    _id: new ObjectId(goalId),
-    userId,
-  });
-
-  if (!goal) {
-    throw new Error("Goal not found");
-  }
-
-  const current = await getGoalGapReportRecord(userId, goalId);
-  if (!current.resumeText || !current.resumeSummary) {
-    throw new Error("Save a resume before generating a gap report.");
-  }
-  if (!current.jdText || !current.parsedJd) {
-    throw new Error(
-      "Save a target job description before generating a gap report.",
-    );
-  }
-
-  const sprintTargetRole =
-    trimToNull(goal?.sprint?.targetRole) ?? current.targetRole;
-  const sprintTargetCompany =
-    trimToNull(goal?.sprint?.targetCompany) ?? current.targetCompany;
-
-  const report = await buildGapReport({
-    userId,
-    goalId,
-    goalTitle: trimToNull(goal?.structured?.title) ?? null,
-    sprintTargetRole,
-    sprintTargetCompany,
-    resumeSummary: current.resumeSummary,
-    parsedJd: current.parsedJd,
-    jdText: current.jdText,
-    repoSummary: config.career.gapReportRepoEvidenceEnabled
-      ? current.repoSummary
-      : null,
-  });
-
-  await pool.query(
-    `UPDATE job_targets
-        SET gap_report = $3::jsonb,
-            last_analyzed_at = NOW(),
-            updated_at = NOW()
-      WHERE user_id = $1
-        AND goal_id = $2`,
-    [userId, goalId, JSON.stringify(report)],
-  );
-
-  return {
-    ...current,
-    targetRole: current.targetRole ?? sprintTargetRole ?? report.targetRole,
-    targetCompany: current.targetCompany ?? sprintTargetCompany,
-    gapReport: report,
-    lastAnalyzedAt: new Date().toISOString(),
-  };
-}
-
-export async function rebuildGlobalGapReport(
-  userId: string,
-): Promise<GoalJobTargetRecord> {
-  const current = await getGlobalResumeRecord(userId);
-  if (!current.resumeText || !current.resumeSummary) {
-    throw new Error("Save a resume before generating a gap report.");
-  }
-  if (!current.jdText || !current.parsedJd) {
-    throw new Error(
-      "Save a target job description before generating a gap report.",
-    );
-  }
-
-  const report = await buildGapReport({
-    userId,
-    goalId: "global-resume",
-    goalTitle: null,
-    sprintTargetRole: current.targetRole,
-    sprintTargetCompany: current.targetCompany,
-    resumeSummary: current.resumeSummary,
-    parsedJd: current.parsedJd,
-    jdText: current.jdText,
+    resumeSummary: safeJsonObject<ResumeSummary>(resumeRow?.parsed_data) ?? null,
+    parsedJd: null,
+    repoUrl: null,
     repoSummary: null,
-  });
-
-  await pool.query(
-    `UPDATE user_resume_workspaces
-        SET gap_report = $2::jsonb,
-            last_analyzed_at = NOW(),
-            updated_at = NOW()
-      WHERE user_id = $1`,
-    [userId, JSON.stringify(report)],
-  );
-
-  return {
-    ...current,
-    targetRole: current.targetRole ?? report.targetRole,
-    gapReport: report,
-    lastAnalyzedAt: new Date().toISOString(),
+    gapReport: null,
+    tailoredResume: null,
+    tailoredResumeGeneratedAt: null,
+    lastAnalyzedAt: null,
   };
 }
 
-export async function generateTailoredResume(
+/** Move an application through saved → applied → interviewing → offer. */
+export async function updateResumeApplicationStatus(
   userId: string,
-  goalId: string,
-): Promise<GoalJobTargetRecord> {
-  const db = getDb();
-  const goal = await db.collection("goals").findOne({
-    _id: new ObjectId(goalId),
-    userId,
-  });
-
-  if (!goal) {
-    throw new Error("Goal not found");
-  }
-
-  const current = await getGoalGapReportRecord(userId, goalId);
-  if (!current.resumeText || !current.resumeSummary) {
-    throw new Error("Save a resume before generating a tailored resume.");
-  }
-  if (!current.jdText || !current.parsedJd) {
-    throw new Error(
-      "Save a target job description before generating a tailored resume.",
-    );
-  }
-
-  const sprintTargetRole =
-    trimToNull(goal?.sprint?.targetRole) ?? current.targetRole;
-  const sprintTargetCompany =
-    trimToNull(goal?.sprint?.targetCompany) ?? current.targetCompany;
-  const gapReport =
-    current.gapReport ??
-    fallbackGapReport({
-      goalTitle: trimToNull(goal?.structured?.title) ?? null,
-      targetRole: current.parsedJd.targetRole ?? sprintTargetRole,
-      resumeSummary: current.resumeSummary,
-      parsedJd: current.parsedJd,
-      repoSummary: null,
-    });
-
-  const tailoredResume = await buildTailoredResume({
-    userId,
-    goalId,
-    targetRole: sprintTargetRole,
-    targetCompany: sprintTargetCompany,
-    resumeText: current.resumeText,
-    resumeSummary: current.resumeSummary,
-    parsedJd: current.parsedJd,
-    jdText: current.jdText,
-    gapReport,
-  });
-
-  await pool.query(
-    `UPDATE job_targets
-        SET tailored_resume = $3::jsonb,
-            tailored_resume_generated_at = NOW(),
+  applicationId: string,
+  status: ApplicationStatus,
+): Promise<ResumeApplicationWorkspace | null> {
+  const { rowCount } = await pool.query(
+    `UPDATE resume_applications
+        SET status = $3::varchar,
+            status_updated_at = NOW(),
+            applied_at = CASE
+              WHEN $3::varchar IN ('applied', 'interviewing', 'offer') THEN COALESCE(applied_at, NOW())
+              ELSE applied_at
+            END,
             updated_at = NOW()
-      WHERE user_id = $1
-        AND goal_id = $2`,
-    [userId, goalId, JSON.stringify(tailoredResume)],
+      WHERE user_id = $1 AND id = $2`,
+    [userId, applicationId, status],
   );
-
-  return {
-    ...current,
-    targetRole:
-      current.targetRole ?? sprintTargetRole ?? tailoredResume.targetRole,
-    targetCompany: current.targetCompany ?? sprintTargetCompany,
-    gapReport: current.gapReport ?? gapReport,
-    tailoredResume,
-    tailoredResumeGeneratedAt: new Date().toISOString(),
-  };
-}
-
-export async function generateGlobalTailoredResume(
-  userId: string,
-): Promise<GoalJobTargetRecord> {
-  const current = await getGlobalResumeRecord(userId);
-  if (!current.resumeText || !current.resumeSummary) {
-    throw new Error("Save a resume before generating a tailored resume.");
-  }
-  if (!current.jdText || !current.parsedJd) {
-    throw new Error(
-      "Save a target job description before generating a tailored resume.",
-    );
-  }
-
-  const gapReport =
-    current.gapReport ??
-    fallbackGapReport({
-      goalTitle: null,
-      targetRole: current.parsedJd.targetRole ?? current.targetRole,
-      resumeSummary: current.resumeSummary,
-      parsedJd: current.parsedJd,
-      repoSummary: null,
-    });
-
-  const tailoredResume = await buildTailoredResume({
-    userId,
-    goalId: "global-resume",
-    targetRole: current.targetRole,
-    targetCompany: current.targetCompany,
-    resumeText: current.resumeText,
-    resumeSummary: current.resumeSummary,
-    parsedJd: current.parsedJd,
-    jdText: current.jdText,
-    gapReport,
-  });
-
-  await pool.query(
-    `UPDATE user_resume_workspaces
-        SET tailored_resume = $2::jsonb,
-            tailored_resume_generated_at = NOW(),
-            updated_at = NOW()
-      WHERE user_id = $1`,
-    [userId, JSON.stringify(tailoredResume)],
-  );
-
-  return {
-    ...current,
-    targetRole: current.targetRole ?? tailoredResume.targetRole,
-    gapReport: current.gapReport ?? gapReport,
-    tailoredResume,
-    tailoredResumeGeneratedAt: new Date().toISOString(),
-  };
+  if (!rowCount) return null;
+  return getResumeApplication(userId, applicationId);
 }

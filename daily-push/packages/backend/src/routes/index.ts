@@ -1,9 +1,9 @@
 import { Router } from 'express';
+import demoRouter from './demo';
 import authRouter from './auth';
 import intakeRouter from './intake';
 import goalsRouter from './goals';
 import goalArtifactsRouter from './goalArtifacts';
-import goalCareerRouter from './goalCareer';
 import goalWeeklyRouter from './goalWeekly';
 import todayRouter from './today';
 import sessionsRouter from './sessions';
@@ -24,7 +24,6 @@ const router = Router();
 router.use('/auth', authRouter);
 router.use('/intake', intakeRouter);
 router.use('/goals', goalArtifactsRouter);
-router.use('/goals', goalCareerRouter);
 router.use('/goals', goalWeeklyRouter);
 router.use('/goals', goalsRouter);
 router.use('/today', todayRouter);
@@ -40,5 +39,6 @@ router.use('/events', eventsRouter);
 router.use('/me', meRouter);
 router.use('/billing', billingRouter);
 router.use('/news', newsRouter);
+router.use('/demo', demoRouter);
 
 export default router;

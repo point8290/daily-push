@@ -1,4 +1,5 @@
 import { pool } from '../db/postgres';
+import { syncGoalGaps } from './gapProgress';
 import { callClaudeWithUsage, parseJSON } from './claude';
 import { recordLlmUsage } from './llmUsage';
 import { publishSessionArtifactAsEvidence } from './candidateEvidence';
@@ -223,6 +224,21 @@ Return JSON:
   );
 
   await publishSessionArtifactAsEvidence(sessionId, userId).catch(() => {});
+
+  // Good work counts as proof for the gap this concept belongs to.
+  const { rows: goalRows } = await pool.query<{ goal_id: string }>(
+    `SELECT cn.goal_id
+       FROM study_sessions ss
+       JOIN concept_nodes cn ON cn.id = ss.node_id
+      WHERE ss.id = $1 AND ss.user_id = $2`,
+    [sessionId, userId],
+  );
+  if (goalRows[0]?.goal_id) {
+    await syncGoalGaps(userId, goalRows[0].goal_id, 'graded_work', {
+      sessionId,
+      score: evaluation.score,
+    }).catch(() => {});
+  }
 
   return evaluation;
 }

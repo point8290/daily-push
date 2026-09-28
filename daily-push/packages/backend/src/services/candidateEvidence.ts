@@ -992,13 +992,29 @@ async function getTargetRoleGoalContext(
     _id: new ObjectId(goalId),
     userId,
   });
+  if (!goal) return null;
   const targetRoleId = trimToNull(goal?.raw?.targetRoleId);
-  if (!goal || goal.raw?.source !== 'target_role' || !targetRoleId) return null;
-  return {
-    goalId,
-    targetRoleId,
-    targetRoleTitle: trimToNull(goal.raw?.targetRoleTitle),
-  };
+  if (goal.raw?.source === 'target_role' && targetRoleId) {
+    return {
+      goalId,
+      targetRoleId,
+      targetRoleTitle: trimToNull(goal.raw?.targetRoleTitle),
+    };
+  }
+  // Any plan linked to a saved role counts, however the plan was created.
+  const { rows } = await pool.query<{ id: string; title: string | null }>(
+    `SELECT ctr.id::text, ctr.title
+       FROM candidate_target_roles ctr
+       LEFT JOIN goal_sprints gs
+         ON gs.target_role_id = ctr.id AND gs.user_id = ctr.user_id
+      WHERE ctr.user_id = $1
+        AND (ctr.linked_goal_id = $2 OR gs.goal_id = $2)
+      ORDER BY ctr.updated_at DESC
+      LIMIT 1`,
+    [userId, goalId],
+  );
+  if (!rows[0]) return null;
+  return { goalId, targetRoleId: rows[0].id, targetRoleTitle: trimToNull(rows[0].title) };
 }
 
 function buildArtifactClaim(args: {
@@ -1034,17 +1050,17 @@ export async function publishArtifactEvidenceRow(
   userId: string,
   row: ArtifactEvidenceRow,
 ): Promise<EvidenceClaim | null> {
+  // Work on any plan is proof; it is tagged with the role when there is one.
   const context = await getTargetRoleGoalContext(userId, row.goal_id);
-  if (!context) return null;
   const claim = buildArtifactClaim({
     row,
-    targetRoleTitle: context.targetRoleTitle,
+    targetRoleTitle: context?.targetRoleTitle ?? null,
   });
   if (!claim) return null;
 
   await persistClaimWithMetadata(userId, claim, {
-    targetRoleId: context.targetRoleId,
-    goalId: context.goalId,
+    targetRoleId: context?.targetRoleId ?? null,
+    goalId: context?.goalId ?? row.goal_id,
     nodeId: row.node_id,
     sessionId: row.session_id,
     artifactId: row.artifact_id,
@@ -1179,3 +1195,49 @@ export async function getCandidateEvidenceProfile(
   assertValidCandidateEvidenceProfile(candidateEvidenceProfile);
   return candidateEvidenceProfile;
 }
+
+/**
+ * A strong mock interview answer (overall 4+/5) becomes a proof point, the
+ * same way graded session work does.
+ */
+export async function publishMockInterviewEvidence(
+  userId: string,
+  input: {
+    runId: string;
+    goalId: string;
+    mode: string;
+    overallScore: number;
+    summary: string;
+    targetRoleTitle: string | null;
+    targetRoleId: string | null;
+  },
+): Promise<EvidenceClaim | null> {
+  const label =
+    input.mode === 'system_design'
+      ? 'System design interview'
+      : input.mode === 'behavioral'
+        ? 'Behavioral interview'
+        : 'Project deep dive';
+  const claim = createClaim({
+    sourceType: 'mock_interview',
+    sourceId: input.runId,
+    sourceSection: input.mode,
+    snippet: input.summary,
+    normalizedClaim: `${label} practice scored ${input.overallScore}/5: ${input.summary}`.slice(0, 1400),
+    roleLabels: uniqueStrings([input.targetRoleTitle], 5),
+    projectName: label,
+    confidence: clamp(45 + input.overallScore * 9, 50, 90),
+    userVerified: input.overallScore >= 4,
+    createdAt: new Date().toISOString(),
+  });
+  if (!claim) return null;
+  await persistClaimWithMetadata(userId, claim, {
+    goalId: input.goalId,
+    targetRoleId: input.targetRoleId,
+    mockRunId: input.runId,
+    mode: input.mode,
+    overallScore: input.overallScore,
+  });
+  return claim;
+}
+

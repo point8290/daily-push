@@ -57,6 +57,12 @@ services:
       # Public demo: visitors get the Pro plan (with its limits) so every feature can be tried
       - key: DEMO_DEFAULT_PLAN
         value: sprint
+      # The shared public demo login. Create this account once by signing up
+      # on the site; its data is rebuilt from the seed once a day.
+      - key: DEMO_EMAIL
+        value: demo@dailypush.dev
+      - key: DEMO_RESET_TOKEN
+        generateValue: true
 
   - type: web
     name: topic-engine-api

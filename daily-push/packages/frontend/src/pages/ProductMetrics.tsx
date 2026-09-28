@@ -12,6 +12,8 @@ import {
   type RoleMarketPilotFeedbackSummary,
 } from '../api/client';
 import EmptyState from '../components/ui/EmptyState';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import PageHeader from '../components/ui/PageHeader';
 import SurfaceCard from '../components/ui/SurfaceCard';
 
@@ -283,7 +285,7 @@ function UsageTable({
   );
 }
 
-export default function ProductMetrics() {
+function ProductMetricsView() {
   const [windowDays, setWindowDays] = useState(30);
   const [summary, setSummary] = useState<ProductMetricsSummary | null>(null);
   const [aiUsage, setAiUsage] = useState<LlmUsageSummary | null>(null);
@@ -464,4 +466,12 @@ export default function ProductMetrics() {
       ) : null}
     </div>
   );
+}
+
+/** Operator-only page: everyone else goes back to Today instead of seeing an error. */
+export default function ProductMetrics() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user?.isOperator) return <Navigate to="/today" replace />;
+  return <ProductMetricsView />;
 }

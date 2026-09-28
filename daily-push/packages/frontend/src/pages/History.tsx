@@ -12,6 +12,7 @@ import {
   VStack,
 } from '@chakra-ui/react';
 import {
+  applyRecoveryAction,
   getGoalWeeklyCheckin,
   getPrimaryGoal,
   getSessionCalendar,
@@ -19,6 +20,7 @@ import {
   getWeeklyReport,
   saveGoalWeeklyCheckin,
   type GoalWeeklyCheckinState,
+  type RecoveryQuickFix,
   type WeeklyReport,
 } from '../api/client';
 import EmptyState from '../components/ui/EmptyState';
@@ -176,6 +178,7 @@ export default function History() {
   const [calendar, setCalendar] = useState<CalendarDay[]>([]);
   const [streak, setStreak] = useState<StreakData | null>(null);
   const [goal, setGoal] = useState<GoalReference | null>(null);
+  const [applyingFix, setApplyingFix] = useState<string | null>(null);
   const [weeklyReport, setWeeklyReport] = useState<WeeklyReport | null>(null);
   const [checkinState, setCheckinState] = useState<GoalWeeklyCheckinState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -314,6 +317,29 @@ export default function History() {
       setError(err?.response?.data?.error ?? 'Could not save weekly check-in.');
     } finally {
       setSavingCheckin(false);
+    }
+  };
+
+  const applyFix = async (fix: RecoveryQuickFix) => {
+    if (!goal) return;
+    setApplyingFix(fix.action);
+    setSaveMessage('');
+    setError('');
+    try {
+      const result = await applyRecoveryAction(
+        goal.id,
+        fix.action === 'move_date'
+          ? { action: 'move_date', weeks: fix.weeks }
+          : { action: 'reduce_hours', hours: fix.hours },
+      );
+      setSaveMessage(`${result.applied}. Your plan was updated.`);
+      if (weeklyReportsEnabled) {
+        setWeeklyReport(await getWeeklyReport(goal.id));
+      }
+    } catch (err: any) {
+      setError(err?.response?.data?.error ?? 'Could not update the plan.');
+    } finally {
+      setApplyingFix(null);
     }
   };
 
@@ -559,6 +585,21 @@ export default function History() {
                       <div className="mt-3 space-y-2 text-sm text-slate-600">
                         {recoveryPlan.actions.map((item) => <p key={item}>- {item}</p>)}
                       </div>
+                      {(recoveryPlan.quickFixes ?? []).length > 0 && (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {(recoveryPlan.quickFixes ?? []).map((fix) => (
+                            <button
+                              key={fix.action}
+                              type="button"
+                              onClick={() => applyFix(fix)}
+                              disabled={applyingFix !== null}
+                              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                            >
+                              {applyingFix === fix.action ? 'Updating…' : fix.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </SurfaceCard>
                   </SimpleGrid>
                 </Stack>

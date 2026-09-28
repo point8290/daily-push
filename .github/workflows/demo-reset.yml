@@ -1,0 +1,25 @@
+name: Reset demo account
+
+# Rebuilds the public demo account every night (01:30 IST) so visitors
+# always start from the same data. The demo also refreshes itself on the
+# first demo login each day, so this job is a backup.
+# Needs the repo secret DEMO_RESET_TOKEN (same value as on Render).
+on:
+  schedule:
+    - cron: "0 20 * * *"
+  workflow_dispatch:
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake the API
+        run: curl -s -o /dev/null --max-time 90 https://daily-push-api.onrender.com/health || true
+      - name: Reset demo data
+        env:
+          TOKEN: ${{ secrets.DEMO_RESET_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then echo "DEMO_RESET_TOKEN not set, skipping"; exit 0; fi
+          curl -sf --max-time 120 -X POST \
+            -H "x-demo-reset-token: $TOKEN" \
+            https://daily-push-api.onrender.com/api/demo/reset

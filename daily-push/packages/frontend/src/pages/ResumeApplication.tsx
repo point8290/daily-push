@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '@chakra-ui/react';
 import {
+  addApplicationGapsToPlan,
+  getPrimaryGoal,
+  updateApplicationStatus,
+  type ApplicationStatus,
   createGoalFromResumeApplication,
   createSprintFromResumeApplication,
   generateResumeApplicationTailoredResume,
@@ -46,6 +50,14 @@ function buildResumeDraftText(resume: TailoredResume): string {
   ].join('\n');
 }
 
+const STATUS_STEPS: Array<{ value: ApplicationStatus; label: string }> = [
+  { value: 'saved', label: 'Saved' },
+  { value: 'applied', label: 'Applied' },
+  { value: 'interviewing', label: 'Interviewing' },
+  { value: 'offer', label: 'Offer' },
+  { value: 'rejected', label: 'Rejected' },
+];
+
 export default function ResumeApplication() {
   const { applicationId } = useParams<{ applicationId: string }>();
   const navigate = useNavigate();
@@ -57,6 +69,50 @@ export default function ResumeApplication() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [upgradePlan, setUpgradePlan] = useState<string | null>(null);
+  const [planMessage, setPlanMessage] = useState<string | null>(null);
+  const [primaryGoalId, setPrimaryGoalId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getPrimaryGoal()
+      .then((goal) => setPrimaryGoalId(goal?._id && goal.status === 'active' ? String(goal._id) : null))
+      .catch(() => setPrimaryGoalId(null));
+  }, []);
+
+  const handleStatus = async (status: ApplicationStatus) => {
+    if (!application || application.status === status) return;
+    setBusy('status');
+    setPlanMessage(null);
+    try {
+      const updated = await updateApplicationStatus(application.id, status);
+      setApplication({ ...application, ...updated });
+      if (updated.planAchieved) {
+        setPlanMessage('Congratulations on the offer. Your linked plan is marked achieved.');
+      }
+    } catch {
+      setError('Could not update the status. Try again.');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleAddToPlan = async () => {
+    if (!application || !primaryGoalId) return;
+    setBusy('add-to-plan');
+    setPlanMessage(null);
+    try {
+      const result = await addApplicationGapsToPlan(primaryGoalId, application.id);
+      const parts = [];
+      if (result.added.length > 0) parts.push(`Added to your plan: ${result.added.join(', ')}.`);
+      if (result.skipped.length > 0) parts.push(`Already covered: ${result.skipped.join(', ')}.`);
+      if (result.building) parts.push('New concepts are being built now.');
+      setPlanMessage(parts.join(' ') || 'Nothing new to add.');
+      setApplication({ ...application, linkedGoalId: primaryGoalId });
+    } catch (err: any) {
+      setError(err?.response?.data?.error ?? 'Could not add these skills to your plan.');
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const statusItems = useMemo(() => {
     if (!application) return [];
@@ -203,7 +259,7 @@ export default function ResumeApplication() {
       <PageHeader
         eyebrow="Resume application"
         title={application.title}
-        description="A saved workspace for one resume and one job description. Use it to review coverage, generate a tailored draft, and turn the gaps into a plan."
+        description="Your resume checked against one job post. Track where the application is, and send the missing skills into your plan."
         actions={(
           <>
             <Link to="/resume" className="rounded-full border border-black/10 px-4 py-2 text-sm font-black text-slate-700 hover:border-sky-200 hover:text-sky-700">
@@ -211,7 +267,7 @@ export default function ResumeApplication() {
             </Link>
             {application.linkedGoalId ? (
               <Link to={`/goals/${application.linkedGoalId}?source=resume`} className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white">
-                Open goal
+                Open plan
               </Link>
             ) : null}
             {application.targetRoleId ? (
@@ -222,6 +278,50 @@ export default function ResumeApplication() {
           </>
         )}
       />
+
+      <SurfaceCard p={5} className="space-y-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-slate-800">Where this application stands</p>
+            <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Application status">
+              {STATUS_STEPS.map((step) => {
+                const active = (application.status ?? 'saved') === step.value;
+                return (
+                  <button
+                    key={step.value}
+                    type="button"
+                    onClick={() => handleStatus(step.value)}
+                    disabled={!!busy}
+                    aria-pressed={active}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors disabled:opacity-60 ${
+                      active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {step.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {(application.gapReport?.missingSkills?.length ?? 0) > 0 && (
+            primaryGoalId ? (
+              <button
+                type="button"
+                onClick={handleAddToPlan}
+                disabled={!!busy}
+                className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
+              >
+                {busy === 'add-to-plan'
+                  ? 'Adding…'
+                  : `Add ${application.gapReport?.missingSkills.length} missing skill${application.gapReport?.missingSkills.length === 1 ? '' : 's'} to my plan`}
+              </button>
+            ) : (
+              <p className="text-xs text-slate-500">Start a plan to send these gaps into it.</p>
+            )
+          )}
+        </div>
+        {planMessage && <p className="text-sm text-emerald-700">{planMessage}</p>}
+      </SurfaceCard>
 
       {error && (
         <SurfaceCard p={4} className="border-red-100 bg-red-50">

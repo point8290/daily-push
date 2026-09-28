@@ -1,7 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { createSession, completeSession, getStreak, getCalendarData } from '../services/sessions';
-import { scoreUnderstandingAnswer } from '../services/understandingCheck';
 import { trackProductEvent } from '../services/productEvents';
 import { consumeQuota } from '../services/entitlements';
 import { evaluateSessionArtifact } from '../services/artifactEvaluator';
@@ -187,46 +186,6 @@ router.get('/streak', requireAuth, async (req: Request, res: Response, next: Nex
     const { userId } = req as AuthRequest;
     const streak = await getStreak(userId);
     res.json(streak);
-  } catch (err) { next(err); }
-});
-
-// POST /api/sessions/:id/check — score free-text understanding answer
-router.post('/:id/check', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { userId } = req as AuthRequest;
-    const sessionId = String(req.params.id);
-    const { answer } = req.body;
-    if (!answer?.trim()) {
-      res.status(400).json({ error: 'answer is required' });
-      return;
-    }
-    const entitlement = await consumeQuota(userId, 'ai_checks.monthly', {
-      source: 'understanding_check',
-      properties: {
-        sessionId,
-        answerLength: answer.trim().length,
-      },
-    });
-    const result = await scoreUnderstandingAnswer(sessionId, answer.trim(), userId);
-    void trackProductEvent({
-      userId,
-      sessionId,
-      eventKey: 'understanding_check_submitted',
-      properties: {
-        answerLength: answer.trim().length,
-        score: result.score,
-        correct: result.correct,
-        remainingChecks: entitlement.remaining,
-      },
-    });
-    res.json({
-      ...result,
-      quota: {
-        featureKey: 'ai_checks.monthly',
-        remaining: entitlement.remaining,
-        limitValue: entitlement.limitValue,
-      },
-    });
   } catch (err) { next(err); }
 });
 

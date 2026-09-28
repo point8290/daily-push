@@ -437,11 +437,11 @@ function MapInner({
           ) : rawNodes.length === 0 ? (
             <Box px={6} py={10}>
               <EmptyState
-                title="No concept nodes yet"
-                description="Build study nodes from the goal page first, then come back here to explore dependencies, depth, and unlock paths."
+                title="No concepts yet"
+                description="Your plan’s study map hasn’t been built. Build it from the plan page, then come back to see what to learn in what order."
                 action={(
-                  <Button as={RouterLink} to="/goals" colorScheme="blue">
-                    Back to goals
+                  <Button as={RouterLink} to={`/goals/${selectedGoalId}`} colorScheme="blue">
+                    Build the study map
                   </Button>
                 )}
               />

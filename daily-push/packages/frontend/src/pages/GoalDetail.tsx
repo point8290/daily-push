@@ -15,11 +15,13 @@ import {
   getGoal,
   getGoalNodes,
   getGoalPlanHealth,
+  getGoalProgress,
   getGoalResources,
   getResourceCoverage,
   makePrimary,
   rebaselineGoalSprint,
   retryResourceEnrichment,
+  type GoalGapProgress,
   type GoalPlanHealth,
   type GoalSprint,
   type NodeResource,
@@ -28,6 +30,8 @@ import {
   trackEvent,
 } from '../api/client';
 import PipelineStatus from '../components/PipelineStatus';
+import GapBoard from '../components/GapBoard';
+import WorkList from '../components/WorkList';
 import EmptyState from '../components/ui/EmptyState';
 import PageHeader from '../components/ui/PageHeader';
 import SurfaceCard from '../components/ui/SurfaceCard';
@@ -59,6 +63,7 @@ interface LearningTopic {
 interface Goal {
   _id: string;
   isPrimary: boolean;
+  ownWords?: string | null;
   raw: {
     input: string;
     source?: string;
@@ -195,7 +200,7 @@ function formatShortDate(value: string | null | undefined): string {
   });
 }
 
-type TabId = 'overview' | 'concepts' | 'resources';
+type TabId = 'overview' | 'concepts' | 'work' | 'resources';
 
 function FlowStep({
   index,
@@ -307,6 +312,7 @@ export default function GoalDetail() {
   const [goal, setGoal] = useState<Goal | null>(null);
   const fromTargetRole = sourceParam === 'target-role' || goal?.raw?.source === 'target_role';
   const [planHealth, setPlanHealth] = useState<GoalPlanHealth | null>(null);
+  const [gapProgress, setGapProgress] = useState<GoalGapProgress | null>(null);
   const [nodes, setNodes] = useState<ConceptNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingPlanHealth, setLoadingPlanHealth] = useState(false);
@@ -338,6 +344,18 @@ export default function GoalDetail() {
   const artifactsExportEnabled = entitlements.find(
     (entry) => entry.featureKey === 'artifacts.export.enabled',
   )?.enabled;
+  const premiumResourcesEnabled = entitlements.find(
+    (entry) => entry.featureKey === 'premium_resources.enabled',
+  )?.enabled;
+
+  const loadGapProgress = () => {
+    if (!id) return;
+    getGoalProgress(id)
+      .then(setGapProgress)
+      .catch(() => setGapProgress(null));
+  };
+
+  useEffect(loadGapProgress, [id]);
 
   useEffect(() => {
     if (!id) return;
@@ -653,8 +671,8 @@ export default function GoalDetail() {
   }
 
   const noAvailableNodesYet = nodes.length > 0 && !nodes.some(n => n.status === 'available');
-  const availableNodeCount = nodes.filter(n => n.status === 'available' || n.status === 'in_progress' || n.status === 'review_due').length;
-  const completedNodeCount = nodes.filter(n => n.status === 'done').length;
+  const availableNodeCount = nodes.filter(n => n.status === 'available' || n.status === 'in_progress').length;
+  const completedNodeCount = nodes.filter(n => n.status === 'done' || n.status === 'review_due').length;
   const goalAccepted = isActive;
   const graphReady = nodes.length > 0;
   const hasPlanPreview =
@@ -734,6 +752,7 @@ export default function GoalDetail() {
   const tabs: { id: TabId; label: string }[] = [
     { id: 'overview',   label: 'Overview' },
     { id: 'concepts',   label: `Concepts${nodes.length ? ` (${nodes.length})` : ''}` },
+    { id: 'work',       label: 'Your work' },
     { id: 'resources',  label: 'Resources' },
   ];
 
@@ -774,9 +793,13 @@ export default function GoalDetail() {
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="Goal"
+        eyebrow="Plan"
         title={s.title || 'Goal setup'}
-        description={s.successCriteria || undefined}
+        description={
+          goal.ownWords
+            ? `In your words: “${goal.ownWords.length > 220 ? `${goal.ownWords.slice(0, 217).trim()}…` : goal.ownWords}”`
+            : s.successCriteria || undefined
+        }
         actions={(
           <div className="flex items-center gap-2">
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusChip.cls}`}>{statusChip.label}</span>
@@ -784,7 +807,7 @@ export default function GoalDetail() {
               to="/goals"
               className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:border-sky-200 hover:text-sky-700"
             >
-              All goals
+              All plans
             </Link>
           </div>
         )}
@@ -816,17 +839,17 @@ export default function GoalDetail() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
-                Created from role market readiness
+                Plan for your role
               </p>
               <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
-                This execution goal came from your {goal.raw?.targetRoleTitle ?? 'target role'} upgrade plan. Daily Push is turning the missing proof and interview risks into focused daily work.
+                This plan prepares you for {goal.raw?.targetRoleTitle ?? 'your target role'}. Your readiness, proof and job applications for that role live on the role page.
               </p>
             </div>
             <Link
               to={goal.raw?.targetRoleId ? `/target-roles/${goal.raw.targetRoleId}` : '/career-market'}
               className="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-black text-emerald-700 hover:border-emerald-300"
             >
-              Back to role workspace
+              Open role
             </Link>
           </div>
         </SurfaceCard>
@@ -871,7 +894,15 @@ export default function GoalDetail() {
             detail={graphReady ? `${completedNodeCount} of ${nodes.length} concepts` : 'Map not built yet'}
           />
           <GoalStat label="Ready now" value={`${availableNodeCount}`} detail="concepts unlocked" />
-          <GoalStat label="Topics" value={`${completedTopicCount}/${topics.length}`} detail="broken into concepts" />
+          {gapProgress ? (
+            <GoalStat
+              label="Gaps closed"
+              value={`${gapProgress.counts.closed + gapProgress.counts.proven}/${gapProgress.gaps.length}`}
+              detail={`${gapProgress.readinessPct}% plan readiness`}
+            />
+          ) : (
+            <GoalStat label="Topics" value={`${completedTopicCount}/${topics.length}`} detail="broken into concepts" />
+          )}
           <GoalStat
             label="Time left"
             value={paceWeeks ? `~${paceWeeks} week${paceWeeks === 1 ? '' : 's'}` : '–'}
@@ -897,8 +928,16 @@ export default function GoalDetail() {
               {tab.label}
             </button>
           ))}
+          <Link
+            to="/map"
+            className="-mb-px border-b-2 border-transparent px-4 py-2.5 text-sm font-semibold text-slate-500 hover:text-slate-800"
+          >
+            Map
+          </Link>
         </div>
       )}
+
+      {activeTab === 'work' && id && <WorkList goalId={id} />}
 
       {/* ══════════════════════════════════════════
           OVERVIEW TAB
@@ -1005,7 +1044,10 @@ export default function GoalDetail() {
           )}
 
           {/* Skill gaps */}
-          {gaps.length > 0 && (
+          {gapProgress && id && gapProgress.gaps.length > 0 && (
+            <GapBoard goalId={id} progress={gapProgress} onChanged={loadGapProgress} />
+          )}
+          {!gapProgress && gaps.length > 0 && (
             <SurfaceCard p={5} className="space-y-3">
               <p className="text-sm font-semibold text-slate-800">Skill gaps this plan closes</p>
               <ul className="divide-y divide-slate-100">
@@ -1155,7 +1197,7 @@ export default function GoalDetail() {
 
           {/* Goal management */}
           <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
-            <span className="mr-auto text-xs text-slate-400">Goal settings</span>
+            <span className="mr-auto text-xs text-slate-400">Plan settings</span>
             <div className="flex flex-wrap gap-2">
               {!goal.isPrimary && goal.status !== 'archived' && (
                 <Button
@@ -1177,7 +1219,7 @@ export default function GoalDetail() {
                   loadingText="Archiving..."
                   onClick={handleArchive}
                 >
-                  Archive goal
+                  Archive plan
                 </Button>
               )}
               <Button
@@ -1186,7 +1228,7 @@ export default function GoalDetail() {
                 variant="ghost"
                 onClick={() => setShowDeleteConfirm(true)}
               >
-                Delete goal
+                Delete plan
               </Button>
             </div>
           </div>
@@ -1203,7 +1245,7 @@ export default function GoalDetail() {
         <AlertDialogOverlay>
           <AlertDialogContent borderRadius="xl" mx={4}>
             <AlertDialogHeader fontSize="lg" fontWeight="bold" pb={2}>
-              Delete goal
+              Delete plan
             </AlertDialogHeader>
             <AlertDialogBody fontSize="sm" color="gray.600">
               This will permanently delete <strong>{goal.structured?.title}</strong> along with all concept nodes, sessions, and progress. This cannot be undone.
@@ -1414,6 +1456,11 @@ export default function GoalDetail() {
                 <p className="text-xs text-slate-400">
                   Resources are discovered after decomposition. Re-fetch if they're missing or outdated.
                 </p>
+                {!premiumResourcesEnabled ? (
+                  <Link to="/pricing?source=resources" className="shrink-0 text-xs font-semibold text-sky-700 hover:underline">
+                    Refreshing resources is on Pro
+                  </Link>
+                ) : (
                 <button
                   onClick={handleResourceRetry}
                   disabled={enrichmentRetrying}
@@ -1422,6 +1469,7 @@ export default function GoalDetail() {
                 >
                   {enrichmentRetrying ? 'Starting...' : 'Re-fetch resources'}
                 </button>
+                )}
               </div>
               {enrichmentRetryError && (
                 <p className="text-xs text-red-500">{enrichmentRetryError}</p>

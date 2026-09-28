@@ -33,7 +33,9 @@
     "validate:live-market-outcome-proof-ranking": "npm run build && node scripts/validate-live-market-outcome-proof-ranking.mjs",
     "validate:live-market-ingestion-scheduler": "npm run build && node scripts/validate-live-market-ingestion-scheduler.mjs",
     "test:integration": "ts-node src/tests/integration/premiumFlows.ts",
-    "test:stripe-webhooks": "ts-node src/tests/integration/stripeWebhookLifecycle.ts"
+    "test:stripe-webhooks": "ts-node src/tests/integration/stripeWebhookLifecycle.ts",
+    "seed:demo": "ts-node src/db/seed/demoCli.ts",
+    "seed:demo:prod": "node dist/db/seed/demoCli.js"
   },
   "dependencies": {
     "@daily-push/shared": "file:../shared",

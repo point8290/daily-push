@@ -1,4 +1,5 @@
 import { ObjectId } from 'mongodb';
+import { attachSprint } from './sprintPlanner';
 import { getDb } from '../db/mongo';
 import { pool } from '../db/postgres';
 import { getGoalGapReportRecord } from './jobGapAnalysis';
@@ -17,7 +18,13 @@ export interface WeeklyRecoveryPlan {
   riskSummary: string;
   shouldReduceScope: boolean;
   nextReviewDate: string | null;
+  /** Changes the user can apply to the plan in one click. */
+  quickFixes?: RecoveryQuickFix[];
 }
+
+export type RecoveryQuickFix =
+  | { action: 'move_date'; weeks: number; label: string }
+  | { action: 'reduce_hours'; hours: number; label: string };
 
 export interface WeeklyCheckinRecord {
   weekStart: string;
@@ -182,10 +189,11 @@ function mapCheckinRow(row: WeeklyCheckinRow | null): WeeklyCheckinRecord | null
 
 async function getGoalById(userId: string, goalId: string): Promise<any | null> {
   const db = getDb();
-  return db.collection('goals').findOne({
+  const goal = await db.collection('goals').findOne({
     _id: new ObjectId(goalId),
     userId,
   });
+  return attachSprint(goal as any);
 }
 
 async function getPrimaryActiveGoal(userId: string): Promise<any | null> {
@@ -317,14 +325,21 @@ function buildRecoveryPlan(params: {
   nextAvailableNodeTitle: string | null;
 }): WeeklyRecoveryPlan {
   const { planHealth, stats, latestCheckin, weakAreas, nextAvailableNodeTitle } = params;
-  const catchUpMinutes =
+  // Compare against what should be done by today, not the whole week, so a
+  // Monday doesn't read as "behind by the full weekly target".
+  const now = new Date();
+  const daysIntoWeek = ((now.getUTCDay() + 6) % 7) + 1; // Monday = 1 … Sunday = 7
+  const expectedSoFar =
     planHealth.weeklyTargetMinutes === null
       ? null
-      : Math.max(planHealth.weeklyTargetMinutes - stats.studyMinutesThisWeek, 0);
+      : Math.round((planHealth.weeklyTargetMinutes * daysIntoWeek) / 7);
+  const catchUpMinutes =
+    expectedSoFar === null ? null : Math.max(expectedSoFar - stats.studyMinutesThisWeek, 0);
   const blocker = latestCheckin?.blockers[0] ?? null;
+  const quietLately = planHealth.sessionsLast7Days === 0;
 
   let status: WeeklyRecoveryPlan['status'] = 'steady';
-  if (planHealth.riskScore >= 70 || stats.sessionsThisWeek === 0) {
+  if (planHealth.riskScore >= 70 || quietLately) {
     status = 'critical';
   } else if (planHealth.riskScore >= 50 || (catchUpMinutes ?? 0) >= 120) {
     status = 'reduce_scope';
@@ -341,20 +356,20 @@ function buildRecoveryPlan(params: {
 
   const actions = uniqueStrings([
     blocker ? `Resolve the blocker: ${blocker}.` : null,
-    stats.sessionsThisWeek === 0
-      ? 'Book one short restart session in the next 24 hours to rebuild momentum.'
+    quietLately
+      ? 'Do one short session in the next 24 hours to get going again.'
       : null,
     catchUpMinutes && catchUpMinutes > 0
-      ? `Recover ${catchUpMinutes} minute${catchUpMinutes === 1 ? '' : 's'} by splitting the remaining work into ${Math.max(1, Math.ceil(catchUpMinutes / 30))} focused session${Math.ceil(catchUpMinutes / 30) === 1 ? '' : 's'}.`
+      ? `You are ${catchUpMinutes} minute${catchUpMinutes === 1 ? '' : 's'} behind for this point in the week: about ${Math.max(1, Math.ceil(catchUpMinutes / 30))} half-hour session${Math.ceil(catchUpMinutes / 30) === 1 ? '' : 's'}.`
       : null,
     planHealth.failedTopics > 0
-      ? 'Unblock failed topic decomposition before pushing deeper into the graph.'
+      ? 'Some topics failed to break into concepts. Retry them from the plan page.'
       : null,
     nextAvailableNodeTitle
-      ? `Start with the next available node: ${nextAvailableNodeTitle}.`
+      ? `Next up: ${nextAvailableNodeTitle}.`
       : null,
     shouldReduceScope
-      ? 'Rebaseline the sprint or narrow scope to one must-win outcome for the next seven days.'
+      ? 'Lower the weekly hours or move the deadline, and pick one gap to focus on this week.'
       : null,
   ]).slice(0, 5);
 
@@ -365,12 +380,12 @@ function buildRecoveryPlan(params: {
 
   const headline =
     status === 'steady'
-      ? 'You are broadly on track. Protect the rhythm and keep shipping visible proof.'
+      ? 'On track this week. Keep the same rhythm.'
       : status === 'catch_up'
-        ? 'You are still in the game, but this week needs a tighter recovery rhythm.'
+        ? 'A little behind this week. A couple of extra short sessions will catch you up.'
         : status === 'reduce_scope'
-          ? 'The plan is still recoverable, but you should reduce scope before the schedule drift gets expensive.'
-          : 'Momentum has slipped enough that the safest move is to simplify, restart, and rebuild consistency.';
+          ? 'Behind enough that the plan should change: fewer hours or a later deadline.'
+          : 'No study in the last week. Start again with one short session, then adjust the plan.';
 
   return {
     status,
@@ -381,7 +396,33 @@ function buildRecoveryPlan(params: {
     riskSummary: planHealth.summary,
     shouldReduceScope,
     nextReviewDate: nextReviewDateString(),
+    quickFixes: buildQuickFixes(planHealth, shouldReduceScope),
   };
+}
+
+function buildQuickFixes(
+  planHealth: GoalPlanHealthSummary,
+  shouldReduceScope: boolean,
+): RecoveryQuickFix[] {
+  const fixes: RecoveryQuickFix[] = [];
+  const hours = planHealth.sprint?.weeklyCommitmentHours ?? null;
+  if (planHealth.bufferDays !== null && planHealth.bufferDays < 0 && planHealth.targetDate) {
+    const weeks = Math.min(8, Math.max(1, Math.ceil(-planHealth.bufferDays / 7)));
+    fixes.push({
+      action: 'move_date',
+      weeks,
+      label: `Move the deadline ${weeks} week${weeks === 1 ? '' : 's'} later`,
+    });
+  }
+  if (shouldReduceScope && hours && hours > 2) {
+    const reduced = Math.max(2, Math.round(hours * 0.75));
+    fixes.push({
+      action: 'reduce_hours',
+      hours: reduced,
+      label: `Plan for ${reduced} h/week instead of ${hours}`,
+    });
+  }
+  return fixes;
 }
 
 function buildHighlights(params: {
@@ -423,7 +464,7 @@ function buildWeakAreas(params: {
   return uniqueStrings([
     ...weakTopicTitles.map((title) => `Recent sessions suggest ${title} still feels shaky.`),
     ...(latestCheckin?.blockers ?? []),
-    ...gapMissingSkills.map((skill) => `Your target-role evidence is still thin around ${skill}.`),
+    ...gapMissingSkills.map((skill) => `Not much proof yet for ${skill}.`),
     planHealth.failedTopics > 0
       ? `${planHealth.failedTopics} topic${planHealth.failedTopics === 1 ? '' : 's'} still need decomposition cleanup.`
       : null,

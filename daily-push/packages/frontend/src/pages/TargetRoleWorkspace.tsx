@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
+  buildTargetRolePlan,
+  getGoalProgress,
+  type GoalGapProgress,
   createTargetRoleUpgradePlan,
   decomposeTargetRoleUpgradePlan,
   generateTargetRoleProofRecommendations,
@@ -161,30 +164,39 @@ const targetRoleTabs: Array<{
   },
   {
     id: 'evidence',
-    label: 'Evidence',
-    description: 'Resume and proof signals',
+    label: 'Proof',
+    description: 'What shows you can do it',
   },
   {
     id: 'readiness',
     label: 'Readiness',
-    description: 'Score and gaps',
+    description: 'Score and what is missing',
   },
   {
     id: 'action_plan',
-    label: 'Action Plan',
-    description: 'Proof tasks and sprint',
+    label: 'Plan',
+    description: 'Proof work and schedule',
   },
   {
     id: 'applications',
     label: 'Applications',
-    description: 'Company-specific JDs',
+    description: 'Jobs you applied to',
   },
   {
     id: 'market_signals',
-    label: 'Market Signals',
-    description: 'Role requirements',
+    label: 'The role',
+    description: 'What employers expect',
   },
 ];
+
+const ROLE_STATUS_LABEL: Record<string, string> = {
+  saved: 'Saved',
+  assessed: 'Readiness checked',
+  upgrade_plan_created: 'Plan drafted',
+  sprint_active: 'Plan running',
+  paused: 'Paused',
+  archived: 'Archived',
+};
 
 const targetRolePrimaryActionClass =
   'inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-60';
@@ -227,9 +239,9 @@ function getRecommendedTargetRoleAction(args: {
     return {
       key: 'add_evidence',
       tab: 'evidence',
-      title: 'Add evidence before judging readiness.',
-      body: 'Upload a resume, profile export, or project notes so the diagnosis is based on real proof instead of broad profile guesses.',
-      cta: 'Add role evidence',
+      title: 'Add your resume or project notes first.',
+      body: 'Readiness is only as good as the proof behind it. Paste a resume or a few project notes.',
+      cta: 'Add proof',
     };
   }
 
@@ -237,9 +249,9 @@ function getRecommendedTargetRoleAction(args: {
     return {
       key: 'generate_readiness',
       tab: 'readiness',
-      title: 'Generate a readiness report.',
-      body: 'Compare the current evidence against this role and identify what is covered, weak, or missing.',
-      cta: 'Generate readiness',
+      title: 'Check how ready you are.',
+      body: 'See which of this role’s must-haves you already show, and which are weak or missing.',
+      cta: 'Check readiness',
     };
   }
 
@@ -248,8 +260,8 @@ function getRecommendedTargetRoleAction(args: {
       key: 'generate_proof',
       tab: 'action_plan',
       title: args.readinessReport.recommendedNextStep,
-      body: 'Turn the weakest requirements into concrete proof tasks that can improve interviews, portfolio, and resume positioning.',
-      cta: 'Build proof tasks',
+      body: 'Turn the weakest requirements into small pieces of work that prove you can do them.',
+      cta: 'Suggest proof work',
     };
   }
 
@@ -257,9 +269,9 @@ function getRecommendedTargetRoleAction(args: {
     return {
       key: 'create_plan',
       tab: 'action_plan',
-      title: 'Turn proof tasks into a focused upgrade plan.',
-      body: 'Group the proof work into a short execution plan so progress is visible and easier to finish.',
-      cta: 'Create upgrade plan',
+      title: 'Group the proof work into a plan.',
+      body: 'A short plan with a weekly time budget makes the work easier to finish.',
+      cta: 'Create plan',
     };
   }
 
@@ -267,9 +279,9 @@ function getRecommendedTargetRoleAction(args: {
     return {
       key: 'start_sprint',
       tab: 'action_plan',
-      title: 'Start a gap-closing sprint.',
-      body: 'Use the upgrade plan to create weekly execution work based on the exact role gaps.',
-      cta: 'Start execution sprint',
+      title: 'Start working on the plan.',
+      body: 'Adds a deadline and weekly hours, and puts the first sessions on Today.',
+      cta: 'Start the plan',
     };
   }
 
@@ -277,8 +289,8 @@ function getRecommendedTargetRoleAction(args: {
     return {
       key: 'continue_today',
       tab: 'action_plan',
-      title: 'Continue today’s execution work.',
-      body: 'The role direction is connected to a sprint. Keep shipping proof and reassess after meaningful progress.',
+      title: 'Keep going on Today.',
+      body: 'Your plan for this role is running. Check readiness again after a few gaps close.',
       cta: 'Open Today',
     };
   }
@@ -286,9 +298,9 @@ function getRecommendedTargetRoleAction(args: {
   return {
     key: 'compare_jd',
     tab: 'applications',
-    title: 'Compare a company job description when ready.',
-    body: 'Broad role preparation is in place. Use Applications only when there is a specific company JD to target.',
-    cta: 'Compare company JD',
+    title: 'Check your resume against a real job post.',
+    body: 'When you find a job you like, compare your resume with it and track the application here.',
+    cta: 'Check a job post',
   };
 }
 
@@ -314,6 +326,34 @@ export default function TargetRoleWorkspace() {
   const navigate = useNavigate();
   const [activeTargetRoleTab, setActiveTargetRoleTab] = useState<TargetRoleWorkspaceTab>('overview');
   const [targetRole, setTargetRole] = useState<TargetRole | null>(null);
+  const [buildBusy, setBuildBusy] = useState(false);
+  const [buildError, setBuildError] = useState('');
+  const [planProgress, setPlanProgress] = useState<GoalGapProgress | null>(null);
+
+  useEffect(() => {
+    const goalId = targetRole?.linkedGoalId;
+    if (!goalId) {
+      setPlanProgress(null);
+      return;
+    }
+    getGoalProgress(goalId).then(setPlanProgress).catch(() => setPlanProgress(null));
+  }, [targetRole?.linkedGoalId]);
+
+  const handleBuildPlan = async () => {
+    if (!targetRole) return;
+    setBuildBusy(true);
+    setBuildError('');
+    try {
+      await buildTargetRolePlan(targetRole.id);
+      navigate('/plan');
+    } catch (err: any) {
+      setBuildError(
+        err?.response?.data?.error ?? 'Could not build the plan right now. Try the steps one by one below.',
+      );
+    } finally {
+      setBuildBusy(false);
+    }
+  };
   const [roleProfile, setRoleProfile] = useState<RoleMarketProfile | null>(null);
   const [evidenceProfile, setEvidenceProfile] = useState<CandidateEvidenceProfile | null>(null);
   const [evidenceImportText, setEvidenceImportText] = useState('');
@@ -848,7 +888,7 @@ export default function TargetRoleWorkspace() {
   return (
     <div className="space-y-6">
       <Link to="/target-roles" className="inline-flex rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-black text-slate-600 transition hover:border-sky-300 hover:text-sky-700">
-        Back to Target Roles
+        All saved roles
       </Link>
 
       <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -857,10 +897,10 @@ export default function TargetRoleWorkspace() {
           <div className="relative">
             <div className="flex flex-wrap gap-2">
               <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
-                Target Role
+                Your target role
               </span>
               <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-black text-sky-700">
-                {formatLabel(targetRole.status)}
+                {ROLE_STATUS_LABEL[targetRole.status] ?? formatLabel(targetRole.status)}
               </span>
               {roleProfile && (
                 <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
@@ -889,6 +929,43 @@ export default function TargetRoleWorkspace() {
             <p className="mt-3 text-sm leading-7 text-white/70">
               {recommendedAction.body}
             </p>
+            {planProgress && targetRole.linkedGoalId ? (
+              <div className="mt-5 rounded-3xl border border-white/10 bg-white/8 p-4">
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-black text-white">Your plan for this role</p>
+                    <p className="mt-1 text-xs text-white/60">
+                      {planProgress.counts.closed + planProgress.counts.proven} of {planProgress.gaps.length} gaps closed ·{' '}
+                      {planProgress.counts.proven} proven
+                    </p>
+                  </div>
+                  <p className="font-display text-3xl leading-none text-white">{planProgress.readinessPct}%</p>
+                </div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/15">
+                  <div className="h-full rounded-full bg-emerald-300" style={{ width: `${planProgress.readinessPct}%` }} />
+                </div>
+                <Link to={`/goals/${targetRole.linkedGoalId}`} className="mt-3 inline-block text-xs font-bold text-white/80 underline">
+                  Open plan
+                </Link>
+              </div>
+            ) : null}
+            {!targetRole.linkedGoalId &&
+              ['generate_readiness', 'generate_proof', 'create_plan', 'start_sprint'].includes(recommendedAction.key) && (
+              <div className="mt-6">
+                <button
+                  type="button"
+                  onClick={handleBuildPlan}
+                  disabled={buildBusy}
+                  className={`w-full ${targetRoleInvertedActionClass} disabled:cursor-not-allowed disabled:opacity-60`}
+                >
+                  {buildBusy ? 'Building your plan… (about a minute)' : 'Build my plan in one step'}
+                </button>
+                <p className="mt-2 text-xs text-white/55">
+                  Checks your readiness, picks the gaps to close, and creates a plan with a study map.
+                </p>
+                {buildError && <p className="mt-2 text-xs font-bold text-red-200">{buildError}</p>}
+              </div>
+            )}
             <button
               type="button"
               onClick={handleRecommendedAction}
@@ -929,15 +1006,15 @@ export default function TargetRoleWorkspace() {
                 <p className="mt-1 text-sm text-white/65">{formatDate(targetRole.createdAt)}</p>
               </div>
               <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
-                <p className="text-sm font-black text-white">Source</p>
-                <p className="mt-1 text-sm text-white/65">{formatLabel(targetRole.createdFrom)}</p>
+                <p className="text-sm font-black text-white">Found through</p>
+                <p className="mt-1 text-sm text-white/65">{targetRole.createdFrom === 'market_analyzer' ? 'Role suggestions' : targetRole.createdFrom === 'resume_analysis' ? 'Resume check' : formatLabel(targetRole.createdFrom)}</p>
               </div>
             </div>
             {evidenceProfile?.claims.length ? (
               <div className="mt-5 rounded-3xl border border-white/10 bg-white/8 p-4">
-                <p className="text-sm font-black text-white">Evidence ready</p>
+                <p className="text-sm font-black text-white">Proof on file</p>
                 <p className="mt-1 text-sm leading-6 text-white/65">
-                  We found {evidenceProfile.claims.length} source-backed signals that can power readiness, proof planning, and resume positioning.
+                  {evidenceProfile.claims.length} proof points from your resume, sessions and practice interviews.
                 </p>
               </div>
             ) : (
@@ -980,72 +1057,54 @@ export default function TargetRoleWorkspace() {
 
       {activeTargetRoleTab === 'overview' && (
         <section data-section="target-role-overview" className="grid gap-5 lg:grid-cols-3">
-          <SurfaceCard p={5} className="bg-white/88 lg:col-span-2">
+          <SurfaceCard p={5} className="bg-white/88 lg:col-span-3">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-              How to use this page
+              How this page works
             </p>
             <h2 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
-              Prepare broadly here. Compare company JDs only in Applications.
+              Get ready for the role here. Track specific jobs under Applications.
             </h2>
             <p className="mt-3 text-sm leading-7 text-slate-600">
-              This role page is for direction, readiness, evidence, and upgrade work. The tabs keep each job-switching step separate so you always know what problem you are solving.
+              Add proof, check how ready you are, and close the gaps with a plan. When a real job post comes up, compare your resume with it under Applications.
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               <div className={targetRoleStepCardClass}>
                 <span className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">Step 1</span>
                 <span className="mt-2 block text-sm font-black text-slate-950">Add evidence</span>
-                <span className="mt-1 block text-sm leading-6 text-slate-600">Upload proof so readiness has facts.</span>
+                <span className="mt-1 block text-sm leading-6 text-slate-600">Resume lines, projects, graded work.</span>
                 <button
                   type="button"
                   onClick={() => setActiveTargetRoleTab('evidence')}
                   className={targetRoleInlineActionClass}
                 >
-                  Open Evidence
+                  Open proof
                 </button>
               </div>
               <div className={targetRoleStepCardClass}>
                 <span className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">Step 2</span>
                 <span className="mt-2 block text-sm font-black text-slate-950">Check readiness</span>
-                <span className="mt-1 block text-sm leading-6 text-slate-600">See covered, weak, and missing requirements.</span>
+                <span className="mt-1 block text-sm leading-6 text-slate-600">What you show, and what is missing.</span>
                 <button
                   type="button"
                   onClick={() => setActiveTargetRoleTab('readiness')}
                   className={targetRoleInlineActionClass}
                 >
-                  Open Readiness
+                  Open readiness
                 </button>
               </div>
               <div className={targetRoleStepCardClass}>
                 <span className="text-xs font-black uppercase tracking-[0.14em] text-amber-700">Step 3</span>
                 <span className="mt-2 block text-sm font-black text-slate-950">Close gaps</span>
-                <span className="mt-1 block text-sm leading-6 text-slate-600">Turn gaps into proof tasks and sprints.</span>
+                <span className="mt-1 block text-sm leading-6 text-slate-600">A plan with daily sessions.</span>
                 <button
                   type="button"
                   onClick={() => setActiveTargetRoleTab('action_plan')}
                   className={targetRoleInlineActionClass}
                 >
-                  Open Action Plan
+                  Open plan
                 </button>
               </div>
             </div>
-          </SurfaceCard>
-          <SurfaceCard p={5} className="bg-slate-950 text-white">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45">
-              Current focus
-            </p>
-            <h3 className="mt-2 text-xl font-black tracking-[-0.04em]">
-              {recommendedAction.title}
-            </h3>
-            <p className="mt-3 text-sm leading-7 text-white/65">
-              {recommendedAction.body}
-            </p>
-            <button
-              type="button"
-              onClick={handleRecommendedAction}
-              className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-black text-slate-950 transition hover:-translate-y-0.5"
-            >
-              {recommendedAction.cta}
-            </button>
           </SurfaceCard>
         </section>
       )}
