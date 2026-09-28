@@ -148,7 +148,7 @@ Work in order. Each phase is shippable. Routes and tables stay until a later pha
 | Phase | Name | Status |
 |---|---|---|
 | 1 | Language and shell | `done` |
-| 2 | Four surfaces over current APIs | `not_started` |
+| 2 | Four surfaces over current APIs | `done` |
 | 3 | Today states the loop | `not_started` |
 | 4 | Artifact, claim, and voice line | `not_started` |
 | 5 | Remove deprecated doors | `not_started` |
@@ -218,6 +218,14 @@ New:
 - Shared direction context so Path, Proof, Voice, and Today agree on the active pair of goal id and target role id.
 
 Exit: the reference walk can be clicked using only Today, Path, Proof, and Voice, even if the voice sentence is still hand-written from the resume draft rather than linked to the artifact.
+
+Shipped:
+
+- `DirectionContext` resolves one goal and one role for Path, Proof, and Voice, using the same rules as the old redirects, plus `?goal=` and `?role=` when a flow just created one.
+- `/path` renders the goal confirm screen and the map. A saved role without a path offers one action: draft the path. `/plan` redirects to `/path`.
+- `/proof` renders evidence and readiness for that role. `/role` redirects to `/proof`.
+- `/voice` renders that role’s applications, the resume narrative, and interview practice. Creating a goal from setup, a resume, or a saved direction lands on Path.
+- `/directions` is the library. The six-tab role page remains at `/target-roles/:id`.
 
 ### Phase 3 — Today states the loop
 

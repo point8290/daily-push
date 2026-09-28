@@ -949,7 +949,7 @@ export default function CareerMarket() {
         recommendationSnapshot: recommendation,
         clientDraftId: `career-market-${recommendation.roleProfileId}`,
       });
-      navigate(`/target-roles/${response.targetRole.id}`);
+      navigate(`/path?role=${response.targetRole.id}`);
     } catch (error: any) {
       const status = error?.response?.status;
       setRecommendationError(

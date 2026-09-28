@@ -186,7 +186,7 @@ export default function ResumeApplication() {
   const handleCreateGoal = async () => {
     if (!application) return;
     if (application.linkedGoalId) {
-      navigate(`/goals/${application.linkedGoalId}?source=resume`);
+      navigate(`/path?goal=${application.linkedGoalId}`);
       return;
     }
     setBusy('goal');
@@ -195,7 +195,7 @@ export default function ResumeApplication() {
     try {
       const { goalId } = await createGoalFromResumeApplication(application.id);
       toast.closeAll();
-      navigate(`/goals/${goalId}?source=resume`);
+      navigate(`/path?goal=${goalId}`);
     } catch (err: any) {
       setError(err?.response?.data?.error ?? 'Could not create a career goal from this report.');
       setUpgradePlan(err?.response?.data?.upgradePlan ?? null);
@@ -207,7 +207,7 @@ export default function ResumeApplication() {
   const handleCreateSprint = async () => {
     if (!application) return;
     if (application.linkedGoalId && application.linkedSprintCreatedAt) {
-      navigate(`/goals/${application.linkedGoalId}?source=resume`);
+      navigate(`/path?goal=${application.linkedGoalId}`);
       return;
     }
     setBusy('sprint');
@@ -216,7 +216,7 @@ export default function ResumeApplication() {
     try {
       const { goalId } = await createSprintFromResumeApplication(application.id);
       toast.closeAll();
-      navigate(`/goals/${goalId}?source=resume`);
+      navigate(`/path?goal=${goalId}`);
     } catch (err: any) {
       setError(err?.response?.data?.error ?? 'Could not create the sprint from this report.');
       setUpgradePlan(err?.response?.data?.upgradePlan ?? null);

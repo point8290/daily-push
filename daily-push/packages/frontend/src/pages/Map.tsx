@@ -472,7 +472,7 @@ function MapInner({
                 title="No concepts yet"
                 description="Your plan’s study map hasn’t been built. Build it from the plan page, then come back to see what to learn in what order."
                 action={(
-                  <Button as={RouterLink} to={`/goals/${selectedGoalId}`} colorScheme="blue">
+                  <Button as={RouterLink} to={`/path?goal=${selectedGoalId}`} colorScheme="blue">
                     Build the study map
                   </Button>
                 )}
@@ -524,15 +524,21 @@ function MapInner({
   );
 }
 
-export default function Map() {
+export default function Map({ goalId }: { goalId?: string } = {}) {
   const [goals, setGoals] = useState<GoalSummary[]>([]);
-  const [selectedGoalId, setSelectedGoalId] = useState<string>('');
+  const [selectedGoalId, setSelectedGoalId] = useState<string>(goalId ?? '');
   const [rawNodes, setRawNodes] = useState<ConceptNode[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!goalId);
   const [nodesLoading, setNodesLoading] = useState(false);
   const [noGoal, setNoGoal] = useState(false);
 
   useEffect(() => {
+    if (goalId) {
+      setSelectedGoalId(goalId);
+      setNoGoal(false);
+      setLoading(false);
+      return;
+    }
     (async () => {
       try {
         const allGoals: GoalSummary[] = await getGoals();
@@ -550,7 +556,7 @@ export default function Map() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [goalId]);
 
   useEffect(() => {
     if (!selectedGoalId) return;
@@ -585,8 +591,8 @@ export default function Map() {
           title="No confirmed goals yet"
           description="Confirm a goal first, then this workspace will turn into a live map of your learning graph."
           action={(
-            <Button as={RouterLink} to="/goals" colorScheme="blue">
-              Go to goals
+            <Button as={RouterLink} to="/path" colorScheme="blue">
+              Open path
             </Button>
           )}
         />
@@ -597,9 +603,9 @@ export default function Map() {
   return (
     <Stack spacing={6}>
       <PageHeader
-        eyebrow="Map"
-        title="Knowledge Map"
-        description="Every concept in your plan and the order to learn them in. Arrows show what you need to know first; green means ready to start."
+        eyebrow={goalId ? 'Path' : 'Map'}
+        title={goalId ? 'Path map' : 'Knowledge Map'}
+        description="Every concept on this path and the order to learn them in. Arrows show what you need to know first; green means ready to start."
       />
 
       <Box h={{ base: '72vh', xl: '78vh' }}>

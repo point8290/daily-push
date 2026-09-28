@@ -152,13 +152,13 @@ function SnapshotActionCard({
   );
 }
 
-export default function Resume() {
+export default function Resume({ targetRoleId }: { targetRoleId?: string | null } = {}) {
   const { user, loading: authLoading } = useAuth();
   const { currentPlan } = useEntitlements();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const toast = useToast();
-  const targetRoleIdParam = searchParams.get("targetRoleId");
+  const targetRoleIdParam = targetRoleId ?? searchParams.get("targetRoleId");
   const [resumeText, setResumeText] = useState("");
   const [jdText, setJdText] = useState("");
   const [resumeMode, setResumeMode] = useState<InputMode>("upload");
@@ -434,7 +434,7 @@ export default function Resume() {
     try {
       const { goalId } = await createGoalFromResumeApplication(application.id);
       toast.closeAll();
-      navigate(`/goals/${goalId}?source=resume`);
+      navigate(`/path?goal=${goalId}`);
     } catch (err: any) {
       setError(
         err?.response?.data?.error ??
@@ -457,7 +457,7 @@ export default function Resume() {
         application.id,
       );
       toast.closeAll();
-      navigate(`/goals/${goalId}?source=resume`);
+      navigate(`/path?goal=${goalId}`);
     } catch (err: any) {
       setError(err?.response?.data?.error ?? "Could not create the sprint.");
       setUpgradePlan(err?.response?.data?.upgradePlan ?? null);

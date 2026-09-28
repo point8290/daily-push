@@ -302,8 +302,9 @@ function ActionCard({
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function GoalDetail() {
-  const { id } = useParams<{ id: string }>();
+export default function GoalDetail({ goalId }: { goalId?: string } = {}) {
+  const params = useParams<{ id: string }>();
+  const id = goalId ?? params.id;
   const navigate = useNavigate();
   const location = useLocation();
   const { entitlements } = useEntitlements();
@@ -806,10 +807,10 @@ export default function GoalDetail() {
           <div className="flex items-center gap-2">
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusChip.cls}`}>{statusChip.label}</span>
             <Link
-              to="/goals"
+              to="/directions"
               className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:border-sky-200 hover:text-sky-700"
             >
-              All plans
+              Directions
             </Link>
           </div>
         )}
@@ -923,7 +924,7 @@ export default function GoalDetail() {
             </button>
           ))}
           <Link
-            to="/map"
+            to={goalId ? '#path-map' : '/map'}
             className="-mb-px border-b-2 border-transparent px-4 py-2.5 text-sm font-semibold text-slate-500 hover:text-slate-800"
           >
             Map

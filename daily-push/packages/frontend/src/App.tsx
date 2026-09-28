@@ -44,7 +44,11 @@ import Pricing from './pages/Pricing';
 import MockInterview from './pages/MockInterview';
 import ProductMetrics from './pages/ProductMetrics';
 import OperatorMarketHealth from './pages/OperatorMarketHealth';
-import { PlanRedirect, RoleRedirect } from './components/ActiveRedirects';
+import { DirectionProvider } from './contexts/DirectionContext';
+import Path from './pages/Path';
+import Proof from './pages/Proof';
+import Voice from './pages/Voice';
+import Directions from './pages/Directions';
 
 type NavItem = {
   to: string;
@@ -65,7 +69,7 @@ const primaryNavItems: NavItem[] = [
 // Library and tools, kept in the account menu until they are views on the loop.
 const accountNavItems: NavItem[] = [
   { to: '/history', label: 'Progress' },
-  { to: '/target-roles', label: 'Saved roles', end: true },
+  { to: '/directions', label: 'Directions', matches: ['/target-roles'] },
   { to: '/goals', label: 'All plans', end: true },
   { to: '/mock', label: 'Interview practice' },
 ];
@@ -338,11 +342,12 @@ function MainContent() {
     <AppContentFrame>
       <Routes>
         <Route path="/today" element={<Today />} />
-        <Route path="/path" element={<PlanRedirect />} />
-        <Route path="/plan" element={<PlanRedirect />} />
-        <Route path="/proof" element={<RoleRedirect />} />
-        <Route path="/role" element={<RoleRedirect />} />
-        <Route path="/voice" element={<Navigate to="/resume" replace />} />
+        <Route path="/path" element={<Path />} />
+        <Route path="/plan" element={<Navigate to="/path" replace />} />
+        <Route path="/proof" element={<Proof />} />
+        <Route path="/role" element={<Navigate to="/proof" replace />} />
+        <Route path="/voice" element={<Voice />} />
+        <Route path="/directions" element={<Directions />} />
         <Route path="/career-market" element={<CareerMarket />} />
         <Route path="/career-market/find-direction" element={<CareerMarket />} />
         <Route path="/career-market/roles/:roleId" element={<RoleMarketDetail />} />
@@ -393,6 +398,7 @@ export default function App() {
     <AuthProvider>
       <EntitlementsProvider>
         <BrowserRouter>
+          <DirectionProvider>
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route
@@ -437,6 +443,7 @@ export default function App() {
             />
             <Route path="/*" element={<ProtectedLayout />} />
           </Routes>
+          </DirectionProvider>
         </BrowserRouter>
       </EntitlementsProvider>
     </AuthProvider>

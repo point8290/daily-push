@@ -555,7 +555,7 @@ export default function Today() {
             accent="brand"
             action={(
               <Link
-                to={`/goals/${data.pendingGoal.id}`}
+                to={`/path?goal=${data.pendingGoal.id}`}
                 className="inline-block rounded-xl bg-[var(--brand-primary)] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-primary-hov)]"
               >
                 Review path
@@ -604,7 +604,7 @@ export default function Today() {
           accent="brand"
           action={(
             <Link
-              to={`/goals/${data.goal.id}`}
+              to={`/path?goal=${data.goal.id}`}
               className="inline-block rounded-xl bg-[var(--brand-primary)] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-primary-hov)]"
             >
               Open path
@@ -1192,7 +1192,7 @@ export default function Today() {
       )}
 
       {/* 2. Where the goal stands */}
-      <Link to={`/goals/${goal.id}`} className="block rounded-[20px] transition-shadow hover:shadow-md">
+      <Link to={`/path?goal=${goal.id}`} className="block rounded-[20px] transition-shadow hover:shadow-md">
         <Card className="space-y-3">
           <div className="flex items-baseline justify-between gap-4">
             <p className="truncate text-sm font-semibold text-slate-800">{goal.title}</p>

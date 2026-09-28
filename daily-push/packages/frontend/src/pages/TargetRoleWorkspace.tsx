@@ -159,6 +159,15 @@ type RecommendedTargetRoleActionKey =
   | 'continue_today'
   | 'compare_jd';
 
+export type RoleSurface = 'all' | 'proof' | 'expectations' | 'applications';
+
+const SURFACE_TABS: Record<RoleSurface, TargetRoleWorkspaceTab[]> = {
+  all: ['overview', 'evidence', 'readiness', 'action_plan', 'applications', 'market_signals'],
+  proof: ['evidence', 'readiness'],
+  expectations: ['market_signals'],
+  applications: ['applications'],
+};
+
 const targetRoleTabs: Array<{
   id: TargetRoleWorkspaceTab;
   label: string;
@@ -328,10 +337,18 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
   );
 }
 
-export default function TargetRoleWorkspace() {
-  const { id } = useParams();
+export default function TargetRoleWorkspace({
+  roleId,
+  surface = 'all',
+}: {
+  roleId?: string;
+  surface?: RoleSurface;
+} = {}) {
+  const params = useParams();
+  const id = roleId ?? params.id;
   const navigate = useNavigate();
-  const [activeTargetRoleTab, setActiveTargetRoleTab] = useState<TargetRoleWorkspaceTab>('overview');
+  const visibleTabs = targetRoleTabs.filter((tab) => SURFACE_TABS[surface].includes(tab.id));
+  const [activeTargetRoleTab, setActiveTargetRoleTab] = useState<TargetRoleWorkspaceTab>(visibleTabs[0]?.id ?? 'overview');
   const [targetRole, setTargetRole] = useState<TargetRole | null>(null);
   const [buildBusy, setBuildBusy] = useState(false);
   const [buildError, setBuildError] = useState('');
@@ -352,7 +369,7 @@ export default function TargetRoleWorkspace() {
     setBuildError('');
     try {
       await buildTargetRolePlan(targetRole.id);
-      navigate('/plan');
+      navigate(`/path?role=${targetRole.id}`);
     } catch (err: any) {
       setBuildError(
         err?.response?.data?.error ?? 'Could not build the plan right now. Try the steps one by one below.',
@@ -893,10 +910,12 @@ export default function TargetRoleWorkspace() {
 
   return (
     <div className="space-y-6">
+      {surface === 'all' ? (
+      <>
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="max-w-3xl">
-          <Link to="/target-roles" className="text-sm font-semibold text-slate-500 hover:text-sky-700">
-            ← All saved roles
+          <Link to={surface === 'all' ? '/directions' : '/path'} className="text-sm font-semibold text-slate-500 hover:text-sky-700">
+            {surface === 'all' ? '← Directions' : '← Path'}
           </Link>
           <h1 className="mt-2 text-3xl font-bold tracking-[-0.03em] text-slate-950 md:text-4xl">
             {targetRole.title}
@@ -985,7 +1004,7 @@ export default function TargetRoleWorkspace() {
 
           {planProgress && targetRole.linkedGoalId ? (
             <Link
-              to={`/goals/${targetRole.linkedGoalId}`}
+              to={`/path?goal=${targetRole.linkedGoalId}&role=${targetRole.id}`}
               className="block rounded-2xl border border-slate-200 p-4 transition-colors hover:border-sky-300"
             >
               <div className="flex items-end justify-between gap-3">
@@ -1010,14 +1029,17 @@ export default function TargetRoleWorkspace() {
           )}
         </div>
       </SurfaceCard>
+      </>
+      ) : null}
 
+      {visibleTabs.length > 1 ? (
       <div
         data-testid="target-role-tablist"
         role="tablist"
         aria-label="Role sections"
         className="flex gap-1 overflow-x-auto border-b border-slate-200"
       >
-        {targetRoleTabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const active = activeTargetRoleTab === tab.id;
           return (
             <button
@@ -1036,6 +1058,7 @@ export default function TargetRoleWorkspace() {
           );
         })}
       </div>
+      ) : null}
 
       {activeTargetRoleTab === 'overview' && (
         <section data-section="target-role-overview" className="grid gap-5 lg:grid-cols-3">
@@ -1263,7 +1286,7 @@ export default function TargetRoleWorkspace() {
           )}
           {proofEvidenceStatus?.linkedGoalId && (
             <Link
-              to={`/goals/${proofEvidenceStatus.linkedGoalId}?source=target-role`}
+              to={`/path?goal=${proofEvidenceStatus.linkedGoalId}&role=${targetRole.id}`}
               className="inline-flex rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5"
             >
               Review proof tasks
@@ -1800,10 +1823,10 @@ export default function TargetRoleWorkspace() {
                 </button>
                 {upgradePlan.linkedGoalId && (
                   <Link
-                    to={`/goals/${upgradePlan.linkedGoalId}?source=target-role`}
+                    to={`/path?goal=${upgradePlan.linkedGoalId}&role=${targetRole.id}`}
                     className="text-sm font-semibold text-slate-500 hover:text-sky-700"
                   >
-                    View linked goal
+                    Open path
                   </Link>
                 )}
               </div>
@@ -1900,7 +1923,7 @@ export default function TargetRoleWorkspace() {
                   )}
                   {decompositionStatus?.goalId && (
                     <Link
-                      to={`/goals/${decompositionStatus.goalId}?source=target-role`}
+                      to={`/path?goal=${decompositionStatus.goalId}&role=${targetRole.id}`}
                       className={targetRoleSecondaryActionClass}
                     >
                       Open goal
