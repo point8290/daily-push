@@ -333,7 +333,7 @@ export default function History() {
       <PageHeader
         eyebrow="Progress"
         title="History"
-        description="Review consistency, capture how the week felt, and turn that signal into a tighter recovery plan for the next seven days."
+        description="See how often you studied, do a short weekly check-in, and get a plan for next week."
         actions={(
           <HStack spacing={3} flexWrap="wrap">
             <Badge colorScheme="blue" px={3} py={1.5} rounded="full" fontSize="0.72rem">
@@ -352,18 +352,18 @@ export default function History() {
         <StatTile
           value={String(streak?.currentStreak ?? 0)}
           label="Day streak"
-          detail="Your current rhythm of consecutive active days."
+          detail="Days in a row with at least one session."
           color="var(--sky-600)"
         />
         <StatTile
           value={String(streak?.totalSessions ?? 0)}
           label="Total sessions"
-          detail="Every completed study session across the account."
+          detail="Sessions you have finished so far."
         />
         <StatTile
           value={totalHours > 0 ? `${totalHours}h` : `${remMins}m`}
           label="Time studied"
-          detail="Approximate study time based on recent completed sessions."
+          detail="Estimated from your finished sessions."
         />
       </SimpleGrid>
 
@@ -375,7 +375,7 @@ export default function History() {
                 Last 90 days
               </Text>
               <Text fontSize="sm" color="ink.500" lineHeight="1.7">
-                Your activity heatmap shows how often you put in real reps, not just how good the plan looked on paper.
+                Each square is a day. Darker means more study that day.
               </Text>
             </VStack>
             {streak?.lastActiveDate ? (
@@ -416,7 +416,7 @@ export default function History() {
                       Weekly check-in
                     </Text>
                     <Text fontSize="sm" color="ink.500" lineHeight="1.7">
-                      Capture how the week felt, what moved, and what is blocking the next push on <Text as="span" fontWeight="700" color="ink.800">{goal.title}</Text>.
+                      Two minutes on how the week went for <Text as="span" fontWeight="700" color="ink.800">{goal.title}</Text>.
                     </Text>
                   </VStack>
                   <Badge

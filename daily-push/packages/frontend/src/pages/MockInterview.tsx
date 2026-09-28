@@ -214,6 +214,13 @@ export default function MockInterview() {
     (entry) => entry.featureKey === 'mock_interviews.monthly',
   );
 
+  const mockEnabled = mockEntitlement?.enabled ?? false;
+  // After a run starts the server returns the fresh count; before that, use the plan's count.
+  const interviewsLeft =
+    remainingInterviews !== undefined
+      ? remainingInterviews
+      : mockEntitlement?.remaining ?? null;
+
   const goalIdFromQuery = searchParams.get('goalId');
   const runIdFromQuery = searchParams.get('runId');
 
@@ -406,17 +413,19 @@ export default function MockInterview() {
       <PageHeader
         eyebrow="Interview practice"
         title="Mock Interview"
-        description={`Practice against ${goal.title}${goal.targetRole ? ` and your ${goal.targetRole} target` : ''}. Each run stays connected to a real outcome instead of generic prep.`}
-        actions={(
+        description={`Practice interview questions for ${goal.targetRole ? `a ${goal.targetRole} role` : 'your goal'}. Answer in writing, then get a scorecard with what to improve.`}
+        actions={currentPlan ? (
           <HStack spacing={3} flexWrap="wrap">
-            <Badge colorScheme="blue" px={3} py={1.5} rounded="full" fontSize="0.72rem">
-              {remainingInterviews == null ? 'Unlimited quota' : `${remainingInterviews} left this month`}
-            </Badge>
+            {mockEnabled ? (
+              <Badge colorScheme="blue" px={3} py={1.5} rounded="full" fontSize="0.72rem">
+                {interviewsLeft == null ? 'Unlimited practice' : `${interviewsLeft} left this month`}
+              </Badge>
+            ) : null}
             <Badge colorScheme="gray" px={3} py={1.5} rounded="full" fontSize="0.72rem">
-              {currentPlan?.plan?.name ?? 'Free'}
+              {currentPlan.plan?.name ?? 'Free'} plan
             </Badge>
           </HStack>
-        )}
+        ) : undefined}
       />
 
       {error ? (
@@ -442,12 +451,12 @@ export default function MockInterview() {
                     New run
                   </Text>
                   <Text fontSize="sm" color="ink.500" lineHeight="1.7">
-                    Choose the kind of interview pressure you want to practice today.
+                    Pick the kind of interview you want to practice.
                   </Text>
                 </VStack>
-                {currentPlan?.planKey !== 'sprint' ? (
+                {currentPlan && !mockEnabled ? (
                   <Button as={RouterLink} to="/pricing" size="sm" variant="ghost" color="brand.700">
-                    Sprint only
+                    Needs Sprint plan
                   </Button>
                 ) : null}
               </HStack>
@@ -520,7 +529,7 @@ export default function MockInterview() {
                   Recent runs
                 </Text>
                 <Text fontSize="sm" color="ink.500" lineHeight="1.7">
-                  Reload a scorecard or continue reviewing the transcript from a past run.
+                  Open a past practice run to see its answers and scorecard.
                 </Text>
               </VStack>
 
@@ -688,7 +697,7 @@ export default function MockInterview() {
           ) : (
             <EmptyState
               title="No active mock interview yet"
-              description="Start a run on the left, and the transcript plus scorecard will appear here."
+              description="Pick an interview type and press Start. Your questions and scorecard will show up here."
               accent="neutral"
             />
           )}

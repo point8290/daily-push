@@ -53,12 +53,36 @@ router.post(
     try {
       const { userId } = req as AuthRequest;
       const db = getDb();
+
+      // Opening the "new goal" page should not pile up empty drafts. Reuse the
+      // most recent draft that has no text yet instead of creating another one.
+      const blankDraft = await db.collection("goals").findOne(
+        {
+          userId,
+          status: "intake_in_progress",
+          "raw.input": "",
+          "structured.title": { $exists: false },
+        },
+        { sort: { createdAt: -1 } },
+      );
+      if (blankDraft) {
+        res.status(201).json({ goalId: blankDraft._id.toString() });
+        return;
+      }
+
       const activeGoalCount = await db.collection("goals").countDocuments({
         userId,
         status: { $in: ["intake_in_progress", "active", "drafting", "assessing", "planning", "paused"] },
       });
 
       await assertBelowStateLimit(userId, "goals.active.max", activeGoalCount);
+
+      const hasPrimaryGoal =
+        (await db.collection("goals").countDocuments({
+          userId,
+          isPrimary: true,
+          status: { $nin: ["archived", "abandoned"] },
+        })) > 0;
 
       const now = new Date();
       const doc = {
@@ -77,21 +101,15 @@ router.post(
         sprint: null,
         status: "intake_in_progress",
         stage: "intake",
-        isPrimary: true,
+        // A draft only becomes the primary goal once it is confirmed, so an
+        // unfinished draft never hides the goal the user is working on.
+        isPrimary: !hasPrimaryGoal,
         createdAt: now,
         updatedAt: now,
         achievedAt: null,
         abandonedAt: null,
         abandonedReason: null,
       };
-
-      // Mark any existing primary goals as non-primary
-      await db
-        .collection("goals")
-        .updateMany(
-          { userId, isPrimary: true },
-          { $set: { isPrimary: false } },
-        );
 
       const result = await db.collection("goals").insertOne(doc);
       const goalId = result.insertedId.toString();

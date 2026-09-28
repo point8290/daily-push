@@ -70,9 +70,9 @@ export default function TargetRoles() {
             Roles you are preparing for.
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-            Target Role is your career direction. Applications are
-            company-specific. Sprints are the focused execution plan that closes
-            the gaps.
+            A target role is the job you are aiming for. For each one you can
+            check how ready you are, track applications to specific companies,
+            and start a plan to close the gaps.
           </p>
         </div>
         <Link
@@ -103,15 +103,15 @@ export default function TargetRoles() {
           <div className="grid gap-6 lg:grid-cols-[1fr_0.8fr] lg:items-center">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">
-                Empty workspace
+                No target role yet
               </p>
               <h2 className="mt-3 text-3xl font-black tracking-[-0.06em] text-slate-950">
-                Choose a role before choosing a sprint.
+                Pick the role you want next.
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-                Start with Role Discovery. Save one target role, then use
-                this workspace to connect readiness, applications, and upgrade
-                work without mixing them together.
+                Browse roles or answer a few questions to get suggestions. Save
+                one here and you will see how ready you are for it and what to
+                work on.
               </p>
               <Link
                 to="/career-market/find-direction"
@@ -122,13 +122,13 @@ export default function TargetRoles() {
             </div>
             <div className="rounded-[32px] bg-slate-950 p-6 text-white">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45">
-                Workspace model
+                How it fits together
               </p>
               <div className="mt-5 space-y-3">
                 {[
-                  "Target Role = direction",
-                  "Application = company/job",
-                  "Sprint = execution plan",
+                  "Target role: the job you want",
+                  "Application: one company and job post",
+                  "Plan: weekly work that closes your gaps",
                 ].map((item) => (
                   <div
                     key={item}

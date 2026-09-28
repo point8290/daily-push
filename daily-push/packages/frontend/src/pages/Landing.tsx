@@ -4,26 +4,26 @@ import { useAuth } from "../contexts/AuthContext";
 const guideCards = [
   {
     number: "01",
-    label: "Role expectations",
-    question: "Which roles are realistic now?",
-    body: "Review role expectations, market paths, changing requirements, and proof signals before spending weeks preparing.",
-    link: "Explore role signals ->",
+    label: "Pick a role",
+    question: "Which roles are realistic for me?",
+    body: "See what each role expects: must-have skills, what employers want as proof, and interview topics.",
+    link: "Browse roles ->",
     to: "/career-market",
   },
   {
     number: "02",
-    label: "Resume evidence",
-    question: "Is the resume proving the right work?",
-    body: "Compare a resume and job description to see visible strengths, weak signals, and missing proof.",
-    link: "See evidence gaps ->",
+    label: "Check your resume",
+    question: "Does my resume show the right work?",
+    body: "Compare your resume with a job post to see your strengths, your gaps, and what to fix first.",
+    link: "Check a resume ->",
     to: "/resume",
   },
   {
     number: "03",
-    label: "Preparation work",
-    question: "What work closes the gaps?",
-    body: "Turn weak areas into projects, stories, resume evidence, and interview preparation work.",
-    link: "Map preparation work ->",
+    label: "Close the gaps",
+    question: "What should I learn, and in what order?",
+    body: "Your goal becomes a study map and one short session a day, with AI feedback and mock interviews.",
+    link: "Get role suggestions ->",
     to: "/career-market/find-direction",
   },
 ];
@@ -47,11 +47,11 @@ const previewItems = [
 ];
 
 const guideSteps = [
-  "Review role expectations",
-  "Compare resume evidence",
-  "Find missing evidence",
-  "Plan focused preparation",
-  "Recheck progress",
+  "Choose a target role",
+  "Find your skill gaps",
+  "Get a study map",
+  "Do one session a day",
+  "Practice mock interviews",
 ];
 
 export default function Landing() {
@@ -114,11 +114,11 @@ export default function Landing() {
               <span className="block">preparation path.</span>
             </h1>
             <p className="mt-7 max-w-2xl text-base leading-8 text-slate-600 md:text-lg md:leading-9">
-              Software roles keep changing. Daily Push turns market signals, resume evidence,
-              and focused practice into one preparation loop before applications begin.
+              Daily Push shows what your next role expects, finds your skill gaps, and turns
+              them into one focused study session a day, with AI feedback and mock interviews.
             </p>
             <div className="mt-8 flex flex-wrap gap-2 sm:gap-3">
-              {["Market expectations", "Resume evidence", "Focused preparation"].map((item) => (
+              {["Role expectations", "Daily study plan", "Mock interviews"].map((item) => (
                 <span
                   key={item}
                   className="rounded-full border border-slate-200 bg-white/78 px-3 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-500 shadow-sm sm:px-4 sm:text-xs"
@@ -246,7 +246,7 @@ export default function Landing() {
               ))}
             </div>
             <p className="mt-5 text-sm leading-8 text-slate-600">
-              Role expectations, resume evidence, target-role readiness, sprint work, and daily progress stay connected as preparation becomes clearer.
+              Everything stays in one place: the role you want, your gaps, your daily sessions, and your progress.
             </p>
           </div>
         </section>

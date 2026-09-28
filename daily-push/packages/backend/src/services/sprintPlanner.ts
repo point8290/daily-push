@@ -228,8 +228,8 @@ function buildSummary(params: {
 
   const progressText =
     totalNodes > 0
-      ? `${completedNodes}/${totalNodes} concept nodes done`
-      : "your roadmap is still being turned into concept nodes";
+      ? `${completedNodes}/${totalNodes} concepts done`
+      : "your study map is still being built";
 
   const failureText =
     failedTopics > 0
@@ -255,7 +255,10 @@ function buildSummary(params: {
     })}. Maintain ${weeklyHours}.${failureText}`;
   }
 
-  return `Your sprint is set up. Commit to ${weeklyHours} and keep moving ${progressText}.${failureText}`;
+  if (totalNodes === 0) {
+    return `Your plan is set up. The study map is still being built, so aim for ${weeklyHours} once it is ready.${failureText}`;
+  }
+  return `Your plan is set up with ${progressText}. Aim for ${weeklyHours} to keep moving.${failureText}`;
 }
 
 export function isPremiumSprintType(type: SprintType): boolean {

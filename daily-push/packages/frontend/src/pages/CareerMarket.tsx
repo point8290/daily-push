@@ -208,6 +208,21 @@ function formatFreshness(hours: number | null | undefined): string | null {
   return `${Math.round(hours / 24)}d old`;
 }
 
+export function aiImpactLabel(value: string): string {
+  switch (value) {
+    case "created_by_ai":
+      return "New with AI";
+    case "amplified":
+      return "Growing with AI";
+    case "changed":
+      return "Changing with AI";
+    case "replaced":
+      return "At risk from AI";
+    default:
+      return formatLabel(value);
+  }
+}
+
 function confidenceLabel(confidence: number): string {
   if (confidence >= 0.8) return "High confidence";
   if (confidence >= 0.65) return "Medium confidence";
@@ -387,7 +402,7 @@ function RoleCard({
           </h3>
         </div>
         <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-sky-700">
-          {formatLabel(role.aiImpact)}
+          {aiImpactLabel(role.aiImpact)}
         </span>
       </div>
       <p className="mt-3 text-sm leading-7 text-slate-600">
@@ -407,10 +422,12 @@ function RoleCard({
         <span>Updated {formatDate(role.lastUpdated)}</span>
         <span className="h-1 w-1 rounded-full bg-slate-300" />
         <span>{confidenceLabel(role.confidence)}</span>
-        <span className="h-1 w-1 rounded-full bg-slate-300" />
-        <span>{roleSignalLabel(role)}</span>
-        <span className="h-1 w-1 rounded-full bg-slate-300" />
-        <span>{roleSourceNote(role)}</span>
+        {role.meta?.profileVersion ? (
+          <>
+            <span className="h-1 w-1 rounded-full bg-slate-300" />
+            <span>{roleSourceNote(role)}</span>
+          </>
+        ) : null}
       </div>
       {role.meta?.profileVersion?.changeSummary ? (
         <p className="mt-3 rounded-2xl bg-sky-50 p-3 text-xs font-bold leading-5 text-sky-800">
@@ -976,13 +993,13 @@ export default function CareerMarket() {
               </div>
               <h1 className="mt-4 max-w-3xl font-display text-4xl font-semibold leading-[0.96] tracking-[-0.06em] text-slate-950 md:text-6xl">
                 {isFindDirectionPage
-                  ? "Find role directions that match current evidence."
-                  : "Browse role expectations before choosing what to prepare."}
+                  ? "Find roles that fit your experience."
+                  : "See what in-demand roles expect before you prepare."}
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-8 text-slate-600">
                 {isFindDirectionPage
-                  ? "Answer a few focused questions and turn current skills, strongest evidence, and preferred work style into role recommendations."
-                  : "Explore changing role signals, proof expectations, interview focus areas, and regional context without entering personal data first."}
+                  ? "Answer a few questions about your skills and the work you enjoy. You get suggested roles, the gaps to close, and what to build to prove it."
+                  : "Each role shows the must-have skills, what employers want to see as proof, and interview topics. No sign-up details needed."}
               </p>
             </div>
 
@@ -1009,21 +1026,20 @@ export default function CareerMarket() {
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                Role signals
+                Browse roles
               </p>
               <h2 className="mt-2 text-3xl font-black tracking-[-0.06em] text-slate-950">
-                Browse roles people are asking about
+                Roles to explore
               </h2>
             </div>
             <p className="max-w-xl text-sm leading-7 text-slate-500">
-              Choose a region lens when reviewed signals exist. If regional
-              coverage is not ready, we show the global curated baseline clearly
-              instead of inventing local claims.
+              Pick a region to see local expectations where we have them.
+              Otherwise you see the global view.
             </p>
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
-              Region lens
+              Region
             </span>
             {roleRegionFilters.map((filter) => (
               <button
@@ -1071,11 +1087,11 @@ export default function CareerMarket() {
                   Not sure which role fits?
                 </p>
                 <h3 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
-                  Use Find Direction to compare roles against current evidence.
+                  Answer a few questions and get role suggestions.
                 </h3>
                 <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
-                  Answer a few profile questions and get target-role recommendations,
-                  upgrade gaps, and proof ideas without uploading a job description.
+                  No job description needed. You get suggested roles, the skills
+                  you are missing, and project ideas that prove you can do the work.
                 </p>
               </div>
               <Link

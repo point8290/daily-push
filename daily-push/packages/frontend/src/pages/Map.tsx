@@ -366,7 +366,7 @@ function MapInner({
                   {goalTitle}
                 </Text>
                 <Text fontSize="sm" color="ink.500">
-                  {nodesLoading ? 'Loading concept nodes...' : `${rawNodes.length} nodes mapped across the learning path.`}
+                  {nodesLoading ? 'Loading concepts...' : `${rawNodes.length} concepts in this plan.`}
                 </Text>
               </VStack>
 
@@ -397,7 +397,7 @@ function MapInner({
                 </Select>
               ) : (
                 <Text fontSize="sm" color="ink.500">
-                  Active map selected automatically from your confirmed goals.
+                  Showing the map for your main goal.
                 </Text>
               )}
 
@@ -584,7 +584,7 @@ export default function Map() {
       <PageHeader
         eyebrow="Map"
         title="Knowledge Map"
-        description="A dependency-aware view of your concept graph so you can spot the critical path, blocked work, and the highest-leverage next move."
+        description="Every concept in your plan and the order to learn them in. Arrows show what you need to know first; green means ready to start."
       />
 
       <Box h={{ base: '72vh', xl: '78vh' }}>

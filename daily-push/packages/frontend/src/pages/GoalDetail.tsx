@@ -764,7 +764,12 @@ export default function GoalDetail() {
       ? { label: 'Setup incomplete', cls: 'bg-slate-100 text-slate-600' }
       : { label: 'Needs your review', cls: 'bg-amber-100 text-amber-800' };
   const goalProgressPct = nodes.length ? Math.round((completedNodeCount / nodes.length) * 100) : 0;
-  const paceWeeks = s.estimatedWeeksAtPace ?? s.estimatedWeeks;
+  // Weeks until the plan-health forecast, so this matches Today and Plan health.
+  const forecastIso = planHealth?.forecastedCompletionDate ?? sprint?.forecastedCompletionDate ?? null;
+  const forecastMs = forecastIso ? new Date(forecastIso).getTime() : NaN;
+  const paceWeeks = Number.isFinite(forecastMs)
+    ? Math.max(1, Math.ceil((forecastMs - Date.now()) / (7 * 24 * 60 * 60 * 1000)))
+    : s.estimatedWeeksAtPace ?? s.estimatedWeeks;
 
   return (
     <div className="space-y-5">
@@ -868,8 +873,8 @@ export default function GoalDetail() {
           <GoalStat label="Ready now" value={`${availableNodeCount}`} detail="concepts unlocked" />
           <GoalStat label="Topics" value={`${completedTopicCount}/${topics.length}`} detail="broken into concepts" />
           <GoalStat
-            label="Pace"
-            value={paceWeeks ? `${paceWeeks} weeks` : '–'}
+            label="Time left"
+            value={paceWeeks ? `~${paceWeeks} week${paceWeeks === 1 ? '' : 's'}` : '–'}
             detail={s.availableMinsDay ? `at ${s.availableMinsDay} min/day` : 'set during setup'}
           />
         </div>

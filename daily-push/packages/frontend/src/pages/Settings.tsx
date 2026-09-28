@@ -199,17 +199,17 @@ export default function Settings() {
           <MetricCard
             label="Active goal limit"
             value={activeGoalLimit?.limitValue == null ? 'Unlimited' : `${activeGoalLimit.limitValue} goals`}
-            detail="How many outcome tracks you can run in parallel."
+            detail="How many goals you can work on at once."
           />
           <MetricCard
             label="AI checks remaining"
             value={aiChecks?.remaining == null ? 'Unlimited' : `${aiChecks.remaining} left`}
-            detail="Used for resume reviews, reports, and coaching feedback."
+            detail="Used each time the AI reviews your work, a resume, or a report."
           />
           <MetricCard
             label="Weekly reports"
             value={weeklyReports?.enabled ? 'Unlocked' : 'Locked'}
-            detail="Controls email summaries, recovery plans, and manager-style reporting."
+            detail="A weekly summary of your progress and a plan for next week."
           />
         </SimpleGrid>
 
@@ -255,7 +255,9 @@ export default function Settings() {
                   Plan and billing
                 </Text>
                 <Text fontSize="sm" color="ink.500" lineHeight="1.7">
-                  Upgrade when you need more checks, richer feedback loops, or the full Sprint workflow.
+                  {currentPlan?.planKey === 'sprint'
+                    ? 'You are on the top plan, so every feature is unlocked.'
+                    : 'Upgrade for more AI feedback, resume reports, and interview practice.'}
                 </Text>
               </VStack>
               <Button
@@ -270,7 +272,7 @@ export default function Settings() {
             </HStack>
 
             <HStack spacing={3} flexWrap="wrap">
-              {currentPlan?.planKey !== 'pro' ? (
+              {currentPlan?.planKey === 'free' || !currentPlan ? (
                 <Button
                   type="button"
                   colorScheme="blue"
@@ -319,10 +321,10 @@ export default function Settings() {
             <Stack spacing={5}>
               <VStack align="flex-start" spacing={1}>
                 <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
-                  Plan cadence
+                  Study time
                 </Text>
                 <Text fontSize="sm" color="ink.500" lineHeight="1.7">
-                  These values shape forecasts, sprint pacing, and how much work the app recommends each week.
+                  How much time you have. We use this to size your sessions and estimate your finish date.
                 </Text>
               </VStack>
 
@@ -339,7 +341,7 @@ export default function Settings() {
                   borderColor="blackAlpha.200"
                 />
                 <Text mt={2} fontSize="xs" color="ink.400">
-                  Used to estimate how much momentum you can sustain each week.
+                  Roughly how long you can study on a normal day.
                 </Text>
               </FormControl>
 
@@ -372,7 +374,7 @@ export default function Settings() {
                   Timezone and communication
                 </Text>
                 <Text fontSize="sm" color="ink.500" lineHeight="1.7">
-                  Keep digests and weekly recaps aligned with your local workday so reminders land at the right moment.
+                  So reminders and weekly summaries arrive at a sensible time for you.
                 </Text>
               </VStack>
 

@@ -407,7 +407,7 @@ export default function GoalSetup() {
       <PageHeader
         eyebrow="New goal"
         title="Create a career goal"
-        description="A goal is your long-term career outcome. You can add an execution sprint after the goal is clear."
+        description="Describe where you want your career to go. We will turn it into skill gaps, a study map, and daily sessions."
       />
 
       <SurfaceCard px={{ base: 4, md: 6 }} py={5}>
@@ -627,7 +627,7 @@ export default function GoalSetup() {
             <Stack spacing={6}>
               <Box>
                 <Heading size="md" letterSpacing="-0.03em" color="ink.900">
-                  Add an execution sprint
+                  Add a deadline and weekly plan
                 </Heading>
                 <Text mt={2} fontSize="sm" lineHeight="1.8" color="ink.500">
                   A goal is the destination. A sprint is the focused push:

@@ -7,7 +7,7 @@ import {
   type RoleMarketProfile,
 } from "../api/client";
 import SurfaceCard from "../components/ui/SurfaceCard";
-import { CareerMarketHeader } from "./CareerMarket";
+import { CareerMarketHeader, aiImpactLabel } from "./CareerMarket";
 import { useAuth } from "../contexts/AuthContext";
 
 function formatLabel(value: string): string {
@@ -35,9 +35,9 @@ function confidenceLabel(confidence: number): string {
 function signalBasisLabel(role: RoleMarketProfile): string {
   if (role.meta.profileVersion)
     return `Reviewed market signals v${role.meta.profileVersion.version}`;
-  if (role.meta.sourceMode === "hybrid") return "Curated market baseline";
+  if (role.meta.sourceMode === "hybrid") return "Industry reports, reviewed by us";
   if (role.meta.sourceMode === "live") return "Reviewed market signals";
-  return "Curated market baseline";
+  return "Industry reports, reviewed by us";
 }
 
 function sourceSampleLabel(role: RoleMarketProfile): string {
@@ -253,13 +253,13 @@ export default function RoleMarketDetail() {
                 <div className="relative">
                   <div className="flex flex-wrap gap-2">
                     <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
-                      {formatLabel(role.category)}
+                      {role.category.length <= 3 ? role.category.toUpperCase() : formatLabel(role.category)}
                     </span>
                     <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-black text-sky-700">
                       {formatLabel(role.roleType)}
                     </span>
                     <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
-                      AI impact: {formatLabel(role.aiImpact)}
+                      {aiImpactLabel(role.aiImpact)}
                     </span>
                   </div>
                   <h1 className="mt-6 max-w-4xl font-display text-5xl font-semibold leading-[0.92] tracking-[-0.065em] md:text-7xl">
@@ -283,7 +283,7 @@ export default function RoleMarketDetail() {
                 <div className="absolute -bottom-28 right-4 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
                 <div className="relative">
                   <p className="text-xs font-black uppercase tracking-[0.2em] text-white/45">
-                    Readiness lens
+                    About this profile
                   </p>
                   <div className="mt-6 grid gap-3">
                     <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
@@ -296,7 +296,7 @@ export default function RoleMarketDetail() {
                     </div>
                     <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
                       <p className="text-sm font-black text-white">
-                        Source confidence
+                        How sure we are
                       </p>
                       <p className="mt-1 text-sm text-white/65">
                         {confidenceLabel(role.confidence)}
@@ -304,7 +304,7 @@ export default function RoleMarketDetail() {
                     </div>
                     <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
                       <p className="text-sm font-black text-white">
-                        Signal basis
+                        Based on
                       </p>
                       <p className="mt-1 text-sm text-white/65">
                         {signalBasisLabel(role)}
@@ -333,17 +333,7 @@ export default function RoleMarketDetail() {
                           {role.meta.profileVersion.changeSummary}
                         </p>
                       </div>
-                    ) : (
-                      <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
-                        <p className="text-sm font-black text-white">
-                          What changed recently
-                        </p>
-                        <p className="mt-1 text-sm leading-6 text-white/65">
-                          No reviewed source-backed change summary is attached
-                          yet. Use this profile as a directional baseline.
-                        </p>
-                      </div>
-                    )}
+                    ) : null}
                     <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
                       <p className="text-sm font-black text-white">
                         Interview focus

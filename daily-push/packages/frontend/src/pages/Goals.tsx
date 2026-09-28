@@ -155,7 +155,7 @@ export default function Goals() {
       <PageHeader
         eyebrow="Career goals"
         title="Goals"
-        description="Manage the outcomes you are actively pursuing and choose the primary path for your next sessions."
+        description="The career outcomes you are working toward. Today builds your daily session from your main goal."
         actions={(
           <Button as={Link} to="/goals/new" width={{ base: 'full', lg: 'auto' }}>
             New goal

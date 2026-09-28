@@ -514,8 +514,17 @@ export async function getTodayData(userId: string): Promise<TodayData> {
   );
   const minsDay = profileRows[0]?.available_mins_day ?? 45;
   const remainingNodes = totalNodes - doneNodes;
+  // Prefer the plan-health forecast (the same date the goal page shows) so
+  // Today and the goal page never disagree. Fall back to a rough estimate.
+  const forecast = goal.sprint?.forecastedCompletionDate
+    ? new Date(goal.sprint.forecastedCompletionDate)
+    : null;
+  const forecastWeeks =
+    forecast && !Number.isNaN(forecast.getTime())
+      ? Math.max(1, Math.ceil((forecast.getTime() - Date.now()) / (7 * 24 * 60 * 60 * 1000)))
+      : null;
   const estimatedWeeksRemaining = remainingNodes > 0
-    ? Math.ceil((remainingNodes * 30) / (minsDay * 5)) // 5 days/week
+    ? forecastWeeks ?? Math.ceil((remainingNodes * 30) / (minsDay * 5)) // 5 days/week
     : 0;
 
   // Next node to study (available, lowest position)

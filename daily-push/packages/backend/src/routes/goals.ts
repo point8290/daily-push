@@ -189,9 +189,28 @@ router.get(
     try {
       const { userId } = req as AuthRequest;
       const db = getDb();
-      const goal = await db
+      let goal = await db
         .collection("goals")
         .findOne({ userId, isPrimary: true });
+
+      // Older builds made every freshly opened "new goal" draft the primary
+      // goal. If the primary is still an unfinished draft while a real goal
+      // exists, hand back the real goal and repair the flag.
+      if (!goal || goal.status === "intake_in_progress") {
+        const activeGoal = await db
+          .collection("goals")
+          .findOne({ userId, status: "active" }, { sort: { updatedAt: -1 } });
+        if (activeGoal) {
+          await db
+            .collection("goals")
+            .updateMany({ userId, isPrimary: true }, { $set: { isPrimary: false } });
+          await db
+            .collection("goals")
+            .updateOne({ _id: activeGoal._id }, { $set: { isPrimary: true } });
+          goal = { ...activeGoal, isPrimary: true };
+        }
+      }
+
       if (!goal) {
         res.status(404).json({ error: "No primary goal found" });
         return;
@@ -287,8 +306,13 @@ router.post(
       const update: Record<string, any> = {
         status: "active",
         stage: "action",
+        isPrimary: true,
         updatedAt: new Date(),
       };
+      // A newly confirmed goal becomes the one Today plans around.
+      await db
+        .collection("goals")
+        .updateMany({ userId, isPrimary: true, _id: { $ne: id } }, { $set: { isPrimary: false } });
       if (availableMinsDay)
         update["structured.availableMinsDay"] = availableMinsDay;
 

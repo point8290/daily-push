@@ -5,9 +5,9 @@ import PageHeader from '../components/ui/PageHeader';
 import SurfaceCard from '../components/ui/SurfaceCard';
 
 const LONGEVITY_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  high: { bg: 'bg-emerald-50', text: 'text-emerald-700', label: 'High longevity' },
-  medium: { bg: 'bg-amber-50', text: 'text-amber-700', label: 'Medium longevity' },
-  low: { bg: 'bg-slate-100', text: 'text-slate-500', label: 'Low longevity' },
+  high: { bg: 'bg-emerald-50', text: 'text-emerald-700', label: 'Long-lasting skill' },
+  medium: { bg: 'bg-amber-50', text: 'text-amber-700', label: 'Useful for years' },
+  low: { bg: 'bg-slate-100', text: 'text-slate-500', label: 'Fast-changing' },
 };
 
 const NODE_STATUS_STYLES: Record<string, string> = {
@@ -42,29 +42,6 @@ function RefreshIcon({ spinning = false }: { spinning?: boolean }) {
       <path d="M21 12a9 9 0 1 1-2.64-6.36" />
       <path d="M21 3v6h-6" />
     </svg>
-  );
-}
-
-function NewsStat({
-  label,
-  value,
-  description,
-}: {
-  label: string;
-  value: number;
-  description: string;
-}) {
-  return (
-    <SurfaceCard p={5}>
-      <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">{label}</p>
-      <p
-        className="mt-3 font-display text-[28px] text-slate-900"
-        style={{ letterSpacing: '-0.03em', lineHeight: 1 }}
-      >
-        {value}
-      </p>
-      <p className="mt-2 text-sm leading-relaxed text-slate-500">{description}</p>
-    </SurfaceCard>
   );
 }
 
@@ -141,9 +118,9 @@ export default function News() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Signal feed"
-        title="News that maps to your learning graph"
-        description="Keep up with stories linked to the topics you are studying now, and turn them into lightweight context or review instead of passive scrolling."
+        eyebrow="News"
+        title="News for what you are learning"
+        description="Recent Hacker News stories about the concepts in your plan. Reading one about a finished concept counts as a quick review."
         actions={(
           <button
             onClick={handleRefresh}
@@ -156,23 +133,6 @@ export default function News() {
         )}
       />
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <NewsStat
-          label="Unread signals"
-          value={unreadCount}
-          description="Fresh stories you have not processed yet."
-        />
-        <NewsStat
-          label="Study now"
-          value={studyNowCount}
-          description="Stories attached to nodes you can act on immediately."
-        />
-        <NewsStat
-          label="Review context"
-          value={reviewCount}
-          description="Finished or review-due topics that reinforce spaced repetition."
-        />
-      </div>
 
       <SurfaceCard p={2}>
         <div className="flex flex-wrap gap-2">
@@ -254,9 +214,9 @@ export default function News() {
                     </a>
 
                     <div className="mt-2 flex flex-wrap items-center gap-3">
-                      <span className="text-xs capitalize text-slate-400">{item.source}</span>
+                      <span className="text-xs text-slate-400">{item.source === 'hackernews' ? 'Hacker News' : item.source}</span>
                       <span className="text-xs text-slate-300">/</span>
-                      <span className="text-xs text-slate-400">{timeAgo(item.fetchedAt)}</span>
+                      <span className="text-xs text-slate-400">Added {timeAgo(item.fetchedAt)}</span>
                       {isRead && (
                         <>
                           <span className="text-xs text-slate-300">/</span>

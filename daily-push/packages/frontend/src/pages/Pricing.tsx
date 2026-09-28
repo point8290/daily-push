@@ -20,6 +20,10 @@ function formatPrice(cents: number | null, interval: 'month' | 'year') {
   return `$${dollars}/${interval === 'month' ? 'mo' : 'yr'}`;
 }
 
+function planRank(key: string): number {
+  return key === 'sprint' ? 2 : key === 'pro' ? 1 : 0;
+}
+
 export default function Pricing() {
   const location = useLocation();
   const {
@@ -131,6 +135,9 @@ export default function Pricing() {
               ? formatPrice(plan.monthlyPriceCents, 'month')
               : formatPrice(plan.yearlyPriceCents, 'year');
           const isCurrent = currentPlan?.planKey === plan.key;
+          // A cheaper plan than the one you have is already covered by it.
+          const isIncluded =
+            !isCurrent && planRank(plan.key) < planRank(currentPlan?.planKey ?? 'free');
 
           return (
             <SurfaceCard
@@ -160,7 +167,7 @@ export default function Pricing() {
                     {price}
                   </Text>
                   <Text mt={1} fontSize="xs" textTransform="uppercase" letterSpacing="0.14em" color="ink.400">
-                    {plan.key === 'free' ? 'Start here' : 'For momentum and outcomes'}
+                    {plan.key === 'free' ? 'Start here' : plan.key === 'pro' ? 'More feedback, fewer limits' : 'Everything, plus interview practice'}
                   </Text>
                 </Box>
 
@@ -176,18 +183,20 @@ export default function Pricing() {
 
                 {plan.key === 'free' ? (
                   <Button disabled variant="outline">
-                    Free baseline
+                    {isCurrent ? 'Current plan' : 'Included in every plan'}
                   </Button>
                 ) : (
                   <Button
-                    disabled={isCurrent || entitlementLoading || busyPlan === plan.key}
+                    disabled={isCurrent || isIncluded || entitlementLoading || busyPlan === plan.key}
                     onClick={() => handleUpgrade(plan.key as 'pro' | 'sprint')}
                   >
                     {busyPlan === plan.key
                       ? 'Updating plan...'
                       : isCurrent
                         ? 'Current plan'
-                        : plan.ctaLabel}
+                        : isIncluded
+                          ? 'Included in your plan'
+                          : plan.ctaLabel}
                   </Button>
                 )}
               </Stack>
@@ -198,11 +207,11 @@ export default function Pricing() {
 
       <SurfaceCard px={6} py={5}>
         <Text fontSize="sm" color="ink.500">
-          Need a quick route back? Visit{' '}
+          Want to change or cancel your plan? Go to{' '}
           <Text as={Link} to="/settings" color="brand.700" fontWeight="700">
             Settings
           </Text>{' '}
-          to manage the current plan and billing behavior.
+          and open Plan and billing.
         </Text>
       </SurfaceCard>
     </Stack>

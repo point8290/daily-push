@@ -114,7 +114,7 @@ export default function Login() {
                   ? "Your snapshot will continue after signup, so you can save the full report, tailor the resume, and decide whether to turn the gaps into a plan."
                   : isRoleDiscoveryFlow
                     ? "Keep your target role direction, compare it with real jobs, and build the proof that makes the move believable."
-                    : "Daily Push turns fuzzy ambition into a mapped plan, focused sessions, proof-of-skill artifacts, and career-focused feedback you can act on."}
+                    : "Daily Push turns your career goal into a study map and one focused session a day, with AI feedback on what you wrote."}
               </Text>
 
               <Stack
@@ -137,7 +137,7 @@ export default function Login() {
                       ? "Pick up exactly where you left off after checking your resume against the job description."
                       : isRoleDiscoveryFlow
                         ? "Start from the role direction that fits, not from a random list of topics."
-                        : "Tie every session to a target role, skill gap, and missing proof signal."}
+                        : "Every session targets a skill gap for the role you want."}
                   </Text>
                 </SurfaceCard>
                 <SurfaceCard flex="1" px={5} py={5}>
@@ -155,7 +155,7 @@ export default function Login() {
                       ? "Save the report, generate a tailored draft, or build a gap-closing sprint when you are ready."
                       : isRoleDiscoveryFlow
                         ? "Move from direction to resume checks, proof tasks, and focused upgrade sprints."
-                        : "End each focused block with an artifact, a score, and a concrete next step."}
+                        : "Finish each session with a short write-up, a score, and a clear next step."}
                   </Text>
                 </SurfaceCard>
               </Stack>
@@ -187,7 +187,7 @@ export default function Login() {
               <Text mt={2} fontSize="sm" color="ink.500">
                 {isResumeFlow
                   ? "Your resume snapshot will be waiting for you after this step."
-                  : "Sign in to continue your next best career session."}
+                  : "Sign in to pick up your next session."}
               </Text>
             </Box>
 

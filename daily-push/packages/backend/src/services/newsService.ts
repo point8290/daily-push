@@ -26,6 +26,62 @@ export interface NewsItem {
   nodeDepth:    string;
 }
 
+// ─── Relevance + de-duplication ───────────────────────────────────────────────
+
+const STOPWORDS = new Set([
+  'with', 'from', 'into', 'your', 'that', 'this', 'what', 'when', 'using',
+  'basics', 'fundamentals', 'advanced', 'strategies', 'patterns', 'models',
+  'introduction', 'the', 'and', 'for', 'vs.', 'versus',
+]);
+
+/** Significant words of a concept title, cut to a 5-letter stem ("models" ~ "model"). */
+function keywordStems(text: string): string[] {
+  return Array.from(
+    new Set(
+      text
+        .toLowerCase()
+        .split(/[^a-z0-9+#]+/)
+        .filter((w) => w.length >= 3 && !STOPWORDS.has(w))
+        .map((w) => w.slice(0, 5)),
+    ),
+  );
+}
+
+/** Longer, specific words ("replication", "terraform") are strong enough on their own. */
+function strongStems(text: string): Set<string> {
+  return new Set(
+    text
+      .toLowerCase()
+      .split(/[^a-z0-9+#]+/)
+      .filter((w) => w.length >= 7 && !STOPWORDS.has(w))
+      .map((w) => w.slice(0, 5)),
+  );
+}
+
+/**
+ * A story is relevant when its title shares one specific keyword with the
+ * concept, or two ordinary ones. This drops HN search noise such as
+ * "FaceTime with AI" showing up under "Data Consistency Models".
+ */
+export function isRelevantStory(storyTitle: string, conceptTitle: string): boolean {
+  const concept = keywordStems(conceptTitle);
+  if (concept.length === 0) return true;
+  const story = new Set(keywordStems(storyTitle));
+  const hits = concept.filter((k) => story.has(k));
+  if (hits.length >= Math.min(2, concept.length)) return true;
+  const strong = strongStems(conceptTitle);
+  return hits.some((k) => strong.has(k));
+}
+
+/** "Paxos vs. Raft (2020) [video]" and "Paxos vs Raft" count as the same story. */
+function normalizedTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/\(\d{4}\)|\[[^\]]*\]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
 // ─── HackerNews fetch ─────────────────────────────────────────────────────────
 
 async function fetchHN(
@@ -74,7 +130,9 @@ export async function fetchNewsForUser(userId: string): Promise<number> {
   for (const r of results) {
     if (r.status !== 'fulfilled') continue;
     const { nodeId, items } = r.value;
+    const nodeTitle = nodes.find((n) => n.id === nodeId)?.title ?? '';
     for (const item of items) {
+      if (!isRelevantStory(item.title, nodeTitle)) continue;
       const { rowCount } = await pool.query(
         `INSERT INTO news_items (user_id, concept_node_id, external_id, title, url)
          VALUES ($1, $2, $3, $4, $5)
@@ -116,7 +174,17 @@ export async function getNewsFeed(userId: string): Promise<NewsItem[]> {
     [userId],
   );
 
-  return rows.map(r => ({
+  // Hide duplicates and off-topic stories that older fetches already stored.
+  const seenTitles = new Set<string>();
+  const visible = rows.filter((r) => {
+    if (!isRelevantStory(r.title, r.node_title)) return false;
+    const key = normalizedTitle(r.title);
+    if (seenTitles.has(key)) return false;
+    seenTitles.add(key);
+    return true;
+  });
+
+  return visible.map(r => ({
     id:           r.id,
     title:        r.title,
     url:          r.url,
