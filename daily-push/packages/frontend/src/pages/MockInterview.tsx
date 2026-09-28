@@ -28,6 +28,7 @@ import {
 import EmptyState from '../components/ui/EmptyState';
 import PageHeader from '../components/ui/PageHeader';
 import SurfaceCard from '../components/ui/SurfaceCard';
+import AppModal from '../components/ui/AppModal';
 
 interface GoalSummary {
   id: string;
@@ -227,6 +228,7 @@ export default function MockInterview() {
   const { currentPlan, entitlements } = useEntitlements();
 
   const [goal, setGoal] = useState<GoalSummary | null>(null);
+  const [startOpen, setStartOpen] = useState(false);
   const [loadingGoal, setLoadingGoal] = useState(true);
   const [history, setHistory] = useState<MockInterviewHistoryItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -357,6 +359,7 @@ export default function MockInterview() {
       });
       setRun(result);
       setAnswer('');
+      setStartOpen(false);
       setRemainingInterviews(result.quota?.remaining ?? remainingInterviews);
       await loadHistory(goal.id);
     } catch (err: any) {
@@ -483,83 +486,94 @@ export default function MockInterview() {
       <div className="grid gap-6 lg:grid-cols-[0.95fr,1.05fr]">
         <div className="space-y-4">
           <SurfaceCard p={{ base: 5, md: 6 }}>
-            <Stack spacing={5}>
-              <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={4}>
-                <VStack align="flex-start" spacing={1}>
-                  <Text fontSize="sm" fontWeight="700" color="ink.400">
-                    New run
-                  </Text>
-                  <Text fontSize="sm" color="ink.500" lineHeight="1.7">
-                    Pick the kind of interview you want to practice.
-                  </Text>
-                </VStack>
-                {currentPlan && !mockEnabled ? (
-                  <Button as={RouterLink} to="/pricing" size="sm" variant="ghost" color="brand.700">
-                    Needs Sprint plan
-                  </Button>
-                ) : null}
-              </HStack>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-base font-semibold text-slate-900">New mock interview</p>
+                <p className="mt-0.5 text-sm text-slate-500">About 15 minutes. You answer in writing and get a scorecard.</p>
+              </div>
+              {currentPlan && !mockEnabled ? (
+                <Button as={RouterLink} to="/pricing" size="sm" variant="outline">
+                  Needs Sprint plan
+                </Button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setStartOpen(true)}
+                  className="rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-700"
+                >
+                  Start practice
+                </button>
+              )}
+            </div>
+          </SurfaceCard>
 
-              <Stack spacing={3}>
+          <AppModal
+            isOpen={startOpen}
+            onClose={() => setStartOpen(false)}
+            title="Start a mock interview"
+            description={`For ${goal.targetRole ? `a ${goal.targetRole} role` : 'your goal'}. Pick the kind of interview, then answer each question in writing.`}
+            footer={(
+              <>
+                <button
+                  type="button"
+                  onClick={() => setStartOpen(false)}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600"
+                >
+                  Cancel
+                </button>
+                <Button onClick={handleStart} isLoading={starting} loadingText="Starting…" colorScheme="blue" borderRadius="xl">
+                  Start interview
+                </Button>
+              </>
+            )}
+          >
+            <div className="space-y-4">
+              <div className="space-y-2" role="radiogroup" aria-label="Interview type">
                 {MODE_OPTIONS.map((option) => (
                   <button
                     key={option.mode}
                     type="button"
+                    role="radio"
+                    aria-checked={mode === option.mode}
                     onClick={() => setMode(option.mode)}
-                    className={`w-full rounded-2xl border p-4 text-left transition-colors ${
+                    className={`w-full rounded-xl border p-3.5 text-left transition-colors ${
                       mode === option.mode
-                        ? 'border-sky-300 bg-sky-50'
+                        ? 'border-sky-400 bg-sky-50'
                         : 'border-slate-200 bg-white hover:border-slate-300'
                     }`}
                   >
                     <p className="text-sm font-semibold text-slate-800">{option.label}</p>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-500">{option.description}</p>
+                    <p className="mt-0.5 text-sm leading-relaxed text-slate-500">{option.description}</p>
                   </button>
                 ))}
-              </Stack>
-
-              <Stack spacing={4}>
-                <label className="space-y-2 block">
-                  <span className="text-xs font-semibold text-slate-400">
-                    Focus area
-                  </span>
-                  <Input
-                    value={focusArea}
-                    onChange={(event) => setFocusArea(event.target.value)}
-                    placeholder="Example: job scheduling system, stakeholder conflict, or architecture trade-offs"
-                    borderRadius="xl"
-                    borderColor="blackAlpha.200"
-                    bg="whiteAlpha.700"
-                  />
-                </label>
-
-                <label className="space-y-2 block">
-                  <span className="text-xs font-semibold text-slate-400">
-                    Context to keep in mind
-                  </span>
-                  <Textarea
-                    value={promptContext}
-                    onChange={(event) => setPromptContext(event.target.value)}
-                    rows={4}
-                    placeholder="Optional: mention the kind of company, your role target, or what you want the interviewer to press on."
-                    resize="none"
-                    borderRadius="2xl"
-                    borderColor="blackAlpha.200"
-                    bg="whiteAlpha.700"
-                  />
-                </label>
-              </Stack>
-
-              <Button
-                onClick={handleStart}
-                isLoading={starting}
-                colorScheme="blue"
-                size="lg"
-              >
-                Start mock interview
-              </Button>
-            </Stack>
-          </SurfaceCard>
+              </div>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-slate-800">
+                  Focus <span className="font-normal text-slate-400">(optional)</span>
+                </span>
+                <Input
+                  value={focusArea}
+                  onChange={(event) => setFocusArea(event.target.value)}
+                  placeholder="e.g. job scheduling system, or a conflict with a PM"
+                  borderRadius="xl"
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold text-slate-800">
+                  Anything the interviewer should know <span className="font-normal text-slate-400">(optional)</span>
+                </span>
+                <Textarea
+                  value={promptContext}
+                  onChange={(event) => setPromptContext(event.target.value)}
+                  rows={3}
+                  placeholder="e.g. Series B fintech, push hard on trade-offs."
+                  resize="none"
+                  borderRadius="xl"
+                />
+              </label>
+              {error ? <p className="text-sm text-red-600">{error}</p> : null}
+            </div>
+          </AppModal>
 
           <SurfaceCard p={{ base: 5, md: 6 }}>
             <Stack spacing={5}>

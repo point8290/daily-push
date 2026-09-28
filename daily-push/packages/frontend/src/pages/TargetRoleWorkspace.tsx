@@ -39,6 +39,7 @@ import {
 } from '../api/client';
 import RoleMarketPilotFeedback from '../components/RoleMarketPilotFeedback';
 import DocumentDropzone from '../components/ui/DocumentDropzone';
+import AppModal from '../components/ui/AppModal';
 import SurfaceCard from '../components/ui/SurfaceCard';
 import { readDocumentFile } from '../utils/documentText';
 
@@ -367,6 +368,7 @@ export default function TargetRoleWorkspace() {
   const [evidenceImportBusy, setEvidenceImportBusy] = useState(false);
   const [evidenceImportError, setEvidenceImportError] = useState('');
   const [evidenceImportMessage, setEvidenceImportMessage] = useState('');
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [readinessReport, setReadinessReport] = useState<RoleReadinessReport | null>(null);
   const [readinessBusy, setReadinessBusy] = useState(false);
   const [readinessError, setReadinessError] = useState('');
@@ -417,9 +419,7 @@ export default function TargetRoleWorkspace() {
   };
 
   const scrollToEvidenceIntake = () => {
-    document
-      .getElementById('target-role-evidence-intake')
-      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setEvidenceOpen(true);
   };
 
   useEffect(() => {
@@ -1146,100 +1146,102 @@ export default function TargetRoleWorkspace() {
         </div>
         <div
           id="target-role-evidence-intake"
-          className="relative mt-6 grid gap-4 lg:grid-cols-[1fr_0.72fr]"
+          className="relative mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4"
         >
-          <div className="rounded-[28px] border border-slate-200 bg-white/86 p-5 shadow-sm">
-            <p className="text-sm font-semibold text-slate-400">
-              Add role evidence
-            </p>
-            <h3 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-slate-950">
-              Bring in proof for this role without choosing a company.
-            </h3>
-            <p className="mt-2 text-sm leading-7 text-slate-600">
-              Upload a resume, profile export, or project notes. Daily Push will convert it into source-backed evidence for this role; company-specific JD comparison stays in Applications.
-            </p>
-            <div className="mt-4">
-              <DocumentDropzone
-                label="Role evidence"
-                filename={evidenceFileName}
-                title="Upload resume or profile file"
-                helperText="PDF, TXT, Markdown, and RTF files are supported. Scanned PDFs may need the paste fallback."
-                minHeightClassName="min-h-[190px]"
-                onFile={handleEvidenceFile}
-              />
-            </div>
-            {evidenceImportBusy && (
-              <p className="mt-3 rounded-2xl border border-sky-100 bg-sky-50 p-3 text-sm font-bold leading-6 text-sky-800">
-                Reading and importing evidence...
-              </p>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-900">Add a resume or project notes</p>
+            <p className="mt-0.5 text-sm text-slate-500">Readiness judges real proof, not a role title. Upload a file or paste a few bullets.</p>
+            {evidenceImportMessage && !evidenceOpen && (
+              <p className="mt-1 text-sm font-semibold text-emerald-700">{evidenceImportMessage}</p>
             )}
-            <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-              <summary className="cursor-pointer text-sm font-semibold text-slate-700">
-                Paste instead
-              </summary>
-              <p className="mt-3 text-sm leading-6 text-slate-500">
-                Use this when the source is a LinkedIn section, portfolio note, or a PDF that cannot be read automatically.
-              </p>
-              <textarea
-                value={evidenceImportText}
-                onChange={(event) => {
-                  setEvidenceImportText(event.target.value);
-                  if (evidenceImportError) setEvidenceImportError('');
-                  if (evidenceImportMessage) setEvidenceImportMessage('');
-                }}
-                rows={6}
-                placeholder="Example: Owned production Node.js services, optimized dashboard APIs by 35%, designed RBAC flows, deployed with Docker/Jenkins/AWS..."
-                className="mt-4 w-full resize-y rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm leading-7 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
-              />
-              <button
-                type="button"
-                onClick={handleImportPastedEvidence}
-                disabled={evidenceImportBusy}
-                className={`mt-3 ${targetRolePrimaryActionClass}`}
-              >
-                {evidenceImportBusy ? 'Importing evidence...' : 'Import pasted evidence'}
-              </button>
-            </details>
-            {evidenceImportError && (
-              <p className="mt-3 rounded-2xl border border-red-100 bg-red-50 p-3 text-sm font-bold leading-6 text-red-700">
-                {evidenceImportError}
-              </p>
-            )}
-            {evidenceImportMessage && (
-              <p className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-sm font-bold leading-6 text-emerald-800">
-                {evidenceImportMessage}
-              </p>
-            )}
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              {readinessReport && (
+          </div>
+          <button type="button" onClick={() => setEvidenceOpen(true)} className={targetRolePrimaryActionClass}>
+            Add evidence
+          </button>
+        </div>
+        <AppModal
+          isOpen={evidenceOpen}
+          onClose={() => setEvidenceOpen(false)}
+          title="Add evidence for this role"
+          description="Upload a resume, profile export or project notes. We pull out skills and outcomes as proof. Comparing against a specific job post lives under Applications."
+          size="xl"
+          footer={(
+            <>
+              {readinessReport && evidenceImportMessage ? (
                 <button
                   type="button"
-                  onClick={handleReassessReadiness}
+                  onClick={async () => { await handleReassessReadiness(); setEvidenceOpen(false); }}
                   disabled={reassessmentBusy || evidenceImportBusy}
                   className={targetRoleSecondaryActionClass}
                 >
-                  {reassessmentBusy ? 'Reassessing...' : 'Reassess after import'}
+                  {reassessmentBusy ? 'Rechecking…' : 'Recheck readiness now'}
                 </button>
-              )}
-            </div>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setEvidenceOpen(false)}
+                className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+              >
+                {evidenceImportMessage ? 'Done' : 'Close'}
+              </button>
+            </>
+          )}
+        >
+          <div className="space-y-1">
+    <div>
+      <DocumentDropzone
+        label="Role evidence"
+        filename={evidenceFileName}
+        title="Upload resume or profile file"
+        helperText="PDF, TXT, Markdown, and RTF files are supported. Scanned PDFs may need the paste fallback."
+        minHeightClassName="min-h-[190px]"
+        onFile={handleEvidenceFile}
+      />
+    </div>
+    {evidenceImportBusy && (
+      <p className="mt-3 rounded-2xl border border-sky-100 bg-sky-50 p-3 text-sm font-bold leading-6 text-sky-800">
+        Reading and importing evidence...
+      </p>
+    )}
+    <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+      <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+        Paste instead
+      </summary>
+      <p className="mt-3 text-sm leading-6 text-slate-500">
+        Use this when the source is a LinkedIn section, portfolio note, or a PDF that cannot be read automatically.
+      </p>
+      <textarea
+        value={evidenceImportText}
+        onChange={(event) => {
+          setEvidenceImportText(event.target.value);
+          if (evidenceImportError) setEvidenceImportError('');
+          if (evidenceImportMessage) setEvidenceImportMessage('');
+        }}
+        rows={6}
+        placeholder="Example: Owned production Node.js services, optimized dashboard APIs by 35%, designed RBAC flows, deployed with Docker/Jenkins/AWS..."
+        className="mt-4 w-full resize-y rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm leading-7 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+      />
+      <button
+        type="button"
+        onClick={handleImportPastedEvidence}
+        disabled={evidenceImportBusy}
+        className={`mt-3 ${targetRolePrimaryActionClass}`}
+      >
+        {evidenceImportBusy ? 'Importing evidence...' : 'Import pasted evidence'}
+      </button>
+    </details>
+    {evidenceImportError && (
+      <p className="mt-3 rounded-2xl border border-red-100 bg-red-50 p-3 text-sm font-bold leading-6 text-red-700">
+        {evidenceImportError}
+      </p>
+    )}
+    {evidenceImportMessage && (
+      <p className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-sm font-bold leading-6 text-emerald-800">
+        {evidenceImportMessage}
+      </p>
+    )}
           </div>
-          <div className="rounded-[28px] border border-sky-100 bg-sky-50/80 p-5">
-            <p className="text-sm font-semibold text-sky-700">
-              What this updates
-            </p>
-            <div className="mt-4 space-y-3 text-sm leading-7 text-sky-950/80">
-              <p>
-                Readiness can judge real source-backed proof instead of guessing from a role title.
-              </p>
-              <p>
-                Proof tasks become sharper because Daily Push can see which skills and outcomes already exist.
-              </p>
-              <p>
-                Use Resume later only when comparing against a specific company job description.
-              </p>
-            </div>
-          </div>
-        </div>
+        </AppModal>
         <div className="relative mt-5 flex flex-wrap gap-3">
           <button
             type="button"

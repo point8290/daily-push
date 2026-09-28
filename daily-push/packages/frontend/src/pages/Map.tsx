@@ -233,7 +233,7 @@ function SidePanel({ node, onClose }: { node: ConceptNode; onClose: () => void }
   const unlockCount = node.outgoing_edges.filter((e) => e.edgeType === 'hard_prerequisite').length;
 
   return (
-    <div className="absolute inset-y-4 right-4 z-10 w-[min(22rem,calc(100%-2rem))]">
+    <div className="absolute inset-x-3 bottom-3 z-20 h-[65%] md:inset-x-auto md:bottom-4 md:right-4 md:top-4 md:h-auto md:w-[22rem]">
       <SurfaceCard h="full" overflow="hidden">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <span className="text-sm font-semibold text-slate-400">

@@ -3,6 +3,8 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useEntitlements } from '../contexts/EntitlementsContext';
 import EmptyState from '../components/ui/EmptyState';
+import AppModal from '../components/ui/AppModal';
+import WeeklyCheckinModal from '../components/WeeklyCheckinModal';
 import PageHeader from '../components/ui/PageHeader';
 import SurfaceCard from '../components/ui/SurfaceCard';
 import {
@@ -251,6 +253,7 @@ export default function Today() {
   const [evaluatingArtifact, setEvaluatingArtifact] = useState(false);
   const [movingToRating, setMovingToRating] = useState(false);
   const [notes, setNotes] = useState('');
+  const [checkinOpen, setCheckinOpen] = useState(false);
 
   const [nextGoals, setNextGoals] = useState<Array<{
     profileId: string;
@@ -261,7 +264,7 @@ export default function Today() {
     reason: string;
   }>>([]);
 
-  const { mins, secs, pct } = useTimer(timebox, stage === 'in_session');
+  const { mins, secs, pct } = useTimer(timebox, stage === 'in_session' || stage === 'rating');
   const weeklyReportsEnabled = entitlements.find(
     (entry) => entry.featureKey === 'weekly_reports.enabled',
   )?.enabled;
@@ -767,53 +770,51 @@ export default function Today() {
     );
   }
 
-  if (stage === 'rating') {
-    return (
-      <div className="mx-auto max-w-2xl space-y-6">
-        <PageHeader
-          eyebrow="Wrap up"
-          title={activeNode?.title ?? 'Session wrap-up'}
-          description="Lock in what you learned, then rate how solid it feels before the next session is queued."
-        />
-
+  const ratingModal = (
+    <AppModal
+      isOpen={stage === 'rating'}
+      onClose={() => setStage('in_session')}
+      title="Wrap up this session"
+      description={activeNode ? `How solid does “${activeNode.title}” feel now? Your answer decides what comes next.` : undefined}
+      closeOnOverlayClick={false}
+      footer={(
+        <>
+          <button
+            type="button"
+            onClick={() => setStage('in_session')}
+            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:border-slate-300"
+          >
+            Back to session
+          </button>
+          <button
+            type="button"
+            onClick={handleComplete}
+            disabled={!confidence || submitting}
+            className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
+          >
+            {submitting ? 'Saving…' : 'Finish session'}
+          </button>
+        </>
+      )}
+    >
+      <div className="space-y-5">
         {artifactEvaluation && <EvaluationCard evaluation={artifactEvaluation} />}
 
-        <Card>
-          <p className="text-sm font-semibold text-slate-400">
-            Your deliverable
-          </p>
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-            {artifactContent}
-          </p>
-        </Card>
-
-        <Card className="space-y-5">
-          <div>
-            <p className="text-sm font-semibold text-slate-400">
-              Confidence check
-            </p>
-            <p className="mt-1 text-sm text-slate-500">
-              How confident are you that you could use or explain this concept right now?
-            </p>
-          </div>
-
-          <div className="grid grid-cols-5 gap-2">
+        <div>
+          <p className="text-sm font-semibold text-slate-800">Could you use or explain this right now?</p>
+          <div className="mt-2 grid grid-cols-5 gap-2">
             {[1, 2, 3, 4, 5].map((value) => {
               const selected = confidence === value;
               const style = confStyle[value];
               return (
                 <button
                   key={value}
+                  type="button"
                   onClick={() => setConfidence(value)}
-                  style={selected ? {
-                    border: `2px solid ${style.border}`,
-                    background: style.bg,
-                    color: style.fg,
-                  } : {}}
-                  className={`aspect-square rounded-xl border-2 text-[18px] font-display font-bold transition-all duration-200 ${
-                    selected
-                      ? 'scale-105'
-                      : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300'
+                  aria-pressed={selected}
+                  style={selected ? { border: `2px solid ${style.border}`, background: style.bg, color: style.fg } : {}}
+                  className={`h-12 rounded-xl border-2 font-display text-lg font-semibold transition-all ${
+                    selected ? '' : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300'
                   }`}
                 >
                   {value}
@@ -821,63 +822,52 @@ export default function Today() {
               );
             })}
           </div>
+          <p className="mt-2 min-h-[1.25rem] text-sm text-slate-600">
+            {confidence > 0
+              ? confidenceLabels[confidence]
+              : 'Pick 1–5. A 1 or 2 keeps this concept open for another pass tomorrow.'}
+          </p>
+        </div>
 
-          {confidence > 0 && (
-            <p className="text-center text-sm font-medium text-slate-600">
-              {confidenceLabels[confidence]}
-            </p>
-          )}
+        <label className="block space-y-1.5">
+          <span className="text-sm font-semibold text-slate-800">
+            Notes for next time <span className="font-normal text-slate-400">(optional)</span>
+          </span>
+          <textarea
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            rows={3}
+            placeholder="What clicked, what still feels weak."
+            className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-400"
+          />
+        </label>
 
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-slate-400">
-              Reflection notes
-            </label>
-            <textarea
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              rows={3}
-              placeholder="What clicked, what still feels weak, or what you want to revisit next time."
-              className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-400"
-            />
+        <details className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <summary className="cursor-pointer text-sm font-semibold text-slate-600">Your write-up</summary>
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{artifactContent}</p>
+        </details>
+
+        {error && (
+          <div className="space-y-1">
+            <p className="text-sm text-red-600">{error}</p>
+            {currentPlan?.planKey === 'free' && (
+              <Link to="/pricing" className="text-xs font-semibold text-sky-700 hover:text-sky-800">
+                Need more AI reviews? Compare plans
+              </Link>
+            )}
           </div>
-
-          {error && (
-            <div className="space-y-2 text-center">
-              <p className="text-xs text-red-600">{error}</p>
-              {currentPlan?.planKey === 'free' && (
-                <Link to="/pricing" className="text-xs font-semibold text-sky-700 hover:text-sky-800">
-                  Need more AI review capacity? Compare plans
-                </Link>
-              )}
-            </div>
-          )}
-
-          <div className="flex gap-3">
-            <button
-              onClick={() => setStage('in_session')}
-              className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-800"
-            >
-              Back
-            </button>
-            <button
-              onClick={handleComplete}
-              disabled={!confidence || submitting}
-              className="flex-1 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-40"
-            >
-              {submitting ? 'Saving...' : 'Finish session'}
-            </button>
-          </div>
-        </Card>
+        )}
       </div>
-    );
-  }
+    </AppModal>
+  );
 
-  if (stage === 'in_session' && activeNode) {
+  if ((stage === 'in_session' || stage === 'rating') && activeNode) {
     const radius = 52;
     const circumference = 2 * Math.PI * radius;
 
     return (
       <div className="space-y-6">
+        {ratingModal}
         <PageHeader
           eyebrow={isReview ? 'Review session' : 'Live session'}
           title={activeNode.title}
@@ -1246,16 +1236,32 @@ export default function Today() {
                   : weeklyRecoveryPlan?.headline ?? 'You are on rhythm this week.'}
             </p>
           </div>
-          <Link
-            to="/history"
-            className={`shrink-0 rounded-xl px-4 py-2 text-center text-sm font-semibold transition-colors ${
-              weeklyCheckinDue
-                ? 'bg-amber-500 text-white hover:bg-amber-600'
-                : 'border border-slate-200 text-slate-700 hover:border-sky-300 hover:text-sky-700'
-            }`}
-          >
-            {weeklyCheckinDue ? 'Do check-in' : 'Weekly review'}
-          </Link>
+          {weeklyCheckinDue ? (
+            <button
+              type="button"
+              onClick={() => setCheckinOpen(true)}
+              className="shrink-0 rounded-xl bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-white transition-colors hover:bg-amber-600"
+            >
+              Do check-in
+            </button>
+          ) : (
+            <Link
+              to="/history"
+              className="shrink-0 rounded-xl border border-slate-200 px-4 py-2 text-center text-sm font-semibold text-slate-700 transition-colors hover:border-sky-300 hover:text-sky-700"
+            >
+              Weekly review
+            </Link>
+          )}
+          <WeeklyCheckinModal
+            goalId={goal.id}
+            goalTitle={goal.title}
+            isOpen={checkinOpen}
+            onClose={() => setCheckinOpen(false)}
+            onSaved={(state) => {
+              setWeeklyCheckin(state);
+              setWeeklyReport((report) => (report ? { ...report, checkinDue: false } : report));
+            }}
+          />
         </div>
 
         <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">

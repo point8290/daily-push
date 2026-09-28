@@ -15,6 +15,7 @@ import {
 } from '../api/client';
 import PageHeader from '../components/ui/PageHeader';
 import SurfaceCard from '../components/ui/SurfaceCard';
+import AppModal from '../components/ui/AppModal';
 import { useEntitlements } from '../contexts/EntitlementsContext';
 import { hasProResumeAccess, hasSprintAccess } from '../utils/planAccess';
 
@@ -58,6 +59,25 @@ const STATUS_STEPS: Array<{ value: ApplicationStatus; label: string }> = [
   { value: 'rejected', label: 'Rejected' },
 ];
 
+function statusConsequence(status: ApplicationStatus, hasPlan: boolean): string {
+  switch (status) {
+    case 'saved':
+      return 'Moves it back to your saved list. Nothing else changes.';
+    case 'applied':
+      return 'Records today as the day you applied, so you can see how long each stage takes.';
+    case 'interviewing':
+      return 'Nice. A mock interview for this role is the best use of the next few days.';
+    case 'offer':
+      return hasPlan
+        ? 'Marks the linked plan as achieved. It stops scheduling daily sessions, and your progress is kept.'
+        : 'Records the offer. Congratulations.';
+    case 'rejected':
+      return 'It stays in your history. The gaps from this job post stay in your plan, so the work still counts.';
+    default:
+      return '';
+  }
+}
+
 export default function ResumeApplication() {
   const { applicationId } = useParams<{ applicationId: string }>();
   const navigate = useNavigate();
@@ -71,6 +91,8 @@ export default function ResumeApplication() {
   const [upgradePlan, setUpgradePlan] = useState<string | null>(null);
   const [planMessage, setPlanMessage] = useState<string | null>(null);
   const [primaryGoalId, setPrimaryGoalId] = useState<string | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<ApplicationStatus | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
     getPrimaryGoal()
@@ -88,6 +110,7 @@ export default function ResumeApplication() {
       if (updated.planAchieved) {
         setPlanMessage('Congratulations on the offer. Your linked plan is marked achieved.');
       }
+      setPendingStatus(null);
     } catch {
       setError('Could not update the status. Try again.');
     } finally {
@@ -107,6 +130,7 @@ export default function ResumeApplication() {
       if (result.building) parts.push('New concepts are being built now.');
       setPlanMessage(parts.join(' ') || 'Nothing new to add.');
       setApplication({ ...application, linkedGoalId: primaryGoalId });
+      setAddOpen(false);
     } catch (err: any) {
       setError(err?.response?.data?.error ?? 'Could not add these skills to your plan.');
     } finally {
@@ -279,6 +303,78 @@ export default function ResumeApplication() {
         )}
       />
 
+      <AppModal
+        isOpen={pendingStatus !== null}
+        onClose={() => setPendingStatus(null)}
+        title={pendingStatus ? `Mark as ${STATUS_STEPS.find((step) => step.value === pendingStatus)?.label.toLowerCase()}?` : ''}
+        description={application.title}
+        size="md"
+        footer={(
+          <>
+            <button
+              type="button"
+              onClick={() => setPendingStatus(null)}
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => pendingStatus && handleStatus(pendingStatus)}
+              disabled={busy === 'status'}
+              className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {busy === 'status' ? 'Saving…' : 'Update status'}
+            </button>
+          </>
+        )}
+      >
+        <p className="text-sm leading-6 text-slate-600">
+          {pendingStatus ? statusConsequence(pendingStatus, Boolean(application.linkedGoalId)) : ''}
+        </p>
+        {pendingStatus === 'interviewing' && (
+          <Link to="/mock" className="mt-3 inline-block text-sm font-semibold text-sky-700 hover:underline">
+            Open Practice →
+          </Link>
+        )}
+      </AppModal>
+
+      <AppModal
+        isOpen={addOpen}
+        onClose={() => setAddOpen(false)}
+        title="Add these gaps to your plan?"
+        description="Each one becomes a gap in your main plan, with study concepts built for it. Anything your plan already covers is skipped."
+        footer={(
+          <>
+            <button
+              type="button"
+              onClick={() => setAddOpen(false)}
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleAddToPlan}
+              disabled={busy === 'add-to-plan'}
+              className="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+            >
+              {busy === 'add-to-plan' ? 'Adding…' : 'Add to my plan'}
+            </button>
+          </>
+        )}
+      >
+        <ul className="space-y-1.5">
+          {(application.gapReport?.missingSkills ?? []).map((skill) => (
+            <li key={skill.name} className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
+              <span className="font-semibold text-slate-800">{skill.name}</span>
+              {skill.reason ? <span className="block text-xs text-slate-500">{skill.reason}</span> : null}
+            </li>
+          ))}
+        </ul>
+        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      </AppModal>
+
       <SurfaceCard p={5} className="space-y-4">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -290,7 +386,7 @@ export default function ResumeApplication() {
                   <button
                     key={step.value}
                     type="button"
-                    onClick={() => handleStatus(step.value)}
+                    onClick={() => !active && setPendingStatus(step.value)}
                     disabled={!!busy}
                     aria-pressed={active}
                     className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors disabled:opacity-60 ${
@@ -307,13 +403,11 @@ export default function ResumeApplication() {
             primaryGoalId ? (
               <button
                 type="button"
-                onClick={handleAddToPlan}
+                onClick={() => setAddOpen(true)}
                 disabled={!!busy}
                 className="rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
               >
-                {busy === 'add-to-plan'
-                  ? 'Adding…'
-                  : `Add ${application.gapReport?.missingSkills.length} missing skill${application.gapReport?.missingSkills.length === 1 ? '' : 's'} to my plan`}
+                {`Add ${application.gapReport?.missingSkills.length} missing skill${application.gapReport?.missingSkills.length === 1 ? '' : 's'} to my plan`}
               </button>
             ) : (
               <p className="text-xs text-slate-500">Start a plan to send these gaps into it.</p>

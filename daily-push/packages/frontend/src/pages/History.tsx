@@ -8,7 +8,6 @@ import {
   Spinner,
   Stack,
   Text,
-  Textarea,
   VStack,
 } from '@chakra-ui/react';
 import {
@@ -18,7 +17,6 @@ import {
   getSessionCalendar,
   getStreak,
   getWeeklyReport,
-  saveGoalWeeklyCheckin,
   type GoalWeeklyCheckinState,
   type RecoveryQuickFix,
   type WeeklyReport,
@@ -26,6 +24,8 @@ import {
 import EmptyState from '../components/ui/EmptyState';
 import PageHeader from '../components/ui/PageHeader';
 import SurfaceCard from '../components/ui/SurfaceCard';
+import AppModal from '../components/ui/AppModal';
+import WeeklyCheckinModal from '../components/WeeklyCheckinModal';
 import { useEntitlements } from '../contexts/EntitlementsContext';
 
 interface CalendarDay {
@@ -129,47 +129,17 @@ function formatMinutes(minutes: number): string {
   return `${minutes}m`;
 }
 
-function formatCheckinLines(value: string): string[] {
-  return value
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+function addWeeks(iso: string, weeks: number): string {
+  const d = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + weeks * 7);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
 
-function WeeklyRatingRow({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  onChange: (next: number) => void;
-}) {
-  return (
-    <Stack spacing={3}>
-      <Text fontSize="sm" fontWeight="700" color="ink.400">
-        {label}
-      </Text>
-      <HStack spacing={2} flexWrap="wrap">
-        {[1, 2, 3, 4, 5].map((score) => (
-          <Button
-            key={score}
-            type="button"
-            size="sm"
-            minW="2.6rem"
-            borderRadius="xl"
-            variant={value === score ? 'solid' : 'outline'}
-            colorScheme={value === score ? 'blue' : undefined}
-            borderColor={value === score ? undefined : 'blackAlpha.200'}
-            color={value === score ? undefined : 'ink.600'}
-            onClick={() => onChange(score)}
-          >
-            {score}
-          </Button>
-        ))}
-      </HStack>
-    </Stack>
-  );
+function prettyDate(iso: string | null): string {
+  if (!iso) return 'not set';
+  return new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC',
+  });
 }
 
 export default function History() {
@@ -183,17 +153,13 @@ export default function History() {
   const [checkinState, setCheckinState] = useState<GoalWeeklyCheckinState | null>(null);
   const [loading, setLoading] = useState(true);
   const [reportLoading, setReportLoading] = useState(true);
-  const [savingCheckin, setSavingCheckin] = useState(false);
+  const [checkinOpen, setCheckinOpen] = useState(false);
+  const [pendingFix, setPendingFix] = useState<RecoveryQuickFix | null>(null);
   const [error, setError] = useState('');
   const [reportLocked, setReportLocked] = useState(false);
   const [upgradePlan, setUpgradePlan] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState('');
 
-  const [confidence, setConfidence] = useState(3);
-  const [momentum, setMomentum] = useState(3);
-  const [winsText, setWinsText] = useState('');
-  const [blockersText, setBlockersText] = useState('');
-  const [notes, setNotes] = useState('');
 
   const weeklyReportsEnabled = entitlements.find(
     (entry) => entry.featureKey === 'weekly_reports.enabled',
@@ -226,20 +192,6 @@ export default function History() {
 
     void loadBase();
   }, []);
-
-  useEffect(() => {
-    const hydrateForm = (state: GoalWeeklyCheckinState | null, report: WeeklyReport | null) => {
-      const source = report?.latestCheckin ?? state?.latestCheckin ?? null;
-      if (!source) return;
-      setConfidence(source.confidence);
-      setMomentum(source.momentum);
-      setWinsText(source.wins.join('\n'));
-      setBlockersText(source.blockers.join('\n'));
-      setNotes(source.notes ?? '');
-    };
-
-    hydrateForm(checkinState, weeklyReport);
-  }, [checkinState?.latestCheckin?.updatedAt, weeklyReport?.latestCheckin?.updatedAt]);
 
   useEffect(() => {
     if (!goal) {
@@ -294,29 +246,11 @@ export default function History() {
     return progress === null ? null : `${progress}% of weekly target`;
   }, [weeklyReport?.stats.weeklyTargetProgressPct, weeklyReport?.stats.weeklyTargetMinutes]);
 
-  const handleSaveCheckin = async () => {
-    if (!goal) return;
-    setSavingCheckin(true);
-    setSaveMessage('');
-    setError('');
-    try {
-      const result = await saveGoalWeeklyCheckin(goal.id, {
-        confidence,
-        momentum,
-        wins: formatCheckinLines(winsText),
-        blockers: formatCheckinLines(blockersText),
-        notes: notes.trim() || null,
-      });
-      setCheckinState(result);
-      setSaveMessage('Weekly check-in saved.');
-      if (weeklyReportsEnabled) {
-        const report = await getWeeklyReport(goal.id);
-        setWeeklyReport(report);
-      }
-    } catch (err: any) {
-      setError(err?.response?.data?.error ?? 'Could not save weekly check-in.');
-    } finally {
-      setSavingCheckin(false);
+  const handleCheckinSaved = async (state: GoalWeeklyCheckinState) => {
+    setCheckinState(state);
+    setSaveMessage('Check-in saved. Next week’s plan now uses it.');
+    if (weeklyReportsEnabled && goal) {
+      setWeeklyReport(await getWeeklyReport(goal.id).catch(() => weeklyReport));
     }
   };
 
@@ -333,6 +267,7 @@ export default function History() {
           : { action: 'reduce_hours', hours: fix.hours },
       );
       setSaveMessage(`${result.applied}. Your plan was updated.`);
+      setPendingFix(null);
       if (weeklyReportsEnabled) {
         setWeeklyReport(await getWeeklyReport(goal.id));
       }
@@ -510,11 +445,11 @@ export default function History() {
                           <button
                             key={fix.action}
                             type="button"
-                            onClick={() => applyFix(fix)}
+                            onClick={() => setPendingFix(fix)}
                             disabled={applyingFix !== null}
                             className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
                           >
-                            {applyingFix === fix.action ? 'Updating…' : fix.label}
+                            {fix.label}
                           </button>
                         ))}
                       </div>
@@ -530,94 +465,101 @@ export default function History() {
           </SurfaceCard>
 
           <SurfaceCard p={{ base: 5, md: 6 }}>
-            <details open={Boolean(checkinState?.due)}>
-              <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2">
-                <span>
-                  <span className="block text-base font-semibold text-slate-900">Weekly check-in</span>
-                  <span className="block text-sm text-slate-500">Two minutes on how the week went. It shapes next week.</span>
-                </span>
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${checkinState?.due ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800'}`}>
-                  {checkinState?.due ? 'Due this week' : 'Done · edit'}
-                </span>
-              </summary>
-              <Stack spacing={5} mt={5}>
-                <WeeklyRatingRow
-                  label="How confident do you feel about the goal right now?"
-                  value={confidence}
-                  onChange={setConfidence}
-                />
-
-                <WeeklyRatingRow
-                  label="How much momentum do you feel?"
-                  value={momentum}
-                  onChange={setMomentum}
-                />
-
-                <Stack spacing={4}>
-                  <label className="space-y-2 block">
-                    <span className="text-xs font-semibold text-slate-400">
-                      Wins this week
-                    </span>
-                    <Textarea
-                      value={winsText}
-                      onChange={(event) => setWinsText(event.target.value)}
-                      rows={4}
-                      placeholder="One line per win. Example: finished the caching module, clarified the job description, or completed three sessions."
-                      resize="none"
-                      borderRadius="2xl"
-                      borderColor="blackAlpha.200"
-                      bg="whiteAlpha.700"
-                    />
-                  </label>
-
-                  <label className="space-y-2 block">
-                    <span className="text-xs font-semibold text-slate-400">
-                      Blockers or friction
-                    </span>
-                    <Textarea
-                      value={blockersText}
-                      onChange={(event) => setBlockersText(event.target.value)}
-                      rows={4}
-                      placeholder="One line per blocker. Example: too little time after work, weak system design examples, or feeling rusty on Docker."
-                      resize="none"
-                      borderRadius="2xl"
-                      borderColor="blackAlpha.200"
-                      bg="whiteAlpha.700"
-                    />
-                  </label>
-
-                  <label className="space-y-2 block">
-                    <span className="text-xs font-semibold text-slate-400">
-                      Notes
-                    </span>
-                    <Textarea
-                      value={notes}
-                      onChange={(event) => setNotes(event.target.value)}
-                      rows={3}
-                      placeholder="Anything else the next week's plan should remember."
-                      resize="none"
-                      borderRadius="2xl"
-                      borderColor="blackAlpha.200"
-                      bg="whiteAlpha.700"
-                    />
-                  </label>
-                </Stack>
-
-                {saveMessage ? <Text fontSize="sm" color="green.600">{saveMessage}</Text> : null}
-                {error ? <Text fontSize="sm" color="red.500">{error}</Text> : null}
-
-                <Button
-                  type="button"
-                  colorScheme="blue"
-                  size="lg"
-                  onClick={handleSaveCheckin}
-                  isLoading={savingCheckin}
-                >
-                  Save weekly check-in
-                </Button>
-              </Stack>
-            </details>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-base font-semibold text-slate-900">
+                  Weekly check-in
+                  <span className={`ml-2 rounded-full px-2 py-0.5 align-middle text-xs font-semibold ${checkinState?.due ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800'}`}>
+                    {checkinState?.due ? 'Due this week' : 'Done'}
+                  </span>
+                </p>
+                <p className="mt-0.5 text-sm text-slate-500">
+                  {checkinState?.latestCheckin && !checkinState.due
+                    ? `Sure about the goal ${checkinState.latestCheckin.confidence}/5 · momentum ${checkinState.latestCheckin.momentum}/5${checkinState.latestCheckin.blockers[0] ? ` · blocker: ${checkinState.latestCheckin.blockers[0]}` : ''}`
+                    : 'Two minutes on how the week went. It shapes next week’s plan.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCheckinOpen(true)}
+                className={`rounded-xl px-4 py-2.5 text-sm font-semibold ${
+                  checkinState?.due
+                    ? 'bg-sky-600 text-white hover:bg-sky-700'
+                    : 'border border-slate-200 text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                {checkinState?.due ? 'Do check-in' : 'Edit check-in'}
+              </button>
+            </div>
+            {saveMessage ? <p className="mt-3 text-sm text-emerald-700">{saveMessage}</p> : null}
+            {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
           </SurfaceCard>
+
+          <WeeklyCheckinModal
+            goalId={goal.id}
+            goalTitle={goal.title}
+            isOpen={checkinOpen}
+            onClose={() => setCheckinOpen(false)}
+            onSaved={handleCheckinSaved}
+          />
+
+          <AppModal
+            isOpen={pendingFix !== null}
+            onClose={() => setPendingFix(null)}
+            title={pendingFix?.label ?? ''}
+            description="Here is what changes. Your finish forecast is recalculated right after."
+            size="md"
+            footer={(
+              <>
+                <button
+                  type="button"
+                  onClick={() => setPendingFix(null)}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 hover:border-slate-300"
+                >
+                  Keep as is
+                </button>
+                <button
+                  type="button"
+                  onClick={() => pendingFix && applyFix(pendingFix)}
+                  disabled={applyingFix !== null}
+                  className="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
+                >
+                  {applyingFix ? 'Updating…' : 'Apply change'}
+                </button>
+              </>
+            )}
+          >
+            {pendingFix ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+                {pendingFix.action === 'move_date' ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-slate-500">Target date</span>
+                    <span className="font-semibold text-slate-900">
+                      <span className="text-slate-400 line-through">{prettyDate(weeklyReport?.planHealth.targetDate ?? null)}</span>
+                      {' → '}
+                      {weeklyReport?.planHealth.targetDate ? addWeeks(weeklyReport.planHealth.targetDate, pendingFix.weeks) : `${pendingFix.weeks} weeks later`}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-slate-500">Weekly study time</span>
+                    <span className="font-semibold text-slate-900">
+                      {weeklyReport?.planHealth.weeklyTargetMinutes ? (
+                        <span className="text-slate-400 line-through">{formatMinutes(weeklyReport.planHealth.weeklyTargetMinutes)}</span>
+                      ) : null}
+                      {' → '}
+                      {pendingFix.hours}h
+                    </span>
+                  </div>
+                )}
+                <p className="mt-3 text-slate-600">
+                  {pendingFix.action === 'move_date'
+                    ? 'Nothing is removed from the plan. You get more time for the same concepts.'
+                    : 'Fewer hours a week means the finish date may move later. You can raise it again any time.'}
+                </p>
+              </div>
+            ) : null}
+          </AppModal>
         </div>
       )}
     </Stack>

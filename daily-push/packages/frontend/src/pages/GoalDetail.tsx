@@ -35,6 +35,7 @@ import WorkList from '../components/WorkList';
 import EmptyState from '../components/ui/EmptyState';
 import PageHeader from '../components/ui/PageHeader';
 import SurfaceCard from '../components/ui/SurfaceCard';
+import AppModal from '../components/ui/AppModal';
 import { useEntitlements } from '../contexts/EntitlementsContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -320,6 +321,7 @@ export default function GoalDetail() {
   const [decomposing, setDecomposing] = useState(false);
   const [rebaselining, setRebaselining] = useState(false);
   const [showCorrect, setShowCorrect] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [correction, setCorrection] = useState('');
   const [correcting, setCorrecting] = useState(false);
   const [error, setError] = useState('');
@@ -1135,39 +1137,46 @@ export default function GoalDetail() {
           {/* Correction flow */}
           {!isActive && gaps.length > 0 && (
             <div className="space-y-3">
-              {showCorrect ? (
-                <SurfaceCard p={5} className="space-y-3">
-                  <p className="text-sm font-semibold text-slate-700">What's wrong or missing?</p>
-                  <p className="text-xs text-slate-400">Tell us in plain text and we will re-derive the plan with your correction.</p>
-                  <textarea
-                    value={correction}
-                    onChange={e => setCorrection(e.target.value)}
-                    rows={3}
-                    placeholder="e.g. I actually have 5 years of experience, not 3..."
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 resize-none"
-                  />
-                  {error && <p className="text-red-600 text-xs">{error}</p>}
-                  <div className="flex gap-2">
+              <button
+                onClick={() => setShowCorrect(true)}
+                className="w-full rounded-xl border border-dashed border-slate-200 py-2 text-center text-sm text-slate-500 hover:text-slate-700"
+              >
+                Something wrong or missing? Correct it
+              </button>
+              <AppModal
+                isOpen={showCorrect}
+                onClose={() => setShowCorrect(false)}
+                title="Correct the plan"
+                description="Tell us what is wrong or missing in plain words. We rebuild the plan with your correction."
+                closeOnOverlayClick={false}
+                footer={(
+                  <>
+                    <button
+                      onClick={() => setShowCorrect(false)}
+                      className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600"
+                    >
+                      Cancel
+                    </button>
                     <button
                       onClick={handleCorrect}
                       disabled={correcting || !correction.trim()}
-                      className="flex-1 bg-sky-600 hover:bg-sky-700 text-white py-2 rounded-lg text-sm font-semibold disabled:opacity-50"
+                      className="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
                     >
-                      {correcting ? 'Re-deriving plan...' : 'Update plan'}
+                      {correcting ? 'Rebuilding plan…' : 'Update plan'}
                     </button>
-                    <button onClick={() => setShowCorrect(false)} className="px-4 py-2 text-slate-500 text-sm border border-slate-200 rounded-lg">
-                      Cancel
-                    </button>
-                  </div>
-                </SurfaceCard>
-              ) : (
-                <button
-                  onClick={() => setShowCorrect(true)}
-                  className="w-full text-center text-sm text-slate-400 hover:text-slate-600 py-2 border border-dashed border-slate-200 rounded-xl"
-                >
-                  Something wrong or missing? Correct it
-                </button>
-              )}
+                  </>
+                )}
+              >
+                <textarea
+                  value={correction}
+                  onChange={e => setCorrection(e.target.value)}
+                  rows={5}
+                  autoFocus
+                  placeholder="e.g. I have 5 years of experience, not 3. I already know Docker well."
+                  className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                />
+                {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+              </AppModal>
             </div>
           )}
 
@@ -1214,7 +1223,7 @@ export default function GoalDetail() {
                   variant="outline"
                   isLoading={archiving}
                   loadingText="Archiving..."
-                  onClick={handleArchive}
+                  onClick={() => setShowArchiveConfirm(true)}
                 >
                   Archive plan
                 </Button>
@@ -1231,6 +1240,33 @@ export default function GoalDetail() {
           </div>
         </div>
       )}
+
+      <AppModal
+        isOpen={showArchiveConfirm}
+        onClose={() => setShowArchiveConfirm(false)}
+        title="Archive this plan?"
+        description="It stops showing on Today and in your daily sessions. Your progress is kept, and it still shows under All plans."
+        size="md"
+        footer={(
+          <>
+            <button
+              onClick={() => setShowArchiveConfirm(false)}
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => { await handleArchive(); setShowArchiveConfirm(false); }}
+              disabled={archiving}
+              className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {archiving ? 'Archiving…' : 'Archive plan'}
+            </button>
+          </>
+        )}
+      >
+        <p className="text-sm text-slate-600">{goal.structured?.title}</p>
+      </AppModal>
 
       {/* Chakra AlertDialog for delete */}
       <AlertDialog
