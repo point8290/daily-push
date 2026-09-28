@@ -183,11 +183,16 @@ export async function getEntitlementRows(userId: string): Promise<EntitlementRow
   const hasAllKnownKeys = KNOWN_ENTITLEMENT_KEYS.every((featureKey) =>
     rows.some((row) => row.feature_key === featureKey),
   );
-  if (rows.length > 0 && hasAllKnownKeys) {
+  // Rows are materialised when a plan changes through billing. Re-sync if the
+  // plan the user should have now differs (e.g. DEMO_DEFAULT_PLAN was turned on
+  // after the account was created).
+  const currentPlanKey = await resolveCurrentPlanKey(userId);
+  const planChanged = rows.some((row) => row.source_plan_key !== currentPlanKey);
+  if (rows.length > 0 && hasAllKnownKeys && !planChanged) {
     return rows;
   }
 
-  await syncEntitlementsForUser(userId);
+  await syncEntitlementsForUser(userId, currentPlanKey);
   const { rows: syncedRows } = await pool.query<EntitlementRow>(
     `SELECT feature_key, enabled, limit_value, reset_period, source_plan_key, expires_at::text
        FROM entitlements

@@ -663,40 +663,40 @@ export default function GoalDetail() {
   const nextAction = !goalAccepted && gaps.length === 0
     ? {
         eyebrow: 'Setup incomplete',
-        title: 'Finish shaping this goal',
-        description: 'This goal does not have enough generated plan detail yet. Start a fresh setup so the app can produce gaps, topics, and a useful sprint path.',
+        title: 'Finish setting up this goal',
+        description: 'The plan for this goal was not generated. Run the setup again to get skill gaps, topics and a schedule.',
         label: 'Start goal setup',
         kind: 'setup' as const,
       }
     : !goalAccepted
     ? {
-        eyebrow: 'Decision needed',
-        title: 'Review the generated plan',
-        description: 'Confirm the strategy if it matches your intent, or correct it before the app starts shaping daily work around it.',
+        eyebrow: 'Your turn',
+        title: 'Review your plan',
+        description: 'Check the topics and skill gaps below. If they look right, start the plan. If not, tell us what to change first.',
         label: confirming ? 'Starting your journey...' : 'This looks right - start my plan',
         kind: 'confirm' as const,
       }
     : decomposing || inProgressTopicCount > 0
       ? {
           eyebrow: 'In progress',
-          title: 'Building your study graph',
-          description: 'Each topic is being broken into prerequisite-ordered concepts. This takes a few minutes; progress is shown below and Today unlocks when it finishes.',
-          label: 'Building study nodes...',
+          title: 'Building your study map',
+          description: 'Each topic is being broken into small concepts. This takes a few minutes; you can leave this page and come back.',
+          label: 'Building...',
           kind: 'building' as const,
         }
     : canDecompose
       ? {
-          eyebrow: 'Next unlock',
-          title: anyDecomposed ? 'Continue building study nodes' : 'Build the study graph',
-          description: 'Turn the high-level topics into prerequisite-ordered concepts, so Today can recommend concrete sessions.',
-          label: anyDecomposed ? 'Continue building nodes' : 'Build study nodes',
+          eyebrow: 'Next step',
+          title: anyDecomposed ? 'Finish building your study map' : 'Build your study map',
+          description: 'Break each topic into small concepts in the right order, so Today can plan your sessions. It takes a few minutes.',
+          label: anyDecomposed ? 'Finish building' : 'Build study map',
           kind: 'decompose' as const,
         }
       : availableNodeCount > 0
         ? {
-            eyebrow: 'Ready now',
-            title: 'Start from your unlocked concepts',
-            description: 'You have study nodes ready. Use Today for the session queue, or inspect Concepts if you want to understand the graph.',
+            eyebrow: 'Next step',
+            title: 'Pick up your next session',
+            description: `${availableNodeCount} concepts are unlocked. Today picks the best one for your next session.`,
             label: 'Go to Today',
             kind: 'today' as const,
           }
@@ -737,29 +737,50 @@ export default function GoalDetail() {
     { id: 'resources',  label: 'Resources' },
   ];
 
+  const actionButtonClass =
+    'inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60';
+  const primaryButton = `${actionButtonClass} bg-sky-600 text-white hover:bg-sky-700`;
+  const darkButton = `${actionButtonClass} bg-slate-900 text-white hover:bg-slate-800`;
+  const nextActionButton =
+    nextAction.kind === 'setup' ? (
+      <Link to="/goals/new" className={darkButton}>{nextAction.label}</Link>
+    ) : nextAction.kind === 'confirm' ? (
+      <button onClick={handleConfirm} disabled={confirming} className={darkButton}>{nextAction.label}</button>
+    ) : nextAction.kind === 'building' ? (
+      <button disabled className={`${actionButtonClass} bg-slate-100 text-slate-600`}>
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-sky-500" />
+        {nextAction.label}
+      </button>
+    ) : nextAction.kind === 'decompose' ? (
+      <button onClick={handleDecompose} disabled={decomposing} className={primaryButton}>{nextAction.label}</button>
+    ) : nextAction.kind === 'today' ? (
+      <Link to="/today" className={primaryButton}>{nextAction.label}</Link>
+    ) : (
+      <Link to={`/mock?goalId=${id}`} className={primaryButton}>{nextAction.label}</Link>
+    );
+  const statusChip = isActive
+    ? { label: 'Active', cls: 'bg-emerald-100 text-emerald-700' }
+    : gaps.length === 0
+      ? { label: 'Setup incomplete', cls: 'bg-slate-100 text-slate-600' }
+      : { label: 'Needs your review', cls: 'bg-amber-100 text-amber-800' };
+  const goalProgressPct = nodes.length ? Math.round((completedNodeCount / nodes.length) * 100) : 0;
+  const paceWeeks = s.estimatedWeeksAtPace ?? s.estimatedWeeks;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
-        eyebrow="Goal command center"
+        eyebrow="Goal"
         title={s.title || 'Goal setup'}
+        description={s.successCriteria || undefined}
         actions={(
-          <div className="flex flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusChip.cls}`}>{statusChip.label}</span>
             <Link
               to="/goals"
-              className="inline-flex items-center justify-center rounded-xl border border-black/10 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-sky-200 hover:text-sky-700"
+              className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:border-sky-200 hover:text-sky-700"
             >
-              Back to goals
+              All goals
             </Link>
-            {goal.isPrimary ? (
-              <span className="inline-flex items-center rounded-full bg-sky-100 px-3 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-sky-700">
-                Primary
-              </span>
-            ) : null}
-            <span className={`inline-flex items-center rounded-full px-3 py-2 text-xs font-extrabold uppercase tracking-[0.14em] ${
-              isActive ? 'bg-emerald-100 text-emerald-700' : gaps.length === 0 ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-700'
-            }`}>
-              {isActive ? 'Active' : gaps.length === 0 ? 'Incomplete' : 'Needs review'}
-            </span>
           </div>
         )}
       />
@@ -806,412 +827,198 @@ export default function GoalDetail() {
         </SurfaceCard>
       )}
 
-      <SurfaceCard p={0} overflow="hidden">
-        <div className={hasPlanPreview ? 'grid gap-0 lg:grid-cols-[1.45fr_0.9fr]' : ''}>
-          {hasPlanPreview && (
-            <div className="relative overflow-hidden bg-[radial-gradient(circle_at_12%_0%,rgba(125,211,252,0.45),transparent_34%),radial-gradient(circle_at_100%_20%,rgba(15,23,42,0.32),transparent_42%),linear-gradient(135deg,#082f49_0%,#115e75_52%,#0f172a_100%)] px-5 py-6 text-white md:px-8 md:py-8">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-white/12 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.18em] text-cyan-50">
-                  {s.goalType} goal
-                </span>
-                <span className="rounded-full bg-white/12 px-3 py-1 text-[11px] font-semibold text-cyan-50">
-                  {urgencyLabel[s.urgency] ?? s.urgency}
-                </span>
-                {s.emotionalDriver ? (
-                  <span className="rounded-full bg-white/12 px-3 py-1 text-[11px] font-semibold text-cyan-50">
-                    {driverLabel[s.emotionalDriver] ?? s.emotionalDriver}
-                  </span>
-                ) : null}
-              </div>
-              <p className="mt-5 max-w-3xl text-2xl font-black leading-tight tracking-[-0.04em] md:mt-6 md:text-4xl">
-                {s.successCriteria || 'Turn this goal into measurable daily progress.'}
-              </p>
-              {s.statedWhy ? (
-                <p className="mt-4 max-w-2xl text-sm leading-7 text-cyan-50/80">
-                  Why this matters: "{s.statedWhy}"
-                </p>
-              ) : null}
-              <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
-                <MetricTile
-                  label="Pace"
-                  value={s.estimatedWeeksAtPace ? `${s.estimatedWeeksAtPace}w` : s.estimatedWeeks ? `${s.estimatedWeeks}w` : 'TBD'}
-                  detail={s.availableMinsDay ? `${s.availableMinsDay} min/day` : 'Sprint rhythm pending'}
-                />
-                <MetricTile label="Gaps" value={`${gaps.length}`} detail="Skill gaps mapped" />
-                <MetricTile label="Topics" value={`${topics.length}`} detail={`${completedTopicCount} decomposed`} />
-                <MetricTile label="Nodes" value={`${nodes.length}`} detail={`${availableNodeCount} ready now`} />
-              </div>
-            </div>
-          )}
-
-          <div className={`${hasPlanPreview ? 'order-first border-t border-black/5 lg:order-none lg:border-l lg:border-t-0' : ''} bg-slate-50/90 p-5`}>
-            <ActionCard
-              eyebrow={nextAction.eyebrow}
-              title={nextAction.title}
-              description={nextAction.description}
-              tone={nextAction.kind === 'confirm' ? 'warning' : 'dark'}
-              action={(
-                nextAction.kind === 'setup' ? (
-                  <Link
-                    to="/goals/new"
-                    className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-extrabold text-white transition-colors hover:bg-slate-800"
-                  >
-                    {nextAction.label}
-                  </Link>
-                ) : nextAction.kind === 'confirm' ? (
-                  <button
-                    onClick={handleConfirm}
-                    disabled={confirming}
-                    className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-extrabold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {nextAction.label}
-                  </button>
-                ) : nextAction.kind === 'building' ? (
-                  <button
-                    disabled
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-extrabold text-slate-950 opacity-80 disabled:cursor-wait"
-                  >
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-sky-500" />
-                    {nextAction.label}
-                  </button>
-                ) : nextAction.kind === 'decompose' ? (
-                  <button
-                    onClick={handleDecompose}
-                    disabled={decomposing}
-                    className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-extrabold text-slate-950 transition-colors hover:bg-cyan-50 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {nextAction.label}
-                  </button>
-                ) : nextAction.kind === 'today' ? (
-                  <Link
-                    to="/today"
-                    className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-extrabold text-slate-950 transition-colors hover:bg-cyan-50"
-                  >
-                    {nextAction.label}
-                  </Link>
-                ) : (
-                  <Link
-                    to={`/mock?goalId=${id}`}
-                    className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-extrabold text-slate-950 transition-colors hover:bg-cyan-50"
-                  >
-                    {nextAction.label}
-                  </Link>
-                )
-              )}
-            />
-
-            <div className="mt-4 grid gap-2">
-              {flowSteps.map((step, index) => (
-                <FlowStep
-                  key={step.title}
-                  index={index + 1}
-                  title={step.title}
-                  description={step.description}
-                  state={step.state}
-                />
-              ))}
-            </div>
+      {/* Next step: the one thing to do on this goal */}
+      <SurfaceCard p={5} className={nextAction.kind === 'confirm' ? 'border-amber-200 bg-amber-50/60' : ''}>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-sky-700">{nextAction.eyebrow}</p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">{nextAction.title}</p>
+            <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-600">{nextAction.description}</p>
           </div>
+          <div className="shrink-0">{nextActionButton}</div>
         </div>
+        <ol className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-100 pt-3 text-xs" aria-label="Goal stages">
+          {flowSteps.map((step, index) => (
+            <li key={step.title} className="flex items-center gap-2">
+              {index > 0 && <span className="text-slate-300" aria-hidden>→</span>}
+              <span
+                className={
+                  step.state === 'done'
+                    ? 'font-semibold text-emerald-700'
+                    : step.state === 'current'
+                      ? 'font-semibold text-slate-900'
+                      : 'text-slate-400'
+                }
+              >
+                {step.state === 'done' ? '✓ ' : ''}
+                {step.title}
+              </span>
+            </li>
+          ))}
+        </ol>
       </SurfaceCard>
 
-      {isActive && (
-        <SurfaceCard p={2} position="sticky" top={{ base: '76px', md: '84px' }} zIndex={5}>
-          <div className="flex gap-2 overflow-x-auto">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-extrabold transition-colors ${
-                  activeTab === tab.id
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </SurfaceCard>
+      {hasPlanPreview && (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <GoalStat
+            label="Progress"
+            value={graphReady ? `${goalProgressPct}%` : '–'}
+            detail={graphReady ? `${completedNodeCount} of ${nodes.length} concepts` : 'Map not built yet'}
+          />
+          <GoalStat label="Ready now" value={`${availableNodeCount}`} detail="concepts unlocked" />
+          <GoalStat label="Topics" value={`${completedTopicCount}/${topics.length}`} detail="broken into concepts" />
+          <GoalStat
+            label="Pace"
+            value={paceWeeks ? `${paceWeeks} weeks` : '–'}
+            detail={s.availableMinsDay ? `at ${s.availableMinsDay} min/day` : 'set during setup'}
+          />
+        </div>
       )}
 
-      <div className="hidden">
-        <Link to="/goals" className="text-slate-400 hover:text-slate-600 text-sm inline-block">Goals</Link>
-      </div>
-
-      {/* ── Goal header ── */}
-      <div className="hidden bg-gradient-to-br from-sky-600 to-indigo-600 rounded-2xl p-6 text-white mb-0">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-sky-200 text-xs font-semibold uppercase tracking-widest">{s.goalType} goal</span>
-          <span className="text-sky-300 text-xs">/</span>
-          <span className="text-sky-200 text-xs">{urgencyLabel[s.urgency] ?? s.urgency}</span>
-          {isActive && <span className="ml-auto text-xs bg-emerald-500 text-white px-2 py-0.5 rounded-full font-semibold">Active</span>}
+      {isActive && (
+        <div className="flex gap-1 border-b border-slate-200" role="tablist">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+                activeTab === tab.id
+                  ? 'border-sky-600 text-sky-700'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-        <h1 className="text-2xl font-bold leading-snug">{s.title}</h1>
-        {s.statedWhy && <p className="text-sky-100 text-sm mt-3 italic">"{s.statedWhy}"</p>}
-        {s.emotionalDriver && (
-          <p className="text-sky-200 text-xs mt-2">Motivation: {driverLabel[s.emotionalDriver] ?? s.emotionalDriver}</p>
-        )}
-      </div>
-
-      {/* ── Tab bar ── */}
-      <div className="hidden border-b border-slate-200 bg-white sticky top-0 z-10 mt-4 rounded-t-xl overflow-hidden">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-5 py-3 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-              activeTab === tab.id
-                ? 'border-sky-600 text-sky-700'
-                : 'border-transparent text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      )}
 
       {/* ══════════════════════════════════════════
           OVERVIEW TAB
       ══════════════════════════════════════════ */}
       {activeTab === 'overview' && (
-        <div className="space-y-4 pt-4">
+        <div className="space-y-4">
           {loadingPlanHealth && (
             <SurfaceCard p={5}>
               <div className="flex items-center gap-3 text-sm text-slate-400">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-sky-500" />
-                Refreshing sprint forecast...
+                Refreshing forecast...
               </div>
             </SurfaceCard>
           )}
 
           {isActive && planHealth && (
-            <SurfaceCard p={5}>
-              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-                      {sprint?.templateLabel ?? 'Plan health'}
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                        sprintStatusBadge[planHealth.status] ?? sprintStatusBadge.planned
-                      }`}
-                    >
-                      {sprintStatusLabel[planHealth.status] ?? sprintStatusLabel.planned}
-                    </span>
-                  </div>
-                  <p className="text-sm leading-relaxed text-slate-600">
-                    {planHealth.summary}
-                  </p>
+            <SurfaceCard p={5} className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-slate-800">Plan health</p>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                      sprintStatusBadge[planHealth.status] ?? sprintStatusBadge.planned
+                    }`}
+                  >
+                    {sprintStatusLabel[planHealth.status] ?? sprintStatusLabel.planned}
+                  </span>
                 </div>
                 {planHealth.hasSprint && (
                   <button
                     onClick={handleRebaseline}
                     disabled={rebaselining}
-                    className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:border-sky-200 hover:text-sky-700 disabled:opacity-50"
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-sky-200 hover:text-sky-700 disabled:opacity-50"
                   >
                     {rebaselining ? 'Refreshing...' : 'Refresh forecast'}
                   </button>
                 )}
               </div>
-
-              <div className="mt-4 grid gap-3 md:grid-cols-4">
-                <div className="rounded-xl bg-slate-50 p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-                    Target date
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {formatShortDate(planHealth.targetDate)}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-slate-50 p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-                    Forecast
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {formatShortDate(planHealth.forecastedCompletionDate)}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-slate-50 p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-                    Weekly rhythm
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {planHealth.weeklyTargetMinutes !== null
-                      ? `${(planHealth.weeklyTargetMinutes / 60).toFixed(1).replace(/\.0$/, '')}h/week`
-                      : 'Not set'}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {planHealth.recommendedDailyMinutes !== null
-                      ? `About ${planHealth.recommendedDailyMinutes} min/day`
-                      : 'Set this in sprint setup'}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-slate-50 p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-                    Progress
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-800">
-                    {planHealth.completionScore}%
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {planHealth.completedNodes}/{planHealth.totalNodes} nodes done
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-2">
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span>Risk level</span>
-                  <span>Risk {planHealth.riskScore}/100</span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className={`h-full rounded-full ${
-                      planHealth.riskScore >= 60
-                        ? 'bg-red-500'
-                        : planHealth.riskScore >= 35
-                          ? 'bg-amber-500'
-                          : 'bg-emerald-500'
-                    }`}
-                    style={{ width: `${Math.max(planHealth.riskScore, 8)}%` }}
-                  />
-                </div>
-                <div className="grid gap-2 text-xs text-slate-500 md:grid-cols-3">
-                  <p>
-                    Ready topics: <span className="font-semibold text-slate-700">{planHealth.readyTopics}/{planHealth.totalTopics}</span>
-                  </p>
-                  <p>
-                    Available now: <span className="font-semibold text-slate-700">{planHealth.availableNodes}</span> nodes
-                  </p>
-                  <p>
-                    Recent rhythm: <span className="font-semibold text-slate-700">{planHealth.sessionsLast7Days}</span> sessions in 7 days
-                  </p>
-                </div>
-              </div>
-
-              {(sprint?.targetRole || sprint?.targetCompany || sprint?.currentBlockers?.length || sprint?.successEvidence?.length) && (
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <div className="rounded-xl border border-slate-100 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-                      Outcome target
-                    </p>
-                    <p className="mt-2 text-sm text-slate-700">
-                      {sprint?.targetRole ?? 'Role not set'}
-                      {sprint?.targetCompany ? ` at ${sprint.targetCompany}` : ''}
-                    </p>
-                    {planHealth.bufferDays !== null && (
-                      <p className="mt-1 text-xs text-slate-500">
-                        {planHealth.bufferDays >= 0
-                          ? `${planHealth.bufferDays} day${planHealth.bufferDays === 1 ? '' : 's'} of buffer left`
-                          : `${Math.abs(planHealth.bufferDays)} day${Math.abs(planHealth.bufferDays) === 1 ? '' : 's'} behind target`}
-                      </p>
-                    )}
-                  </div>
-                  <div className="rounded-xl border border-slate-100 p-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-                      Success proof
-                    </p>
-                    <div className="mt-2 space-y-1 text-sm text-slate-700">
-                      {sprint?.successEvidence?.length
-                        ? sprint.successEvidence.slice(0, 3).map((entry) => (
-                            <p key={entry}>- {entry}</p>
-                          ))
-                        : <p className="text-slate-500">No explicit proof targets yet.</p>}
-                    </div>
-                  </div>
-                </div>
-              )}
+              <p className="text-sm leading-relaxed text-slate-600">{planHealth.summary}</p>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-4">
+                <GoalFact label="Target date" value={formatShortDate(planHealth.targetDate)} />
+                <GoalFact label="Forecast finish" value={formatShortDate(planHealth.forecastedCompletionDate)} />
+                <GoalFact
+                  label="Weekly time"
+                  value={
+                    planHealth.weeklyTargetMinutes !== null
+                      ? `${(planHealth.weeklyTargetMinutes / 60).toFixed(1).replace(/\.0$/, '')} h/week`
+                      : 'Not set'
+                  }
+                />
+                <GoalFact
+                  label="Buffer"
+                  value={
+                    planHealth.bufferDays === null
+                      ? '–'
+                      : planHealth.bufferDays >= 0
+                        ? `${planHealth.bufferDays} days spare`
+                        : `${Math.abs(planHealth.bufferDays)} days behind`
+                  }
+                />
+              </dl>
             </SurfaceCard>
           )}
 
-          {/* Success criteria */}
-          {s.successCriteria && (
-            <SurfaceCard p={5}>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">What success looks like</p>
-              <p className="text-slate-700 text-sm leading-relaxed">{s.successCriteria}</p>
+          {/* Learning path */}
+          {topics.length > 0 && (
+            <SurfaceCard p={5} className="space-y-4">
+              <div className="flex items-baseline justify-between">
+                <p className="text-sm font-semibold text-slate-800">Learning path</p>
+                <span className="text-xs text-slate-500">{topics.length} topics, in order</span>
+              </div>
+              <ol className="space-y-4">
+                {goal.learningTopics
+                  .map(t => t.structured)
+                  .filter(Boolean)
+                  .sort((a, b) => a.priority - b.priority)
+                  .map((topic, i) => {
+                    const status = topic.decompositionStatus ?? 'pending';
+                    const badge = decompStatusBadge[status];
+                    return (
+                      <li key={i} className="flex gap-3">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-bold text-sky-700">
+                          {i + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                            <span className="text-sm font-semibold text-slate-800">{topic.title}</span>
+                            <span className="text-xs text-slate-500">
+                              <span className={`font-medium ${badge.cls}`}>{badge.label}</span> · {topic.estimatedWeeks}w
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-500">{topic.rationale}</p>
+                          {status === 'failed' && topic.lastDecompositionError && (
+                            <p className="mt-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-[11px] text-red-600">
+                              Needs a retry: {topic.lastDecompositionError}
+                            </p>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+              </ol>
             </SurfaceCard>
           )}
 
           {/* Skill gaps */}
           {gaps.length > 0 && (
             <SurfaceCard p={5} className="space-y-3">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
-                Skill gaps - {gaps.length} identified
-              </p>
-              {gaps.map((gap, i) => (
-                <div key={i} className="border border-slate-100 rounded-lg p-3 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-slate-800 text-sm">{gap.skillArea}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${longevityColor[gap.longevity]}`}>
-                      {gap.longevity} longevity
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <span className="capitalize">{gap.currentLevel}</span>
-                    <span className="text-slate-400">to</span>
-                    <span className="capitalize font-medium text-slate-700">{gap.requiredLevel}</span>
-                    <span className="text-slate-300">|</span>
-                    <span className="text-slate-400">{aiLabel[gap.aiRelationship]}</span>
-                  </div>
-                  {gap.priorityReason && (
-                    <p className="text-xs text-slate-400 leading-relaxed">{gap.priorityReason}</p>
-                  )}
-                </div>
-              ))}
-            </SurfaceCard>
-          )}
-
-          {/* Learning path */}
-          {topics.length > 0 && (
-            <SurfaceCard p={5} className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Your learning path</p>
-                {s.estimatedWeeks && (
-                  <span className="text-xs text-slate-500 font-medium">~{s.estimatedWeeks} weeks</span>
-                )}
-              </div>
-              {goal.learningTopics
-                .map(t => t.structured)
-                .filter(Boolean)
-                .sort((a, b) => a.priority - b.priority)
-                .map((topic, i) => {
-                  const status = topic.decompositionStatus ?? 'pending';
-                  const badge = decompStatusBadge[status];
-                  const attemptLabel = formatAttemptLabel(topic);
-                  return (
-                    <div key={i} className="flex gap-3">
-                      <div className="flex flex-col items-center">
-                        <div className="w-6 h-6 rounded-full bg-sky-100 text-sky-700 text-xs font-bold flex items-center justify-center shrink-0">
-                          {i + 1}
-                        </div>
-                        {i < topics.length - 1 && <div className="w-px flex-1 bg-slate-100 my-1" />}
-                      </div>
-                      <div className="pb-3 flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-semibold text-slate-800 text-sm">{topic.title}</span>
-                          <div className="flex items-center gap-2 ml-2 shrink-0">
-                            <span className={`text-xs font-medium ${badge.cls}`}>{badge.label}</span>
-                            <span className="text-xs text-slate-400">{topic.estimatedWeeks}w</span>
-                          </div>
-                        </div>
-                        <p className="text-xs text-slate-500 leading-relaxed">{topic.rationale}</p>
-                        {attemptLabel && (
-                          <p className="text-[11px] text-slate-400 mt-2">{attemptLabel}</p>
-                        )}
-                        {status === 'failed' && topic.lastDecompositionError && (
-                          <div className="mt-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2">
-                            <p className="text-[11px] font-medium text-red-600">Needs retry</p>
-                            <p className="text-[11px] text-red-500 mt-1 leading-relaxed">
-                              {topic.lastDecompositionError}
-                            </p>
-                          </div>
-                        )}
-                      </div>
+              <p className="text-sm font-semibold text-slate-800">Skill gaps this plan closes</p>
+              <ul className="divide-y divide-slate-100">
+                {gaps.map((gap, i) => (
+                  <li key={i} className="py-2.5 first:pt-0 last:pb-0">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                      <span className="text-sm font-medium text-slate-800">{gap.skillArea}</span>
+                      <span className="text-xs text-slate-500">
+                        <span className="capitalize">{gap.currentLevel}</span> →{' '}
+                        <span className="font-semibold capitalize text-slate-700">{gap.requiredLevel}</span>
+                      </span>
                     </div>
-                  );
-                })}
+                    {gap.priorityReason && (
+                      <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{gap.priorityReason}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
             </SurfaceCard>
           )}
 
@@ -1342,8 +1149,8 @@ export default function GoalDetail() {
           )}
 
           {/* Goal management */}
-          <SurfaceCard p={5} className="space-y-3">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Manage goal</p>
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+            <span className="mr-auto text-xs text-slate-400">Goal settings</span>
             <div className="flex flex-wrap gap-2">
               {!goal.isPrimary && goal.status !== 'archived' && (
                 <Button
@@ -1377,7 +1184,7 @@ export default function GoalDetail() {
                 Delete goal
               </Button>
             </div>
-          </SurfaceCard>
+          </div>
         </div>
       )}
 
@@ -1697,6 +1504,25 @@ export default function GoalDetail() {
         </div>
       )}
 
+    </div>
+  );
+}
+
+function GoalStat({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200/70 bg-white px-4 py-3 shadow-[var(--shadow-xs)]">
+      <p className="text-xs font-medium text-slate-500">{label}</p>
+      <p className="mt-1 text-xl font-semibold text-slate-900">{value}</p>
+      <p className="mt-0.5 text-xs text-slate-500">{detail}</p>
+    </div>
+  );
+}
+
+function GoalFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-slate-500">{label}</dt>
+      <dd className="mt-0.5 text-sm font-semibold text-slate-800">{value}</dd>
     </div>
   );
 }

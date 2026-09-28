@@ -56,7 +56,7 @@ services:
         value: "true"
       # Public demo: visitors get the Pro plan (with its limits) so every feature can be tried
       - key: DEMO_DEFAULT_PLAN
-        value: pro
+        value: sprint
 
   - type: web
     name: topic-engine-api

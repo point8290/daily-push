@@ -467,8 +467,9 @@ router.post(
       }
 
       const nonCompleted = (goal.learningTopics as any[])
-        .filter((t: any) => t.structured?.decompositionStatus !== "completed")
-        .map((t: any) => ({ title: t.structured?.title ?? "" }));
+        .map((t: any, index: number) => ({ t, index }))
+        .filter(({ t }) => t.structured?.decompositionStatus !== "completed")
+        .map(({ t, index }) => ({ title: t.structured?.title ?? "", index }));
 
       const steps = buildDecomposeSteps(nonCompleted);
       const goalId = id.toString();
@@ -595,6 +596,7 @@ router.post(
 
       const failedTitles = failedTopics.map((t: any) => ({
         title: t.structured?.title ?? "",
+        index: updatedTopics.indexOf(t),
       }));
       const steps = buildDecomposeSteps(failedTitles);
       const goalId = id.toString();

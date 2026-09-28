@@ -461,6 +461,7 @@ export async function startTargetRoleDecomposition(params: {
     buildDecomposeSteps(
       targetTopics.map((topic) => ({
         title: topic.structured?.title ?? 'Untitled topic',
+        index: reloadedTopics.indexOf(topic),
       })),
     ),
   );

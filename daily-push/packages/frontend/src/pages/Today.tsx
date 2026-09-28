@@ -1074,273 +1074,155 @@ export default function Today() {
     );
   }
 
+  const firstName = user?.name ? user.name.split(' ')[0].replace(/^./, (c) => c.toUpperCase()) : null;
+  const mockEnabled = entitlements.find(
+    (entry) => entry.featureKey === 'mock_interviews.monthly',
+  )?.enabled;
+  const weeksLeftLabel =
+    goal.estimatedWeeksRemaining > 0 ? `~${goal.estimatedWeeksRemaining} weeks left` : 'Almost done';
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
-        eyebrow="Daily focus"
         title="Today"
         description={
-          user?.name
-            ? `Welcome back, ${user.name.split(' ')[0]}. Keep the streak alive and end this session with something concrete.`
-            : 'Keep momentum by turning one learning block into a concrete artifact.'
-        }
-        actions={
-          streak > 0 ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-right shadow-[var(--shadow-xs)]">
-              <p className="font-display text-[24px] text-amber-600" style={{ lineHeight: 1 }}>
-                {streak}
-              </p>
-              <p className="mt-1 text-[11px] font-semibold uppercase tracking-widest text-amber-700/80">
-                Day streak
-              </p>
-            </div>
-          ) : undefined
+          node
+            ? `${firstName ? `${firstName}, one` : 'One'} focused session is ready. Finish it with a short write-up you can get feedback on.`
+            : 'Nothing is unlocked right now. Finish a review or build more of your plan.'
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-            Plan progress
-          </p>
-          <p className="mt-3 font-display text-[28px] text-slate-900" style={{ letterSpacing: '-0.03em', lineHeight: 1 }}>
-            {progressPct}%
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-slate-500">
-            {goal.doneNodes}/{goal.totalNodes} concept nodes complete.
-          </p>
-        </Card>
-
-        <Card>
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-            Next move
-          </p>
-          <p className="mt-3 text-sm font-semibold text-slate-800">
-            {node ? node.title : reviewNode ? reviewNode.title : 'No active session available'}
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-slate-500">
-            {node
-              ? `A focused ${timebox}-minute session is ready to turn this node into concrete output.`
-              : reviewNode
-                ? 'A review session is due, so the fastest win is to refresh an older concept.'
-                : 'You are between unlocked tasks right now. Finish decomposition or unlock the next concept.'}
-          </p>
-        </Card>
-
-        <Card>
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-            Weekly state
-          </p>
-          <p className="mt-3 text-sm font-semibold text-slate-800">
-            {weeklyCheckinDue
-              ? 'Check-in due'
-              : weeklyRecoveryPlan
-                ? weeklyRecoveryPlan.status.replace('_', ' ')
-                : 'On rhythm'}
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-slate-500">
-            {weeklyCheckinDue
-              ? 'Capture blockers and wins before the week drifts.'
-              : weeklyRecoveryPlan?.headline
-                ? weeklyRecoveryPlan.headline
-                : 'Your weekly report will keep shaping the next few sessions.'}
-          </p>
-        </Card>
-      </div>
-
-      <Card>
-        <div className="mb-2.5 flex items-center justify-between">
-          <p className="truncate pr-4 text-xs font-semibold uppercase tracking-widest text-slate-400">{goal.title}</p>
-          <span className="shrink-0 text-xs text-slate-500">
-            {goal.estimatedWeeksRemaining > 0 ? `~${goal.estimatedWeeksRemaining}w left` : 'Almost done!'}
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="h-[6px] flex-1 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-sky-500"
-              style={{ width: `${progressPct}%`, transition: 'width var(--dur-slow) var(--ease-out)' }}
-            />
-          </div>
-          <span className="shrink-0 font-mono text-xs tabular-nums text-slate-500">
-            {goal.doneNodes}/{goal.totalNodes}
-          </span>
-        </div>
-      </Card>
-
-      <Card className={weeklyCheckinDue ? 'border-amber-200 bg-amber-50' : ''}>
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-              Weekly check-in
-            </p>
-            {weeklyLoading ? (
-              <p className="mt-1 text-sm text-slate-500">Loading your weekly rhythm...</p>
-            ) : weeklyCheckinDue ? (
-              <p className="mt-1 text-sm leading-relaxed text-slate-700">
-                Your weekly check-in is due. Capture what moved, what is stuck, and tighten the next seven days before the week drifts.
-              </p>
-            ) : weeklyRecoveryPlan ? (
-              <p className="mt-1 text-sm leading-relaxed text-slate-700">
-                {weeklyRecoveryPlan.headline}
-              </p>
-            ) : (
-              <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                Use the weekly check-in to turn momentum and blockers into a concrete recovery plan.
-              </p>
-            )}
-
-            {!weeklyLoading && weeklyRecoveryPlan?.actions?.[0] && !weeklyCheckinDue && (
-              <p className="mt-2 text-xs text-slate-500">
-                Next move: {weeklyRecoveryPlan.actions[0]}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              to="/history"
-              className={`inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${
-                weeklyCheckinDue
-                  ? 'bg-amber-500 text-white hover:bg-amber-600'
-                  : 'bg-slate-900 text-white hover:bg-slate-800'
-              }`}
-            >
-              {weeklyCheckinDue ? 'Complete check-in' : 'Open weekly review'}
-            </Link>
-            {!weeklyReportsEnabled && (
-              <Link
-                to="/pricing"
-                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-sky-300 hover:text-sky-700"
-              >
-                Upgrade for detailed reports
-              </Link>
-            )}
-          </div>
-        </div>
-      </Card>
-
-      <Card className={currentPlan?.planKey === 'sprint' ? '' : 'border-slate-200 bg-slate-50'}>
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-              Mock interview
-            </p>
-            <p className="mt-1 text-sm leading-relaxed text-slate-600">
-              Practice system design, behavioral stories, or project deep dives against this goal.
-            </p>
-          </div>
-          {currentPlan?.planKey === 'sprint' ? (
-            <Link
-              to={`/mock?goalId=${goal.id}`}
-              className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
-            >
-              Open mock interview
-            </Link>
-          ) : (
-            <Link
-              to="/pricing"
-              className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-sky-300 hover:text-sky-700"
-            >
-              Upgrade to Sprint
-            </Link>
-          )}
-        </div>
-      </Card>
-
+      {/* 1. The one thing to do now */}
       {node ? (
-        <Card>
-          <div className="mb-3.5 flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">Today</span>
-            <span className="text-xs text-slate-300">/</span>
-            <span className="text-xs text-slate-400">{topicTitle(node)}</span>
+        <Card className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <span className="rounded-full bg-sky-50 px-2.5 py-0.5 font-semibold text-sky-700">
+              {depthLabel[node.depth_level] ?? node.depth_level}
+            </span>
+            <span>~{node.estimated_mins} min</span>
+            <span className="text-slate-300">·</span>
+            <span className="truncate">{topicTitle(node)}</span>
           </div>
 
-          <div className="mb-4">
-            <div className="mb-2 flex items-center gap-2">
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold capitalize text-slate-600">
-                {depthLabel[node.depth_level] ?? node.depth_level}
-              </span>
-              <span className="text-xs text-slate-400">~{node.estimated_mins} min</span>
-            </div>
-            <h2 className="font-display text-[22px] text-slate-900" style={{ letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+          <div>
+            <h2 className="font-display text-[24px] text-slate-900" style={{ letterSpacing: '-0.01em', lineHeight: 1.2 }}>
               {node.title}
             </h2>
             {node.description && (
-              <p className="mt-2 text-sm leading-relaxed text-slate-500">
-                {node.description}
-              </p>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">{node.description}</p>
             )}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-[0.7fr,1.3fr]">
-            <div>
-              <p className="mb-2 text-xs font-medium text-slate-400">Study for</p>
-              <div className="flex gap-2 md:flex-col">
-                {TIMEBOXES.map((value) => (
-                  <button
-                    key={value}
-                    onClick={() => setTimebox(value)}
-                    className={`flex-1 rounded-[10px] border py-[9px] text-[13px] font-semibold transition-all ${
-                      timebox === value
-                        ? 'border-sky-600 bg-sky-600 text-white'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300'
-                    }`}
-                  >
-                    {value}m
-                  </button>
-                ))}
-              </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1" role="group" aria-label="Session length">
+              {TIMEBOXES.map((value) => (
+                <button
+                  key={value}
+                  onClick={() => setTimebox(value)}
+                  aria-pressed={timebox === value}
+                  className={`rounded-lg px-4 py-2 text-[13px] font-semibold transition-colors ${
+                    timebox === value ? 'bg-white text-sky-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {value} min
+                </button>
+              ))}
             </div>
-
-            <div className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-4">
-              <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-                Session outcome
-              </p>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                This session ends with a concrete artifact and, if you want it, rubric-based AI feedback.
-                You should leave with something reviewable, not just a timer that elapsed.
-              </p>
-            </div>
+            <button
+              onClick={() => handleStartSession(node)}
+              className="rounded-xl bg-sky-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-sky-700 sm:ml-auto"
+            >
+              Start {timebox} min session
+            </button>
           </div>
-
-          <button
-            onClick={() => handleStartSession(node)}
-            className="mt-4 w-full rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white transition-colors hover:bg-sky-700"
-          >
-            Start {timebox} min session
-          </button>
         </Card>
       ) : (
         <EmptyState
-          title="All available nodes studied"
+          title={goal.doneNodes === goal.totalNodes ? 'Every concept is done' : 'Nothing unlocked right now'}
           description={
             goal.doneNodes === goal.totalNodes
-              ? 'You completed every node. Incredible work.'
-              : 'Complete more sessions to unlock the next concepts.'
+              ? 'You completed every concept in this plan. Incredible work.'
+              : 'Complete a review or open your goal to build the next set of concepts.'
           }
           accent="brand"
         />
       )}
 
       {reviewNode && reviewNode.id !== node?.id && (
-        <SurfaceCard p={5} className="space-y-3 border-orange-200 bg-orange-50">
-          <span className="text-xs font-semibold uppercase tracking-widest text-orange-600">Review due</span>
-          <div>
-            <h3 className="mt-1 font-display text-base text-slate-800">
-              {reviewNode.title}
-            </h3>
-            <p className="mt-1 text-xs leading-relaxed text-slate-500">
-              {reviewNode.description}
-            </p>
+        <Card className="flex flex-col gap-3 border-orange-200 bg-orange-50 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-orange-700">Review due</p>
+            <p className="mt-0.5 truncate font-semibold text-slate-800">{reviewNode.title}</p>
           </div>
           <button
             onClick={() => handleStartSession(reviewNode, true)}
-            className="w-full rounded-lg bg-orange-500 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
+            className="shrink-0 rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-orange-600"
           >
             Start 15 min review
           </button>
-        </SurfaceCard>
+        </Card>
       )}
+
+      {/* 2. Where the goal stands */}
+      <Link to={`/goals/${goal.id}`} className="block rounded-[20px] transition-shadow hover:shadow-md">
+        <Card className="space-y-3">
+          <div className="flex items-baseline justify-between gap-4">
+            <p className="truncate text-sm font-semibold text-slate-800">{goal.title}</p>
+            <span className="shrink-0 text-xs font-medium text-sky-700">View goal →</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-sky-500"
+              style={{ width: `${Math.max(progressPct, 2)}%`, transition: 'width var(--dur-slow) var(--ease-out)' }}
+            />
+          </div>
+          <p className="text-xs text-slate-500">
+            {goal.doneNodes} of {goal.totalNodes} concepts done · {weeksLeftLabel}
+            {streak > 0 ? ` · ${streak}-day streak` : ''}
+          </p>
+        </Card>
+      </Link>
+
+      {/* 3. Things for this week */}
+      <Card className="divide-y divide-slate-100 !py-1">
+        <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-800">
+              Weekly check-in{weeklyCheckinDue ? <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">Due</span> : null}
+            </p>
+            <p className="mt-0.5 text-sm text-slate-500">
+              {weeklyLoading
+                ? 'Loading your week…'
+                : weeklyCheckinDue
+                  ? 'Two minutes: what moved, what is stuck, what to change next week.'
+                  : weeklyRecoveryPlan?.headline ?? 'You are on rhythm this week.'}
+            </p>
+          </div>
+          <Link
+            to="/history"
+            className={`shrink-0 rounded-xl px-4 py-2 text-center text-sm font-semibold transition-colors ${
+              weeklyCheckinDue
+                ? 'bg-amber-500 text-white hover:bg-amber-600'
+                : 'border border-slate-200 text-slate-700 hover:border-sky-300 hover:text-sky-700'
+            }`}
+          >
+            {weeklyCheckinDue ? 'Do check-in' : 'Weekly review'}
+          </Link>
+        </div>
+
+        <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-800">Mock interview</p>
+            <p className="mt-0.5 text-sm text-slate-500">Practise system design or behavioural questions for this goal.</p>
+          </div>
+          <Link
+            to={mockEnabled ? `/mock?goalId=${goal.id}` : '/pricing'}
+            className="shrink-0 rounded-xl border border-slate-200 px-4 py-2 text-center text-sm font-semibold text-slate-700 transition-colors hover:border-sky-300 hover:text-sky-700"
+          >
+            {mockEnabled ? 'Start practice' : 'See plans'}
+          </Link>
+        </div>
+      </Card>
 
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">

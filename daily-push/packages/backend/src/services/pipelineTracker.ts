@@ -42,9 +42,14 @@ export function buildIntakeSteps(): PipelineStep[] {
   ];
 }
 
-export function buildDecomposeSteps(topics: Array<{ title: string }>): PipelineStep[] {
+/**
+ * `index` must be the topic's position in goal.learningTopics: processOneTopic
+ * reports progress as `topic_decompose_<that index>`. On a retry only some topics
+ * are listed, so falling back to the list position would never match.
+ */
+export function buildDecomposeSteps(topics: Array<{ title: string; index?: number }>): PipelineStep[] {
   const steps: PipelineStep[] = topics.map((t, i) => ({
-    id: `topic_decompose_${i}`,
+    id: `topic_decompose_${t.index ?? i}`,
     label: `Breaking down: ${t.title}`,
     status: 'pending' as const,
   }));
