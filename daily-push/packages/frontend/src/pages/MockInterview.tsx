@@ -102,7 +102,7 @@ function EvaluationCard({ run }: { run: MockInterviewRun }) {
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+              <span className="text-sm font-semibold text-slate-400">
                 Scorecard
               </span>
               <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${verdictStyles[evaluation.verdict] ?? verdictStyles.solid}`}>
@@ -112,7 +112,7 @@ function EvaluationCard({ run }: { run: MockInterviewRun }) {
             <p className="text-sm leading-relaxed text-slate-700">{evaluation.summary}</p>
           </div>
           <div className="rounded-xl bg-slate-50 px-3 py-2 text-right">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+            <p className="text-xs font-semibold text-slate-400">
               Overall
             </p>
             <p className="mt-1 text-xl font-semibold text-slate-800">
@@ -137,7 +137,7 @@ function EvaluationCard({ run }: { run: MockInterviewRun }) {
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-700">
+            <p className="text-xs font-semibold text-emerald-700">
               Strengths
             </p>
             <div className="mt-3 space-y-2 text-sm text-emerald-800">
@@ -150,7 +150,7 @@ function EvaluationCard({ run }: { run: MockInterviewRun }) {
           </div>
 
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-amber-700">
+            <p className="text-xs font-semibold text-amber-700">
               Tighten next
             </p>
             <div className="mt-3 space-y-2 text-sm text-amber-800">
@@ -165,7 +165,7 @@ function EvaluationCard({ run }: { run: MockInterviewRun }) {
 
         <div className="grid gap-4 md:grid-cols-2">
           <div className="rounded-xl border border-slate-200 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+            <p className="text-xs font-semibold text-slate-400">
               Retry plan
             </p>
             <div className="mt-3 space-y-2 text-sm text-slate-600">
@@ -173,7 +173,7 @@ function EvaluationCard({ run }: { run: MockInterviewRun }) {
             </div>
           </div>
           <div className="rounded-xl border border-sky-200 bg-sky-50 p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-sky-700">
+            <p className="text-xs font-semibold text-sky-700">
               What this changed in your plan
             </p>
             <div className="mt-3 space-y-2 text-sm text-sky-900">
@@ -486,7 +486,7 @@ export default function MockInterview() {
             <Stack spacing={5}>
               <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={4}>
                 <VStack align="flex-start" spacing={1}>
-                  <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+                  <Text fontSize="sm" fontWeight="700" color="ink.400">
                     New run
                   </Text>
                   <Text fontSize="sm" color="ink.500" lineHeight="1.7">
@@ -520,7 +520,7 @@ export default function MockInterview() {
 
               <Stack spacing={4}>
                 <label className="space-y-2 block">
-                  <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                  <span className="text-xs font-semibold text-slate-400">
                     Focus area
                   </span>
                   <Input
@@ -534,7 +534,7 @@ export default function MockInterview() {
                 </label>
 
                 <label className="space-y-2 block">
-                  <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                  <span className="text-xs font-semibold text-slate-400">
                     Context to keep in mind
                   </span>
                   <Textarea
@@ -564,7 +564,7 @@ export default function MockInterview() {
           <SurfaceCard p={{ base: 5, md: 6 }}>
             <Stack spacing={5}>
               <VStack align="flex-start" spacing={1}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+                <Text fontSize="sm" fontWeight="700" color="ink.400">
                   Recent runs
                 </Text>
                 <Text fontSize="sm" color="ink.500" lineHeight="1.7">
@@ -623,7 +623,7 @@ export default function MockInterview() {
           </SurfaceCard>
         </div>
 
-        <div className="space-y-4">
+        <div className={`space-y-4 ${run ? 'order-first lg:order-none' : ''}`}>
           {run ? (
             <>
               <SurfaceCard p={{ base: 5, md: 6 }}>
@@ -631,7 +631,7 @@ export default function MockInterview() {
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                        <span className="text-sm font-semibold text-slate-400">
                           {MODE_LABELS[run.mode]}
                         </span>
                         <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
@@ -663,7 +663,7 @@ export default function MockInterview() {
                         }`}
                       >
                         <div className="mb-2 flex items-center justify-between gap-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                          <p className="text-xs font-semibold text-slate-400">
                             {turn.role === 'interviewer' ? 'Interviewer' : 'You'}
                           </p>
                           <span className="text-[11px] text-slate-400">
@@ -679,7 +679,7 @@ export default function MockInterview() {
                     <Stack spacing={4}>
                       {latestInterviewerPrompt ? (
                         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                          <p className="text-[11px] font-semibold uppercase tracking-widest text-amber-700">
+                          <p className="text-xs font-semibold text-amber-700">
                             Current question
                           </p>
                           <p className="mt-2 text-sm leading-relaxed text-amber-900">
@@ -689,7 +689,7 @@ export default function MockInterview() {
                       ) : null}
 
                       <label className="space-y-2 block">
-                        <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                        <span className="text-xs font-semibold text-slate-400">
                           Your answer
                         </span>
                         <Textarea

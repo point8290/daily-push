@@ -77,6 +77,12 @@ function formatDelta(delta: number | null): string {
   return String(delta);
 }
 
+const VERDICT_LABEL: Record<string, string> = {
+  apply_now: 'Ready to apply',
+  apply_after_edits: 'Apply after a few edits',
+  upgrade_first: 'Close gaps first',
+};
+
 function describeReadinessMarketSource(report: RoleReadinessReport): {
   label: string;
   detail: string;
@@ -169,7 +175,7 @@ const targetRoleTabs: Array<{
   },
   {
     id: 'readiness',
-    label: 'Readiness',
+    label: 'Readiness report',
     description: 'Score and what is missing',
   },
   {
@@ -199,23 +205,23 @@ const ROLE_STATUS_LABEL: Record<string, string> = {
 };
 
 const targetRolePrimaryActionClass =
-  'inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-60';
+  'inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-300 disabled:cursor-not-allowed disabled:opacity-60';
 
 const targetRoleSecondaryActionClass =
-  'inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-black text-slate-700 transition hover:border-sky-300 hover:text-sky-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-60';
+  'inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-60';
 
 const targetRoleInvertedActionClass =
-  'inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/30';
+  'inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/30';
 
 const targetRoleInlineActionClass =
-  'mt-4 inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.12em] text-slate-700 transition hover:border-sky-300 hover:text-sky-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100';
+  'mt-4 inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-700 transition hover:border-sky-300 hover:text-sky-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100';
 
 const targetRoleStepCardClass =
-  'rounded-3xl border border-slate-200 bg-slate-50/80 p-4 text-left';
+  'rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-left';
 
 function targetRoleTabClass(active: boolean): string {
   return [
-    'rounded-3xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100',
+    'rounded-2xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-100',
     active
       ? 'border-slate-950 bg-slate-950 text-white shadow-lg shadow-slate-900/15'
       : 'border-transparent bg-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-950',
@@ -308,12 +314,12 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-black text-slate-700">{label}</p>
-        <p className="text-sm font-black text-slate-950">{value}</p>
+        <p className="text-sm font-semibold text-slate-700">{label}</p>
+        <p className="text-sm font-semibold text-slate-950">{value}</p>
       </div>
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
         <div
-          className="h-full rounded-full bg-slate-950"
+          className="h-full rounded-full bg-sky-500"
           style={{ width: `${Math.max(0, Math.min(value, 100))}%` }}
         />
       </div>
@@ -827,14 +833,14 @@ export default function TargetRoleWorkspace() {
   if (error || !targetRole) {
     return (
       <SurfaceCard p={{ base: 6, md: 8 }}>
-        <p className="text-xs font-black uppercase tracking-[0.18em] text-red-500">
+        <p className="text-sm font-semibold text-red-500">
           Workspace unavailable
         </p>
-        <h1 className="mt-3 text-3xl font-black tracking-[-0.06em] text-slate-950">
+        <h1 className="mt-3 text-3xl font-semibold tracking-[-0.06em] text-slate-950">
           We could not open this Target Role.
         </h1>
         <p className="mt-3 text-sm leading-7 text-slate-600">{error}</p>
-        <Link to="/target-roles" className="mt-6 inline-flex rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white">
+        <Link to="/target-roles" className="mt-6 inline-flex rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white">
           Back to Target Roles
         </Link>
       </SurfaceCard>
@@ -887,153 +893,129 @@ export default function TargetRoleWorkspace() {
 
   return (
     <div className="space-y-6">
-      <Link to="/target-roles" className="inline-flex rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-black text-slate-600 transition hover:border-sky-300 hover:text-sky-700">
-        All saved roles
-      </Link>
-
-      <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <SurfaceCard p={{ base: 6, md: 8 }} className="relative overflow-hidden">
-          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-sky-200/70 blur-3xl" />
-          <div className="relative">
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
-                Your target role
-              </span>
-              <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-black text-sky-700">
-                {ROLE_STATUS_LABEL[targetRole.status] ?? formatLabel(targetRole.status)}
-              </span>
-              {roleProfile && (
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
-                  {formatLabel(roleProfile.category)}
-                </span>
-              )}
-            </div>
-            <h1 className="mt-6 max-w-4xl font-display text-5xl font-semibold leading-[0.92] tracking-[-0.065em] md:text-7xl">
-              {targetRole.title}
-            </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-9 text-slate-600">
-              {roleProfile?.shortDescription ?? 'This workspace tracks your role direction, readiness, applications, and upgrade work.'}
-            </p>
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="max-w-3xl">
+          <Link to="/target-roles" className="text-sm font-semibold text-slate-500 hover:text-sky-700">
+            ← All saved roles
+          </Link>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-0.03em] text-slate-950 md:text-4xl">
+            {targetRole.title}
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            {roleProfile?.shortDescription ?? 'The role you are preparing for.'}
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <span className="rounded-full bg-sky-50 px-2.5 py-1 font-semibold text-sky-800">
+              {ROLE_STATUS_LABEL[targetRole.status] ?? formatLabel(targetRole.status)}
+            </span>
+            <span>Saved {formatDate(targetRole.createdAt)}</span>
+            <span aria-hidden="true">·</span>
+            <span>
+              {evidenceProfile?.claims.length
+                ? `${evidenceProfile.claims.length} proof points on file`
+                : 'No proof on file yet'}
+            </span>
           </div>
-        </SurfaceCard>
+        </div>
+      </div>
 
-        <SurfaceCard p={{ base: 6, md: 7 }} bg="rgba(2,6,23,0.96)" color="white" className="relative overflow-hidden">
-          <div className="absolute -bottom-28 right-4 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
-          <div className="relative">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-white/45">
-              Next best action
-            </p>
-            <h2 className="mt-3 text-3xl font-black tracking-[-0.06em]">
-              {recommendedAction.title}
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-white/70">
-              {recommendedAction.body}
-            </p>
-            {planProgress && targetRole.linkedGoalId ? (
-              <div className="mt-5 rounded-3xl border border-white/10 bg-white/8 p-4">
-                <div className="flex items-end justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-black text-white">Your plan for this role</p>
-                    <p className="mt-1 text-xs text-white/60">
-                      {planProgress.counts.closed + planProgress.counts.proven} of {planProgress.gaps.length} gaps closed ·{' '}
-                      {planProgress.counts.proven} proven
-                    </p>
-                  </div>
-                  <p className="font-display text-3xl leading-none text-white">{planProgress.readinessPct}%</p>
-                </div>
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/15">
-                  <div className="h-full rounded-full bg-emerald-300" style={{ width: `${planProgress.readinessPct}%` }} />
-                </div>
-                <Link to={`/goals/${targetRole.linkedGoalId}`} className="mt-3 inline-block text-xs font-bold text-white/80 underline">
-                  Open plan
-                </Link>
-              </div>
-            ) : null}
-            {!targetRole.linkedGoalId &&
-              ['generate_readiness', 'generate_proof', 'create_plan', 'start_sprint'].includes(recommendedAction.key) && (
-              <div className="mt-6">
+      <SurfaceCard p={{ base: 5, md: 6 }}>
+        <div className="grid gap-6 md:grid-cols-[1fr_minmax(0,320px)] md:items-center">
+          <div>
+            <p className="text-sm font-semibold text-sky-700">Next step</p>
+            <h2 className="mt-1 text-xl font-bold text-slate-900">{recommendedAction.title}</h2>
+            <p className="mt-1 text-sm leading-6 text-slate-600">{recommendedAction.body}</p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              {!targetRole.linkedGoalId &&
+              ['generate_readiness', 'generate_proof', 'create_plan', 'start_sprint'].includes(recommendedAction.key) ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleBuildPlan}
+                    disabled={buildBusy}
+                    className="rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
+                  >
+                    {buildBusy ? 'Building your plan… (about a minute)' : 'Build my plan in one step'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRecommendedAction}
+                    disabled={readinessBusy || reassessmentBusy || proofBusy || planBusy || sprintBusy}
+                    className="text-sm font-semibold text-slate-600 hover:text-sky-700 disabled:opacity-60"
+                  >
+                    or {recommendedAction.cta.toLowerCase()} first
+                  </button>
+                </>
+              ) : (
                 <button
                   type="button"
-                  onClick={handleBuildPlan}
-                  disabled={buildBusy}
-                  className={`w-full ${targetRoleInvertedActionClass} disabled:cursor-not-allowed disabled:opacity-60`}
+                  onClick={handleRecommendedAction}
+                  disabled={readinessBusy || reassessmentBusy || proofBusy || planBusy || sprintBusy}
+                  className="rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
                 >
-                  {buildBusy ? 'Building your plan… (about a minute)' : 'Build my plan in one step'}
+                  {readinessBusy
+                    ? 'Checking readiness…'
+                    : proofBusy
+                      ? 'Suggesting proof work…'
+                      : planBusy
+                        ? 'Creating plan…'
+                        : sprintBusy
+                          ? 'Starting…'
+                          : recommendedAction.cta}
                 </button>
-                <p className="mt-2 text-xs text-white/55">
-                  Checks your readiness, picks the gaps to close, and creates a plan with a study map.
-                </p>
-                {buildError && <p className="mt-2 text-xs font-bold text-red-200">{buildError}</p>}
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={handleRecommendedAction}
-              disabled={readinessBusy || reassessmentBusy || proofBusy || planBusy || sprintBusy}
-              className={`mt-6 w-full ${targetRoleInvertedActionClass} disabled:cursor-not-allowed disabled:opacity-60`}
-            >
-              {readinessBusy
-                ? 'Generating readiness...'
-                : proofBusy
-                  ? 'Building proof tasks...'
-                  : planBusy
-                    ? 'Creating plan...'
-                    : sprintBusy
-                      ? 'Starting sprint...'
-                      : recommendedAction.cta}
-            </button>
+              )}
+            </div>
+            {buildError && <p className="mt-2 text-sm text-red-600">{buildError}</p>}
             {(readinessError || reassessmentError) && (
-              <div className="mt-3 rounded-2xl border border-red-300/30 bg-red-400/10 p-3 text-sm font-bold leading-6 text-red-100">
-                {readinessError || reassessmentError}
+              <p className="mt-2 text-sm text-red-600">
+                {readinessError || reassessmentError}{' '}
                 <Link
                   to="/pricing?source=career-market"
                   onClick={() => trackMarketUpgradeClick('readiness_error')}
-                  className="ml-2 underline"
+                  className="underline"
                 >
                   View plans
                 </Link>
-              </div>
+              </p>
             )}
-            {readinessQuota && (
-              <p className="mt-3 text-xs font-bold text-white/50">{readinessQuota}</p>
-            )}
-            {reassessmentQuota && (
-              <p className="mt-3 text-xs font-bold text-white/50">{reassessmentQuota}</p>
-            )}
-            <div className="mt-6 grid gap-3">
-              <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
-                <p className="text-sm font-black text-white">Saved</p>
-                <p className="mt-1 text-sm text-white/65">{formatDate(targetRole.createdAt)}</p>
-              </div>
-              <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
-                <p className="text-sm font-black text-white">Found through</p>
-                <p className="mt-1 text-sm text-white/65">{targetRole.createdFrom === 'market_analyzer' ? 'Role suggestions' : targetRole.createdFrom === 'resume_analysis' ? 'Resume check' : formatLabel(targetRole.createdFrom)}</p>
-              </div>
-            </div>
-            {evidenceProfile?.claims.length ? (
-              <div className="mt-5 rounded-3xl border border-white/10 bg-white/8 p-4">
-                <p className="text-sm font-black text-white">Proof on file</p>
-                <p className="mt-1 text-sm leading-6 text-white/65">
-                  {evidenceProfile.claims.length} proof points from your resume, sessions and practice interviews.
-                </p>
-              </div>
-            ) : (
-              <div className="mt-5 rounded-3xl border border-white/10 bg-white/8 p-4">
-                <p className="text-sm font-black text-white">Evidence needed</p>
-                <p className="mt-1 text-sm leading-6 text-white/65">
-                  Add role evidence so readiness can judge real proof instead of guesses.
-                </p>
-              </div>
+            {(readinessQuota || reassessmentQuota) && (
+              <p className="mt-2 text-xs text-slate-400">{readinessQuota || reassessmentQuota}</p>
             )}
           </div>
-        </SurfaceCard>
-      </section>
+
+          {planProgress && targetRole.linkedGoalId ? (
+            <Link
+              to={`/goals/${targetRole.linkedGoalId}`}
+              className="block rounded-2xl border border-slate-200 p-4 transition-colors hover:border-sky-300"
+            >
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">Readiness for this role</p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {planProgress.counts.closed + planProgress.counts.proven} of {planProgress.gaps.length} gaps closed ·{' '}
+                    {planProgress.counts.proven} proven
+                  </p>
+                </div>
+                <p className="font-display text-3xl leading-none text-slate-900">{planProgress.readinessPct}%</p>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+                <div className="h-full rounded-full bg-sky-600" style={{ width: `${planProgress.readinessPct}%` }} />
+              </div>
+              <p className="mt-2 text-xs font-semibold text-sky-700">Open plan →</p>
+            </Link>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+              Readiness shows up here once you have a plan for this role.
+            </div>
+          )}
+        </div>
+      </SurfaceCard>
 
       <div
         data-testid="target-role-tablist"
         role="tablist"
-        aria-label="Target Role workspace sections"
-        className="grid gap-2 rounded-[28px] border border-white/70 bg-white/82 p-2 shadow-sm shadow-slate-200/50 backdrop-blur md:grid-cols-3 xl:grid-cols-6"
+        aria-label="Role sections"
+        className="flex gap-1 overflow-x-auto border-b border-slate-200"
       >
         {targetRoleTabs.map((tab) => {
           const active = activeTargetRoleTab === tab.id;
@@ -1043,13 +1025,13 @@ export default function TargetRoleWorkspace() {
               type="button"
               role="tab"
               aria-selected={active}
+              title={tab.description}
               onClick={() => setActiveTargetRoleTab(tab.id)}
-              className={targetRoleTabClass(active)}
+              className={`-mb-px shrink-0 border-b-2 px-4 py-2.5 text-sm font-semibold transition-colors ${
+                active ? 'border-sky-600 text-sky-700' : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
             >
-              <span className="block text-sm font-black">{tab.label}</span>
-              <span className={`mt-1 block text-xs font-bold ${active ? 'text-white/55' : 'text-slate-400'}`}>
-                {tab.description}
-              </span>
+              {tab.label}
             </button>
           );
         })}
@@ -1058,10 +1040,10 @@ export default function TargetRoleWorkspace() {
       {activeTargetRoleTab === 'overview' && (
         <section data-section="target-role-overview" className="grid gap-5 lg:grid-cols-3">
           <SurfaceCard p={5} className="bg-white/88 lg:col-span-3">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+            <p className="text-sm font-semibold text-slate-400">
               How this page works
             </p>
-            <h2 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-950">
               Get ready for the role here. Track specific jobs under Applications.
             </h2>
             <p className="mt-3 text-sm leading-7 text-slate-600">
@@ -1069,8 +1051,8 @@ export default function TargetRoleWorkspace() {
             </p>
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               <div className={targetRoleStepCardClass}>
-                <span className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">Step 1</span>
-                <span className="mt-2 block text-sm font-black text-slate-950">Add evidence</span>
+                <span className="text-sm font-semibold text-sky-700">Step 1</span>
+                <span className="mt-2 block text-sm font-semibold text-slate-950">Add evidence</span>
                 <span className="mt-1 block text-sm leading-6 text-slate-600">Resume lines, projects, graded work.</span>
                 <button
                   type="button"
@@ -1081,8 +1063,8 @@ export default function TargetRoleWorkspace() {
                 </button>
               </div>
               <div className={targetRoleStepCardClass}>
-                <span className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">Step 2</span>
-                <span className="mt-2 block text-sm font-black text-slate-950">Check readiness</span>
+                <span className="text-sm font-semibold text-emerald-700">Step 2</span>
+                <span className="mt-2 block text-sm font-semibold text-slate-950">Check readiness</span>
                 <span className="mt-1 block text-sm leading-6 text-slate-600">What you show, and what is missing.</span>
                 <button
                   type="button"
@@ -1093,8 +1075,8 @@ export default function TargetRoleWorkspace() {
                 </button>
               </div>
               <div className={targetRoleStepCardClass}>
-                <span className="text-xs font-black uppercase tracking-[0.14em] text-amber-700">Step 3</span>
-                <span className="mt-2 block text-sm font-black text-slate-950">Close gaps</span>
+                <span className="text-sm font-semibold text-amber-700">Step 3</span>
+                <span className="mt-2 block text-sm font-semibold text-slate-950">Close gaps</span>
                 <span className="mt-1 block text-sm leading-6 text-slate-600">A plan with daily sessions.</span>
                 <button
                   type="button"
@@ -1112,20 +1094,19 @@ export default function TargetRoleWorkspace() {
       {activeTargetRoleTab === 'evidence' && (
         <section data-section="target-role-evidence">
           <SurfaceCard p={{ base: 5, md: 6 }} className="relative overflow-hidden">
-        <div className="absolute -right-20 -bottom-20 h-56 w-56 rounded-full bg-emerald-100 blur-3xl" />
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+              <p className="text-sm font-semibold text-slate-400">
                 Evidence Vault
               </p>
               {proofEvidenceStatus?.reassessRecommended && (
-                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                   Reassess recommended
                 </span>
               )}
             </div>
-            <h2 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-950">
               Turn completed proof work into readiness evidence.
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
@@ -1143,23 +1124,23 @@ export default function TargetRoleWorkspace() {
             )}
           </div>
           <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[420px]">
-            <div className="rounded-3xl bg-slate-950 p-4 text-white">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-white/45">
+            <div className="rounded-2xl bg-slate-950 p-4 text-white">
+              <p className="text-sm font-semibold text-white/45">
                 Evidence claims
               </p>
-              <p className="mt-2 text-3xl font-black">{proofEvidenceStatus?.evidenceClaimCount ?? 0}</p>
+              <p className="mt-2 text-3xl font-semibold">{proofEvidenceStatus?.evidenceClaimCount ?? 0}</p>
             </div>
-            <div className="rounded-3xl bg-sky-50 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
+            <div className="rounded-2xl bg-sky-50 p-4">
+              <p className="text-sm font-semibold text-sky-700">
                 Ready to add
               </p>
-              <p className="mt-2 text-3xl font-black text-slate-950">{proofEvidenceStatus?.publishableArtifactCount ?? 0}</p>
+              <p className="mt-2 text-3xl font-semibold text-slate-950">{proofEvidenceStatus?.publishableArtifactCount ?? 0}</p>
             </div>
-            <div className="rounded-3xl bg-emerald-50 p-4">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+            <div className="rounded-2xl bg-emerald-50 p-4">
+              <p className="text-sm font-semibold text-emerald-700">
                 Published
               </p>
-              <p className="mt-2 text-3xl font-black text-slate-950">{proofEvidenceStatus?.publishedArtifactCount ?? 0}</p>
+              <p className="mt-2 text-3xl font-semibold text-slate-950">{proofEvidenceStatus?.publishedArtifactCount ?? 0}</p>
             </div>
           </div>
         </div>
@@ -1168,10 +1149,10 @@ export default function TargetRoleWorkspace() {
           className="relative mt-6 grid gap-4 lg:grid-cols-[1fr_0.72fr]"
         >
           <div className="rounded-[28px] border border-slate-200 bg-white/86 p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+            <p className="text-sm font-semibold text-slate-400">
               Add role evidence
             </p>
-            <h3 className="mt-2 text-xl font-black tracking-[-0.04em] text-slate-950">
+            <h3 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-slate-950">
               Bring in proof for this role without choosing a company.
             </h3>
             <p className="mt-2 text-sm leading-7 text-slate-600">
@@ -1192,8 +1173,8 @@ export default function TargetRoleWorkspace() {
                 Reading and importing evidence...
               </p>
             )}
-            <details className="mt-4 rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
-              <summary className="cursor-pointer text-sm font-black text-slate-700">
+            <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+              <summary className="cursor-pointer text-sm font-semibold text-slate-700">
                 Paste instead
               </summary>
               <p className="mt-3 text-sm leading-6 text-slate-500">
@@ -1208,7 +1189,7 @@ export default function TargetRoleWorkspace() {
                 }}
                 rows={6}
                 placeholder="Example: Owned production Node.js services, optimized dashboard APIs by 35%, designed RBAC flows, deployed with Docker/Jenkins/AWS..."
-                className="mt-4 w-full resize-y rounded-3xl border border-slate-200 bg-white px-4 py-4 text-sm leading-7 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
+                className="mt-4 w-full resize-y rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm leading-7 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-100"
               />
               <button
                 type="button"
@@ -1243,7 +1224,7 @@ export default function TargetRoleWorkspace() {
             </div>
           </div>
           <div className="rounded-[28px] border border-sky-100 bg-sky-50/80 p-5">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">
+            <p className="text-sm font-semibold text-sky-700">
               What this updates
             </p>
             <div className="mt-4 space-y-3 text-sm leading-7 text-sky-950/80">
@@ -1273,7 +1254,7 @@ export default function TargetRoleWorkspace() {
               type="button"
               onClick={handleReassessReadiness}
               disabled={reassessmentBusy || !readinessReport}
-              className="inline-flex rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {reassessmentBusy ? 'Reassessing...' : 'Reassess with new proof'}
             </button>
@@ -1281,7 +1262,7 @@ export default function TargetRoleWorkspace() {
           {proofEvidenceStatus?.linkedGoalId && (
             <Link
               to={`/goals/${proofEvidenceStatus.linkedGoalId}?source=target-role`}
-              className="inline-flex rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:-translate-y-0.5"
+              className="inline-flex rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5"
             >
               Review proof tasks
             </Link>
@@ -1296,48 +1277,31 @@ export default function TargetRoleWorkspace() {
       {readinessReport ? (
         <section className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
           <SurfaceCard p={{ base: 6, md: 7 }} className="relative overflow-hidden">
-            <div className="absolute -left-20 -top-20 h-56 w-56 rounded-full bg-emerald-100 blur-3xl" />
             <div className="relative">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                Role readiness
-              </p>
-              <div className="mt-5 flex flex-wrap items-end justify-between gap-5">
-                <div>
-                  <div className={`inline-flex rounded-2xl border px-4 py-2 text-sm font-black ${scoreTone(readinessReport.score.overall)}`}>
-                    {formatLabel(readinessReport.label)} - {formatLabel(readinessReport.verdict)}
-                  </div>
-                  <p className="mt-4 font-display text-7xl font-semibold tracking-[-0.08em] text-slate-950">
-                    {readinessReport.score.overall}
-                  </p>
-                  <p className="text-sm font-black uppercase tracking-[0.18em] text-slate-400">
-                    Overall score
-                  </p>
-                </div>
-                <div className="rounded-3xl bg-slate-950 p-5 text-white">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/45">
-                    Generated
-                  </p>
-                  <p className="mt-2 text-sm font-bold text-white/75">
-                    {formatDate(readinessReport.generatedAt)}
-                  </p>
-                  <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-white/45">
-                    Confidence
-                  </p>
-                  <p className="mt-2 text-sm font-bold text-white/75">
-                    {readinessReport.confidence}/100
-                  </p>
-                </div>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-base font-semibold text-slate-900">Why your readiness is where it is</p>
+                <span className={`rounded-full border px-3 py-1 text-sm font-semibold ${scoreTone(readinessReport.score.overall)}`}>
+                  {VERDICT_LABEL[readinessReport.verdict] ?? formatLabel(readinessReport.verdict)}
+                </span>
               </div>
-              <p className="mt-6 text-base leading-8 text-slate-600">
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                {planProgress
+                  ? <>Your plan readiness is <span className="font-semibold text-slate-800">{planProgress.readinessPct}%</span> and moves as gaps close. This report is the detailed read behind it.</>
+                  : <>This report explains where you stand today. Build a plan to track one readiness number as you close gaps.</>}
+              </p>
+              <p className="mt-3 text-xs text-slate-400">
+                Checked {formatDate(readinessReport.generatedAt)} · profile match {readinessReport.score.overall}/100 · confidence {readinessReport.confidence}/100
+              </p>
+              <p className="mt-5 text-sm leading-6 text-slate-700">
                 {readinessReport.summary}
               </p>
               {readinessMarketSource && (
-                <div className="mt-5 rounded-3xl border border-slate-200 bg-white/80 p-4">
+                <div className="mt-5 rounded-2xl border border-slate-200 bg-white/80 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-sm font-black text-slate-900">
+                    <p className="text-sm font-semibold text-slate-900">
                       Market source used
                     </p>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-500">
                       {formatLabel(readinessReport.meta.sourceMode)}
                     </span>
                   </div>
@@ -1355,31 +1319,31 @@ export default function TargetRoleWorkspace() {
                 </div>
               )}
               {readinessReport.meta.warnings.length > 0 && (
-                <div className="mt-5 rounded-3xl border border-amber-200 bg-amber-50 p-4">
-                  <p className="text-sm font-black text-amber-800">Improve report accuracy</p>
+                <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-semibold text-amber-800">Improve report accuracy</p>
                   <p className="mt-1 text-sm leading-6 text-amber-800/80">
                     {readinessReport.meta.warnings[0].message}
                   </p>
                 </div>
               )}
               {materialMarketChange && (
-                <div className="mt-5 rounded-3xl border border-sky-200 bg-sky-50 p-4">
+                <div className="mt-5 rounded-2xl border border-sky-200 bg-sky-50 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-black text-sky-950">
+                      <p className="text-sm font-semibold text-sky-950">
                         Market requirements changed since your last report
                       </p>
                       <p className="mt-1 text-sm leading-6 text-sky-800/85">
                         {materialMarketChange.summary}
                       </p>
                     </div>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-[0.14em] text-sky-700">
+                    <span className="rounded-full bg-white px-3 py-1 text-sm font-semibold text-sky-700">
                       {formatLabel(materialMarketChange.materiality)} change
                     </span>
                   </div>
 
                   <details className="mt-4 rounded-2xl border border-sky-100 bg-white/80 p-4">
-                    <summary className="cursor-pointer text-sm font-black text-sky-950">
+                    <summary className="cursor-pointer text-sm font-semibold text-sky-950">
                       Inspect changed requirements
                     </summary>
                     <div className="mt-4 space-y-3">
@@ -1387,13 +1351,13 @@ export default function TargetRoleWorkspace() {
                         materialMarketChange.signals.changedRequirements.slice(0, 6).map((item) => (
                           <div key={`${item.changeType}-${item.label}`} className="rounded-2xl border border-slate-100 bg-white p-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="text-sm font-black text-slate-900">{item.label}</p>
-                              <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
+                              <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+                              <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-500">
                                 {formatLabel(item.changeType)}
                               </span>
                             </div>
                             <p className="mt-2 text-sm leading-6 text-slate-600">{item.summary}</p>
-                            <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
+                            <p className="mt-2 text-sm font-bold text-slate-400">
                               {item.beforePriority ? formatLabel(item.beforePriority) : 'New'} to {item.afterPriority ? formatLabel(item.afterPriority) : 'Removed'}
                             </p>
                           </div>
@@ -1420,7 +1384,7 @@ export default function TargetRoleWorkspace() {
                     type="button"
                     onClick={handleReassessReadiness}
                     disabled={reassessmentBusy || !readinessReport}
-                    className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-sky-950 px-4 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                    className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-sky-950 px-4 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                   >
                     {reassessmentBusy ? 'Reassessing readiness...' : 'Reassess with latest market profile'}
                   </button>
@@ -1452,9 +1416,7 @@ export default function TargetRoleWorkspace() {
           </SurfaceCard>
 
           <SurfaceCard p={{ base: 6, md: 7 }}>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-              Score breakdown
-            </p>
+            <p className="text-base font-semibold text-slate-900">Where the profile match comes from</p>
             <div className="mt-5 space-y-4">
               <ScoreBar label="Skill coverage" value={readinessReport.score.skillCoverage} />
               <ScoreBar label="Proof coverage" value={readinessReport.score.proofCoverage} />
@@ -1467,21 +1429,20 @@ export default function TargetRoleWorkspace() {
         </section>
       ) : (
         <SurfaceCard p={{ base: 6, md: 8 }} className="relative overflow-hidden">
-          <div className="absolute -right-20 -bottom-20 h-64 w-64 rounded-full bg-sky-100 blur-3xl" />
           <div className="relative grid gap-6 lg:grid-cols-[1fr_0.55fr] lg:items-center">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+              <p className="text-sm font-semibold text-slate-400">
                 Readiness
               </p>
-              <h2 className="mt-3 text-3xl font-black tracking-[-0.06em] text-slate-950">
+              <h2 className="mt-3 text-3xl font-semibold tracking-[-0.06em] text-slate-950">
                 Find out where you stand for this role.
               </h2>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
                 Daily Push will compare your evidence against each role requirement and show what is covered, weak, or missing. This is the bridge from "I like this role" to "here is exactly what I should improve."
               </p>
               {(evidenceProfile?.claims.length ?? 0) < 4 && (
-                <div className="mt-4 rounded-3xl border border-amber-200 bg-amber-50 p-4">
-                  <p className="text-sm font-black text-amber-800">Your evidence is still light.</p>
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-semibold text-amber-800">Your evidence is still light.</p>
                   <p className="mt-1 text-sm leading-6 text-amber-800/80">
                     You can generate a report now, but adding role evidence first will make the diagnosis more useful.
                   </p>
@@ -1512,14 +1473,13 @@ export default function TargetRoleWorkspace() {
       {readinessReport && (
         <section className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">
           <SurfaceCard p={{ base: 5, md: 6 }} className="relative overflow-hidden">
-            <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-emerald-100 blur-3xl" />
             <div className="relative">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                  <p className="text-sm font-semibold text-slate-400">
                     Reassessment
                   </p>
-                  <h2 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+                  <h2 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-950">
                     Prove that your work improved readiness.
                   </h2>
                   <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
@@ -1553,10 +1513,10 @@ export default function TargetRoleWorkspace() {
               {reassessment ? (
                 <div className="mt-5 grid gap-4 xl:grid-cols-[0.45fr_0.55fr]">
                   <div className={`rounded-[28px] border p-5 ${deltaTone(reassessment.result.scoreDelta)}`}>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] opacity-70">
+                    <p className="text-sm font-semibold opacity-70">
                       Score change
                     </p>
-                    <p className="mt-2 text-5xl font-black tracking-[-0.08em]">
+                    <p className="mt-2 text-5xl font-semibold tracking-tight">
                       {formatDelta(reassessment.result.scoreDelta)}
                     </p>
                     <p className="mt-3 text-sm font-bold leading-6">
@@ -1564,8 +1524,8 @@ export default function TargetRoleWorkspace() {
                     </p>
                   </div>
                   <div className="grid gap-3">
-                    <div className="rounded-3xl bg-emerald-50 p-4">
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+                    <div className="rounded-2xl bg-emerald-50 p-4">
+                      <p className="text-sm font-semibold text-emerald-700">
                         Improved
                       </p>
                       <div className="mt-3 space-y-2">
@@ -1579,8 +1539,8 @@ export default function TargetRoleWorkspace() {
                         ))}
                       </div>
                     </div>
-                    <div className="rounded-3xl bg-amber-50 p-4">
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-700">
+                    <div className="rounded-2xl bg-amber-50 p-4">
+                      <p className="text-sm font-semibold text-amber-700">
                         Next actions
                       </p>
                       <div className="mt-3 space-y-2">
@@ -1594,13 +1554,13 @@ export default function TargetRoleWorkspace() {
                   </div>
                 </div>
               ) : (
-                <div className="mt-5 rounded-3xl border border-slate-100 bg-slate-50 p-4 text-sm font-bold leading-7 text-slate-600">
+                <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm font-bold leading-7 text-slate-600">
                   Your first reassessment will appear here with before/after evidence movement.
                 </div>
               )}
               {reassessment?.result.stillWeakRequirements.length ? (
-                <div className="mt-4 rounded-3xl bg-red-50 p-4">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-red-600">
+                <div className="mt-4 rounded-2xl bg-red-50 p-4">
+                  <p className="text-sm font-semibold text-red-600">
                     Still weak
                   </p>
                   <div className="mt-3 space-y-2">
@@ -1616,31 +1576,31 @@ export default function TargetRoleWorkspace() {
           </SurfaceCard>
 
           <SurfaceCard p={{ base: 5, md: 6 }}>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+            <p className="text-sm font-semibold text-slate-400">
               Readiness history
             </p>
-            <h2 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-950">
               Your score over time
             </h2>
             <div className="mt-5 space-y-3">
               {(readinessHistory?.history ?? []).length > 0 ? (
                 readinessHistory!.history.slice(0, 6).map((item) => (
-                  <div key={item.readinessReportId} className="flex items-center justify-between gap-4 rounded-3xl border border-slate-100 bg-white/82 p-4">
+                  <div key={item.readinessReportId} className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-white/82 p-4">
                     <div>
-                      <p className="text-sm font-black text-slate-950">
+                      <p className="text-sm font-semibold text-slate-950">
                         {item.score}/100 - {formatLabel(item.label)}
                       </p>
                       <p className="mt-1 text-xs font-bold text-slate-400">
-                        {formatDate(item.generatedAt)} - {formatLabel(item.verdict)}
+                        {formatDate(item.generatedAt)} · {VERDICT_LABEL[item.verdict] ?? formatLabel(item.verdict)}
                       </p>
                     </div>
-                    <span className={`rounded-full border px-3 py-1 text-xs font-black ${item.scoreDeltaFromPrevious === null ? deltaTone(0) : deltaTone(item.scoreDeltaFromPrevious)}`}>
+                    <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${item.scoreDeltaFromPrevious === null ? deltaTone(0) : deltaTone(item.scoreDeltaFromPrevious)}`}>
                       {formatDelta(item.scoreDeltaFromPrevious)}
                     </span>
                   </div>
                 ))
               ) : (
-                <p className="rounded-3xl bg-slate-50 p-4 text-sm font-bold leading-7 text-slate-500">
+                <p className="rounded-2xl bg-slate-50 p-4 text-sm font-bold leading-7 text-slate-500">
                   Generate readiness to start your history.
                 </p>
               )}
@@ -1655,13 +1615,12 @@ export default function TargetRoleWorkspace() {
         <div data-section="target-role-action-plan" className="space-y-6">
       {!readinessReport && (
         <SurfaceCard p={{ base: 5, md: 6 }} className="relative overflow-hidden">
-          <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-sky-100 blur-3xl" />
           <div className="relative grid gap-5 lg:grid-cols-[1fr_0.55fr] lg:items-center">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+              <p className="text-sm font-semibold text-slate-400">
                 Action Plan
               </p>
-              <h2 className="mt-2 text-3xl font-black tracking-[-0.06em] text-slate-950">
+              <h2 className="mt-2 text-3xl font-semibold tracking-[-0.06em] text-slate-950">
                 Generate readiness before planning proof work.
               </h2>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
@@ -1691,20 +1650,19 @@ export default function TargetRoleWorkspace() {
 
       {readinessReport && !proofResponse && !upgradePlan && (
         <SurfaceCard p={{ base: 5, md: 6 }} className="relative overflow-hidden">
-          <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-amber-100 blur-3xl" />
           <div className="relative grid gap-5 lg:grid-cols-[1fr_0.55fr] lg:items-center">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+              <p className="text-sm font-semibold text-slate-400">
                 Action Plan
               </p>
-              <h2 className="mt-2 text-3xl font-black tracking-[-0.06em] text-slate-950">
+              <h2 className="mt-2 text-3xl font-semibold tracking-[-0.06em] text-slate-950">
                 Plan the proof work.
               </h2>
               <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
                 Start from the weakest role requirements and create visible artifacts that can improve interviews, portfolio proof, and resume positioning.
               </p>
               {readinessReport.criticalGaps.length > 0 && (
-                <p className="mt-4 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-7 text-amber-900">
+                <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-7 text-amber-900">
                   First gap to close: {readinessReport.criticalGaps[0]}
                 </p>
               )}
@@ -1737,14 +1695,13 @@ export default function TargetRoleWorkspace() {
 
       {proofResponse && (
         <SurfaceCard p={{ base: 5, md: 6 }} className="relative overflow-hidden">
-          <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-amber-100 blur-3xl" />
           <div className="relative">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                <p className="text-sm font-semibold text-slate-400">
                   Proof plan
                 </p>
-                <h2 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-950">
                   Concrete tasks to close the biggest gaps
                 </h2>
                 <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
@@ -1770,14 +1727,14 @@ export default function TargetRoleWorkspace() {
                 <div key={task.id} className="rounded-[28px] border border-slate-100 bg-white/82 p-5 shadow-sm">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">
                         {formatLabel(task.type)}
                       </span>
-                      <h3 className="mt-3 text-lg font-black tracking-[-0.03em] text-slate-950">
+                      <h3 className="mt-3 text-lg font-semibold tracking-[-0.03em] text-slate-950">
                         {task.title}
                       </h3>
                     </div>
-                    <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">
+                    <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
                       {task.estimatedHours}h - {formatLabel(task.difficulty)}
                     </span>
                   </div>
@@ -1785,7 +1742,7 @@ export default function TargetRoleWorkspace() {
                     {task.whyItMatters}
                   </p>
                   <div className="mt-4 rounded-2xl bg-slate-50 p-4">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                    <p className="text-sm font-semibold text-slate-400">
                       Expected output
                     </p>
                     <p className="mt-2 text-sm font-bold leading-7 text-slate-700">
@@ -1817,14 +1774,13 @@ export default function TargetRoleWorkspace() {
 
       {upgradePlan && (
         <SurfaceCard p={{ base: 5, md: 6 }} className="relative overflow-hidden">
-          <div className="absolute -left-24 -bottom-24 h-72 w-72 rounded-full bg-emerald-100 blur-3xl" />
           <div className="relative">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                <p className="text-sm font-semibold text-slate-400">
                   Upgrade plan
                 </p>
-                <h2 className="mt-2 text-3xl font-black tracking-[-0.06em] text-slate-950">
+                <h2 className="mt-2 text-3xl font-semibold tracking-[-0.06em] text-slate-950">
                   {upgradePlan.title}
                 </h2>
                 <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
@@ -1843,7 +1799,7 @@ export default function TargetRoleWorkspace() {
                 {upgradePlan.linkedGoalId && (
                   <Link
                     to={`/goals/${upgradePlan.linkedGoalId}?source=target-role`}
-                    className="text-xs font-black uppercase tracking-[0.14em] text-slate-500 hover:text-sky-700"
+                    className="text-sm font-semibold text-slate-500 hover:text-sky-700"
                   >
                     View linked goal
                   </Link>
@@ -1865,31 +1821,31 @@ export default function TargetRoleWorkspace() {
             {sprintSuccess && (
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold leading-6 text-emerald-800">
                 <span>{sprintSuccess}</span>
-                <Link to="/today" className="rounded-full bg-white px-3 py-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+                <Link to="/today" className="rounded-full bg-white px-3 py-2 text-sm font-semibold text-emerald-700">
                   Go to Today
                 </Link>
               </div>
             )}
             <div className="mt-5 grid gap-4 lg:grid-cols-3">
-              <div className="rounded-3xl bg-slate-950 p-5 text-white">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-white/45">
+              <div className="rounded-2xl bg-slate-950 p-5 text-white">
+                <p className="text-sm font-semibold text-white/45">
                   Duration
                 </p>
-                <p className="mt-2 text-3xl font-black">{upgradePlan.durationWeeks} weeks</p>
+                <p className="mt-2 text-3xl font-semibold">{upgradePlan.durationWeeks} weeks</p>
               </div>
-              <div className="rounded-3xl bg-sky-50 p-5">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">
+              <div className="rounded-2xl bg-sky-50 p-5">
+                <p className="text-sm font-semibold text-sky-700">
                   Weekly pace
                 </p>
-                <p className="mt-2 text-3xl font-black text-slate-950">
+                <p className="mt-2 text-3xl font-semibold text-slate-950">
                   {upgradePlan.weeklyCommitmentHours}h
                 </p>
               </div>
-              <div className="rounded-3xl bg-emerald-50 p-5">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
+              <div className="rounded-2xl bg-emerald-50 p-5">
+                <p className="text-sm font-semibold text-emerald-700">
                   Proof tasks
                 </p>
-                <p className="mt-2 text-3xl font-black text-slate-950">
+                <p className="mt-2 text-3xl font-semibold text-slate-950">
                   {upgradePlan.proofTasks.length}
                 </p>
               </div>
@@ -1898,10 +1854,10 @@ export default function TargetRoleWorkspace() {
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                    <p className="text-sm font-semibold text-slate-400">
                       Topic breakdown
                     </p>
-                    <span className={`rounded-full border px-3 py-1 text-xs font-black ${
+                    <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${
                       decompositionStatus
                         ? decompositionTone(decompositionStatus.pipelineStatus === 'done' ? 'completed' : decompositionStatus.pipelineStatus)
                         : decompositionTone('not_started')
@@ -1909,7 +1865,7 @@ export default function TargetRoleWorkspace() {
                       {pipelineLabel(decompositionStatus?.pipelineStatus ?? 'idle')}
                     </span>
                   </div>
-                  <h3 className="mt-2 text-xl font-black tracking-[-0.04em] text-slate-950">
+                  <h3 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-slate-950">
                     Keep fallback proof tasks, add deeper study nodes when needed.
                   </h3>
                   <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
@@ -1965,22 +1921,22 @@ export default function TargetRoleWorkspace() {
               {decompositionStatus && (
                 <div className="mt-5 grid gap-3 md:grid-cols-3">
                   <div className="rounded-2xl bg-slate-50 p-4">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                    <p className="text-sm font-semibold text-slate-400">
                       Study nodes
                     </p>
-                    <p className="mt-2 text-2xl font-black text-slate-950">{decompositionStatus.nodesCreated}</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-950">{decompositionStatus.nodesCreated}</p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 p-4">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                    <p className="text-sm font-semibold text-slate-400">
                       Fallback tasks
                     </p>
-                    <p className="mt-2 text-2xl font-black text-slate-950">{decompositionStatus.fallbackTaskCount}</p>
+                    <p className="mt-2 text-2xl font-semibold text-slate-950">{decompositionStatus.fallbackTaskCount}</p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 p-4">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                    <p className="text-sm font-semibold text-slate-400">
                       Topics ready
                     </p>
-                    <p className="mt-2 text-2xl font-black text-slate-950">
+                    <p className="mt-2 text-2xl font-semibold text-slate-950">
                       {decompositionStatus.topics.filter((topic) => topic.status === 'completed').length}/{decompositionStatus.topics.length}
                     </p>
                   </div>
@@ -1991,8 +1947,8 @@ export default function TargetRoleWorkspace() {
                   {decompositionStatus.topics.map((topic) => (
                     <div key={`${topic.topicId ?? topic.title}-${topic.status}`} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
                       <div className="flex flex-wrap items-start justify-between gap-2">
-                        <p className="text-sm font-black leading-6 text-slate-800">{topic.title}</p>
-                        <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${decompositionTone(topic.status)}`}>
+                        <p className="text-sm font-semibold leading-6 text-slate-800">{topic.title}</p>
+                        <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${decompositionTone(topic.status)}`}>
                           {topic.usingFallback ? 'fallback active' : formatLabel(topic.status)}
                         </span>
                       </div>
@@ -2009,10 +1965,10 @@ export default function TargetRoleWorkspace() {
                 {upgradePlan.topics.map((topic) => (
                   <div key={`${topic.priority}-${topic.title}`} className="rounded-[28px] border border-slate-100 bg-white/85 p-5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
-                      <h3 className="text-lg font-black tracking-[-0.03em] text-slate-950">
+                      <h3 className="text-lg font-semibold tracking-[-0.03em] text-slate-950">
                         Focus {topic.priority}: {topic.title}
                       </h3>
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500">
                         {topic.estimatedWeeks} week{topic.estimatedWeeks === 1 ? '' : 's'}
                       </span>
                     </div>
@@ -2027,7 +1983,7 @@ export default function TargetRoleWorkspace() {
               </div>
               <div className="space-y-4">
                 <div className="rounded-[28px] bg-emerald-50 p-5">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
+                  <p className="text-sm font-semibold text-emerald-700">
                     Success evidence
                   </p>
                   <div className="mt-3 space-y-2">
@@ -2039,7 +1995,7 @@ export default function TargetRoleWorkspace() {
                   </div>
                 </div>
                 <div className="rounded-[28px] bg-amber-50 p-5">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">
+                  <p className="text-sm font-semibold text-amber-700">
                     Risks to manage
                   </p>
                   <div className="mt-3 space-y-2">
@@ -2070,7 +2026,7 @@ export default function TargetRoleWorkspace() {
       {activeTargetRoleTab === 'readiness' && readinessReport && (
         <section className="grid gap-5 lg:grid-cols-3">
           <SurfaceCard p={5}>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-600">
+            <p className="text-sm font-semibold text-emerald-600">
               Strengths
             </p>
             <div className="mt-4 space-y-3">
@@ -2082,7 +2038,7 @@ export default function TargetRoleWorkspace() {
             </div>
           </SurfaceCard>
           <SurfaceCard p={5}>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-red-500">
+            <p className="text-sm font-semibold text-red-500">
               Critical gaps
             </p>
             <div className="mt-4 space-y-3">
@@ -2094,7 +2050,7 @@ export default function TargetRoleWorkspace() {
             </div>
           </SurfaceCard>
           <SurfaceCard p={5}>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">
+            <p className="text-sm font-semibold text-amber-600">
               Interview risks
             </p>
             <div className="mt-4 space-y-3">
@@ -2113,10 +2069,10 @@ export default function TargetRoleWorkspace() {
         <SurfaceCard p={5} className="bg-white/88">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+              <p className="text-sm font-semibold text-slate-400">
                 Applications
               </p>
-              <h3 className="mt-2 text-xl font-black tracking-[-0.04em] text-slate-950">
+              <h3 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-slate-950">
                 Company-specific applications
               </h3>
               <p className="mt-3 text-sm leading-7 text-slate-600">
@@ -2141,7 +2097,7 @@ export default function TargetRoleWorkspace() {
                 to={`/resume/applications/${application.id}`}
                 className="block rounded-2xl border border-slate-100 bg-slate-50 p-4 transition hover:border-sky-200 hover:bg-sky-50"
               >
-                <p className="text-sm font-black text-slate-950">{application.title}</p>
+                <p className="text-sm font-semibold text-slate-950">{application.title}</p>
                 <p className="mt-1 text-xs font-bold text-slate-500">
                   {application.targetCompany ?? application.targetRole ?? 'Company application'} - {application.linkedSprintCreatedAt ? 'Sprint created' : application.linkedGoalId ? 'Goal created' : 'Resume report saved'}
                 </p>
@@ -2150,10 +2106,10 @@ export default function TargetRoleWorkspace() {
           </div>
         </SurfaceCard>
         <SurfaceCard p={5} className="bg-sky-50/78">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">
+          <p className="text-sm font-semibold text-sky-700">
             What belongs here
           </p>
-          <h3 className="mt-2 text-xl font-black tracking-[-0.04em] text-slate-950">
+          <h3 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-slate-950">
             One broad role, many company comparisons.
           </h3>
           <p className="mt-3 text-sm leading-7 text-slate-700">
@@ -2167,10 +2123,10 @@ export default function TargetRoleWorkspace() {
         <SurfaceCard p={{ base: 5, md: 6 }}>
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+              <p className="text-sm font-semibold text-slate-400">
                 Requirement coverage
               </p>
-              <h2 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-950">
                 What is covered, weak, or missing
               </h2>
             </div>
@@ -2178,7 +2134,7 @@ export default function TargetRoleWorkspace() {
               type="button"
               onClick={handleGenerateProof}
               disabled={proofBusy}
-              className="inline-flex rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-black text-slate-700 transition hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {proofBusy ? 'Building...' : 'Build proof plan'}
             </button>
@@ -2188,20 +2144,20 @@ export default function TargetRoleWorkspace() {
               <div key={item.requirementId} className="rounded-[28px] border border-slate-100 bg-slate-50/70 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-base font-black text-slate-950">
+                    <h3 className="text-base font-semibold text-slate-950">
                       {item.requirementLabel}
                     </h3>
-                    <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                    <p className="mt-1 text-sm font-semibold text-slate-400">
                       {formatLabel(item.priority)} · confidence {item.confidence}/100
                     </p>
                   </div>
-                  <span className={`rounded-full border px-3 py-1 text-xs font-black ${coverageTone(item.status)}`}>
+                  <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${coverageTone(item.status)}`}>
                     {formatLabel(item.status)} · {item.score}
                   </span>
                 </div>
                 {item.evidenceSnippets.length > 0 ? (
                   <div className="mt-4 rounded-2xl bg-white p-4">
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                    <p className="text-sm font-semibold text-slate-400">
                       Evidence
                     </p>
                     <p className="mt-2 text-sm font-bold leading-7 text-slate-700">
@@ -2230,15 +2186,15 @@ export default function TargetRoleWorkspace() {
       {activeTargetRoleTab === 'market_signals' && roleProfile && (
         <section data-section="target-role-market-signals" className="grid gap-5 lg:grid-cols-[1fr_0.9fr]">
           <SurfaceCard p={6}>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+            <p className="text-sm font-semibold text-slate-400">
               Role requirements
             </p>
             <div className="mt-5 space-y-3">
               {roleProfile.requirements.map((requirement) => (
-                <div key={requirement.id} className="rounded-3xl bg-slate-50 p-4">
+                <div key={requirement.id} className="rounded-2xl bg-slate-50 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h3 className="text-base font-black text-slate-950">{requirement.label}</h3>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-500">
+                    <h3 className="text-base font-semibold text-slate-950">{requirement.label}</h3>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-500">
                       {formatLabel(requirement.priority)}
                     </span>
                   </div>
@@ -2249,12 +2205,12 @@ export default function TargetRoleWorkspace() {
           </SurfaceCard>
 
           <SurfaceCard p={6}>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+            <p className="text-sm font-semibold text-slate-400">
               Evidence profile
             </p>
             <div className="mt-5 space-y-4">
-              <div className="rounded-3xl bg-sky-50 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-700">
+              <div className="rounded-2xl bg-sky-50 p-4">
+                <p className="text-sm font-semibold text-sky-700">
                   Current signal
                 </p>
                 <p className="mt-2 text-sm font-bold text-slate-700">
@@ -2266,8 +2222,8 @@ export default function TargetRoleWorkspace() {
                   </p>
                 )}
               </div>
-              <div className="rounded-3xl bg-slate-50 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-400">
                   Skills understood
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -2281,8 +2237,8 @@ export default function TargetRoleWorkspace() {
                   )}
                 </div>
               </div>
-              <div className="rounded-3xl bg-emerald-50 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+              <div className="rounded-2xl bg-emerald-50 p-4">
+                <p className="text-sm font-semibold text-emerald-700">
                   Proof snippets
                 </p>
                 <div className="mt-3 space-y-3">

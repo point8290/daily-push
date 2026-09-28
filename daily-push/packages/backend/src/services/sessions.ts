@@ -485,7 +485,7 @@ export interface TodayData {
   streak: number;
 }
 
-export async function getTodayData(userId: string): Promise<TodayData> {
+export async function getTodayData(userId: string, preferredNodeId?: string): Promise<TodayData> {
   const db = getDb();
 
   // Get primary active goal from MongoDB
@@ -562,9 +562,9 @@ export async function getTodayData(userId: string): Promise<TodayData> {
     `SELECT id, title, description, depth_level, estimated_mins, learning_topic_id
      FROM concept_nodes
      WHERE user_id = $1 AND goal_id = $2 AND status = 'available'
-     ORDER BY position
+     ORDER BY (id::text = $3) DESC, position
      LIMIT 1`,
-    [userId, goalId]
+    [userId, goalId, preferredNodeId ?? '']
   );
 
   // Review due (earliest overdue from SR queue)

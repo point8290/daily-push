@@ -328,11 +328,12 @@ function buildRecoveryPlan(params: {
   // Compare against what should be done by today, not the whole week, so a
   // Monday doesn't read as "behind by the full weekly target".
   const now = new Date();
-  const daysIntoWeek = ((now.getUTCDay() + 6) % 7) + 1; // Monday = 1 … Sunday = 7
+  // Only count days that are already over: on Monday nothing is expected yet.
+  const daysFinished = (now.getUTCDay() + 6) % 7; // Monday = 0 … Sunday = 6
   const expectedSoFar =
     planHealth.weeklyTargetMinutes === null
       ? null
-      : Math.round((planHealth.weeklyTargetMinutes * daysIntoWeek) / 7);
+      : Math.round((planHealth.weeklyTargetMinutes * daysFinished) / 7);
   const catchUpMinutes =
     expectedSoFar === null ? null : Math.max(expectedSoFar - stats.studyMinutesThisWeek, 0);
   const blocker = latestCheckin?.blockers[0] ?? null;
@@ -440,11 +441,11 @@ function buildHighlights(params: {
   return uniqueStrings([
     stats.sessionsThisWeek > 0
       ? `You completed ${stats.sessionsThisWeek} session${stats.sessionsThisWeek === 1 ? '' : 's'} this week.`
-      : 'No sessions completed yet this week.',
+      : null,
     stats.studyMinutesThisWeek > 0
       ? `You logged ${stats.studyMinutesThisWeek} focused study minute${stats.studyMinutesThisWeek === 1 ? '' : 's'}.`
       : null,
-    progressPct !== null
+    progressPct !== null && progressPct > 0
       ? `You reached ${progressPct}% of your weekly time target.`
       : null,
     streak.currentStreak > 0

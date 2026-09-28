@@ -63,7 +63,7 @@ export default function TargetRoles() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+          <p className="text-sm font-semibold text-slate-400">
             Target Roles
           </p>
           <h1 className="mt-2 font-display text-5xl font-semibold leading-none tracking-[-0.06em] text-slate-950">
@@ -77,7 +77,7 @@ export default function TargetRoles() {
         </div>
         <Link
           to="/career-market"
-          className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5"
+          className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5"
         >
           Explore new roles
         </Link>
@@ -102,10 +102,10 @@ export default function TargetRoles() {
         <SurfaceCard p={{ base: 6, md: 8 }} className="overflow-hidden">
           <div className="grid gap-6 lg:grid-cols-[1fr_0.8fr] lg:items-center">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">
+              <p className="text-sm font-semibold text-sky-700">
                 No target role yet
               </p>
-              <h2 className="mt-3 text-3xl font-black tracking-[-0.06em] text-slate-950">
+              <h2 className="mt-3 text-3xl font-semibold tracking-[-0.06em] text-slate-950">
                 Pick the role you want next.
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
@@ -115,13 +115,13 @@ export default function TargetRoles() {
               </p>
               <Link
                 to="/career-market/find-direction"
-                className="mt-6 inline-flex rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5"
+                className="mt-6 inline-flex rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5"
               >
                 Find a target role
               </Link>
             </div>
             <div className="rounded-[32px] bg-slate-950 p-6 text-white">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45">
+              <p className="text-sm font-semibold text-white/45">
                 How it fits together
               </p>
               <div className="mt-5 space-y-3">
@@ -132,7 +132,7 @@ export default function TargetRoles() {
                 ].map((item) => (
                   <div
                     key={item}
-                    className="rounded-3xl border border-white/10 bg-white/8 p-4 text-sm font-bold text-white/82"
+                    className="rounded-2xl border border-white/10 bg-white/8 p-4 text-sm font-bold text-white/82"
                   >
                     {item}
                   </div>
@@ -151,20 +151,20 @@ export default function TargetRoles() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                  <p className="text-xs font-semibold text-slate-400">
                     {formatLabel(role.createdFrom)}
                   </p>
-                  <h2 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+                  <h2 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-950">
                     {role.title}
                   </h2>
                 </div>
-                <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-black text-sky-700">
+                <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
                   {formatLabel(role.status)}
                 </span>
               </div>
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <div className="rounded-2xl bg-slate-50 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+                  <p className="text-xs font-semibold text-slate-400">
                     Saved
                   </p>
                   <p className="mt-1 text-sm font-bold text-slate-700">
@@ -172,7 +172,7 @@ export default function TargetRoles() {
                   </p>
                 </div>
                 <div className="rounded-2xl bg-slate-50 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+                  <p className="text-xs font-semibold text-slate-400">
                     Next
                   </p>
                   <p className="mt-1 text-sm font-bold text-slate-700">
@@ -180,7 +180,7 @@ export default function TargetRoles() {
                   </p>
                 </div>
               </div>
-              <p className="mt-5 text-sm font-black text-sky-700">
+              <p className="mt-5 text-sm font-semibold text-sky-700">
                 Open workspace
               </p>
             </Link>

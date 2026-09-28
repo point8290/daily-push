@@ -46,7 +46,7 @@ function MetricCard({
 }) {
   return (
     <SurfaceCard p={5}>
-      <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+      <Text fontSize="sm" fontWeight="700" color="ink.400">
         {label}
       </Text>
       <Text mt={2} fontSize="lg" fontWeight="700" color="ink.900" letterSpacing="-0.03em">
@@ -217,7 +217,7 @@ export default function Settings() {
           <SurfaceCard p={{ base: 5, md: 6 }}>
             <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={4}>
               <VStack align="flex-start" spacing={1}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+                <Text fontSize="sm" fontWeight="700" color="ink.400">
                   Operator tools
                 </Text>
                 <Text fontSize="sm" color="ink.500" lineHeight="1.7">
@@ -251,7 +251,7 @@ export default function Settings() {
           <Stack spacing={5}>
             <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={4}>
               <VStack align="flex-start" spacing={1}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+                <Text fontSize="sm" fontWeight="700" color="ink.400">
                   Plan and billing
                 </Text>
                 <Text fontSize="sm" color="ink.500" lineHeight="1.7">
@@ -320,7 +320,7 @@ export default function Settings() {
           <SurfaceCard p={{ base: 5, md: 6 }}>
             <Stack spacing={5}>
               <VStack align="flex-start" spacing={1}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+                <Text fontSize="sm" fontWeight="700" color="ink.400">
                   Study time
                 </Text>
                 <Text fontSize="sm" color="ink.500" lineHeight="1.7">
@@ -370,7 +370,7 @@ export default function Settings() {
           <SurfaceCard p={{ base: 5, md: 6 }}>
             <Stack spacing={5}>
               <VStack align="flex-start" spacing={1}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+                <Text fontSize="sm" fontWeight="700" color="ink.400">
                   Timezone and communication
                 </Text>
                 <Text fontSize="sm" color="ink.500" lineHeight="1.7">

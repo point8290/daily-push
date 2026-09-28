@@ -144,7 +144,7 @@ export default function GapBoard({
 
       {progress.recentEvents.filter((event) => event.source !== 'view').length > 0 && (
         <div className="border-t border-slate-100 pt-3">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Recent changes</p>
+          <p className="text-sm font-semibold text-slate-400">Recent changes</p>
           <ul className="mt-2 space-y-1">
             {progress.recentEvents
               .filter((event) => event.source !== 'view')

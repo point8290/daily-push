@@ -90,10 +90,10 @@ function DetailSection({
 }) {
   return (
     <SurfaceCard p={{ base: 5, md: 6 }}>
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+      <p className="text-sm font-semibold text-slate-400">
         {eyebrow}
       </p>
-      <h2 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+      <h2 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-950">
         {title}
       </h2>
       <div className="mt-5">{children}</div>
@@ -215,7 +215,7 @@ export default function RoleMarketDetail() {
       >
         <Link
           to="/career-market"
-          className="inline-flex rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-black text-slate-600 transition hover:border-sky-300 hover:text-sky-700"
+          className="inline-flex rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-sky-300 hover:text-sky-700"
         >
           Back to Role Discovery
         </Link>
@@ -229,13 +229,13 @@ export default function RoleMarketDetail() {
 
         {error && (
           <SurfaceCard mt={8} p={6}>
-            <h1 className="text-3xl font-black tracking-[-0.06em] text-slate-950">
+            <h1 className="text-3xl font-semibold tracking-[-0.06em] text-slate-950">
               Role profile unavailable
             </h1>
             <p className="mt-3 text-sm leading-7 text-slate-600">{error}</p>
             <Link
               to="/career-market"
-              className="mt-5 inline-flex rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white"
+              className="mt-5 inline-flex rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white"
             >
               Explore other roles
             </Link>
@@ -249,20 +249,19 @@ export default function RoleMarketDetail() {
                 p={{ base: 6, md: 8 }}
                 className="relative overflow-hidden"
               >
-                <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-sky-200/70 blur-3xl" />
                 <div className="relative">
                   <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
+                    <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold text-white">
                       {role.category.length <= 3 ? role.category.toUpperCase() : formatLabel(role.category)}
                     </span>
-                    <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-black text-sky-700">
+                    <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
                       {formatLabel(role.roleType)}
                     </span>
-                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                       {aiImpactLabel(role.aiImpact)}
                     </span>
                   </div>
-                  <h1 className="mt-6 max-w-4xl font-display text-5xl font-semibold leading-[0.92] tracking-[-0.065em] md:text-7xl">
+                  <h1 className="mt-6 max-w-4xl font-display text-5xl font-semibold leading-[0.92] tracking-[-0.065em] md:text-5xl">
                     {role.title}
                   </h1>
                   <p className="mt-6 max-w-2xl text-lg leading-9 text-slate-600">
@@ -280,30 +279,29 @@ export default function RoleMarketDetail() {
                 color="white"
                 className="relative overflow-hidden"
               >
-                <div className="absolute -bottom-28 right-4 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
                 <div className="relative">
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-white/45">
+                  <p className="text-sm font-semibold text-white/45">
                     About this profile
                   </p>
                   <div className="mt-6 grid gap-3">
-                    <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
-                      <p className="text-sm font-black text-white">
+                    <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
+                      <p className="text-sm font-semibold text-white">
                         Last updated
                       </p>
                       <p className="mt-1 text-sm text-white/65">
                         {formatDate(role.lastUpdated)}
                       </p>
                     </div>
-                    <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
-                      <p className="text-sm font-black text-white">
+                    <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
+                      <p className="text-sm font-semibold text-white">
                         How sure we are
                       </p>
                       <p className="mt-1 text-sm text-white/65">
                         {confidenceLabel(role.confidence)}
                       </p>
                     </div>
-                    <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
-                      <p className="text-sm font-black text-white">
+                    <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
+                      <p className="text-sm font-semibold text-white">
                         Based on
                       </p>
                       <p className="mt-1 text-sm text-white/65">
@@ -322,11 +320,11 @@ export default function RoleMarketDetail() {
                       ) : null}
                     </div>
                     {role.meta.profileVersion?.changeSummary ? (
-                      <div className="rounded-3xl border border-sky-300/20 bg-sky-300/10 p-4">
-                        <p className="text-sm font-black text-white">
+                      <div className="rounded-2xl border border-sky-300/20 bg-sky-300/10 p-4">
+                        <p className="text-sm font-semibold text-white">
                           What changed recently
                         </p>
-                        <p className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-sky-100/65">
+                        <p className="mt-1 text-sm font-semibold text-sky-100/65">
                           {changeMaterialityLabel(role)}
                         </p>
                         <p className="mt-2 text-sm leading-6 text-white/70">
@@ -334,8 +332,8 @@ export default function RoleMarketDetail() {
                         </p>
                       </div>
                     ) : null}
-                    <div className="rounded-3xl border border-white/10 bg-white/8 p-4">
-                      <p className="text-sm font-black text-white">
+                    <div className="rounded-2xl border border-white/10 bg-white/8 p-4">
+                      <p className="text-sm font-semibold text-white">
                         Interview focus
                       </p>
                       <p className="mt-1 text-sm text-white/65">
@@ -344,7 +342,7 @@ export default function RoleMarketDetail() {
                     </div>
                   </div>
                   {role.meta.warnings.length > 0 && (
-                    <div className="mt-5 rounded-3xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm font-bold leading-6 text-amber-50">
+                    <div className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm font-bold leading-6 text-amber-50">
                       {role.meta.warnings[0].message}
                     </div>
                   )}
@@ -352,7 +350,7 @@ export default function RoleMarketDetail() {
                     <Link
                       to="/career-market/find-direction"
                       onClick={handleSaveDirectionClick}
-                      className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-black text-slate-950 transition hover:-translate-y-0.5"
+                      className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition hover:-translate-y-0.5"
                     >
                       Check my fit
                     </Link>
@@ -363,7 +361,7 @@ export default function RoleMarketDetail() {
                           : "/login?mode=register&next=/career-market/find-direction"
                       }
                       onClick={handleSaveDirectionClick}
-                      className="inline-flex items-center justify-center rounded-2xl border border-white/15 px-5 py-3 text-sm font-black text-white/85 transition hover:bg-white/10 hover:text-white"
+                      className="inline-flex items-center justify-center rounded-2xl border border-white/15 px-5 py-3 text-sm font-semibold text-white/85 transition hover:bg-white/10 hover:text-white"
                     >
                       {user ? "Compare resume" : "Save this direction"}
                     </Link>
@@ -381,13 +379,13 @@ export default function RoleMarketDetail() {
                   {role.requirements.map((requirement) => (
                     <div
                       key={requirement.id}
-                      className="rounded-3xl border border-slate-100 bg-slate-50 p-5"
+                      className="rounded-2xl border border-slate-100 bg-slate-50 p-5"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <h3 className="text-lg font-black tracking-[-0.04em] text-slate-950">
+                        <h3 className="text-lg font-semibold tracking-[-0.04em] text-slate-950">
                           {requirement.label}
                         </h3>
-                        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-500">
+                        <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-500">
                           {formatLabel(requirement.priority)}
                         </span>
                       </div>
@@ -405,7 +403,7 @@ export default function RoleMarketDetail() {
                         ))}
                       </div>
                       <div className="mt-4 rounded-2xl bg-white p-4">
-                        <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                        <p className="text-sm font-semibold text-slate-400">
                           Proof employers can believe
                         </p>
                         <p className="mt-2 text-sm leading-7 text-slate-600">
@@ -426,13 +424,13 @@ export default function RoleMarketDetail() {
                     {role.trendSignals.map((signal) => (
                       <div
                         key={signal.id}
-                        className="rounded-3xl bg-sky-50 p-5"
+                        className="rounded-2xl bg-sky-50 p-5"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-3">
-                          <h3 className="text-base font-black text-slate-950">
+                          <h3 className="text-base font-semibold text-slate-950">
                             {signal.label}
                           </h3>
-                          <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-sky-700">
+                          <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-sky-700">
                             {formatLabel(signal.direction)}
                           </span>
                         </div>
@@ -471,29 +469,29 @@ export default function RoleMarketDetail() {
                   {role.transitionPaths.map((path) => (
                     <div
                       key={`${path.fromRole}-${path.fitLevel}`}
-                      className="rounded-3xl border border-slate-100 bg-slate-50 p-5"
+                      className="rounded-2xl border border-slate-100 bg-slate-50 p-5"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
-                        <h3 className="text-lg font-black tracking-[-0.04em] text-slate-950">
+                        <h3 className="text-lg font-semibold tracking-[-0.04em] text-slate-950">
                           From {path.fromRole}
                         </h3>
-                        <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-500">
+                        <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-500">
                           {formatLabel(path.fitLevel)}
                         </span>
                       </div>
-                      <p className="mt-4 text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                      <p className="mt-4 text-sm font-semibold text-slate-400">
                         Transferable strengths
                       </p>
                       <p className="mt-2 text-sm leading-7 text-slate-600">
                         {path.transferableSkills.join(", ")}
                       </p>
-                      <p className="mt-4 text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                      <p className="mt-4 text-sm font-semibold text-slate-400">
                         Likely gaps
                       </p>
                       <p className="mt-2 text-sm leading-7 text-slate-600">
                         {path.likelyGaps.join(", ")}
                       </p>
-                      <p className="mt-4 text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                      <p className="mt-4 text-sm font-semibold text-slate-400">
                         Recommended proof
                       </p>
                       <p className="mt-2 text-sm leading-7 text-slate-600">
@@ -515,9 +513,9 @@ export default function RoleMarketDetail() {
                       href={source.url ?? "#"}
                       target={source.url ? "_blank" : undefined}
                       rel={source.url ? "noreferrer" : undefined}
-                      className="block rounded-3xl border border-slate-100 bg-slate-50 p-5 transition hover:border-sky-200 hover:bg-white"
+                      className="block rounded-2xl border border-slate-100 bg-slate-50 p-5 transition hover:border-sky-200 hover:bg-white"
                     >
-                      <p className="text-sm font-black text-slate-950">
+                      <p className="text-sm font-semibold text-slate-950">
                         {source.title}
                       </p>
                       <p className="mt-1 text-xs font-bold text-slate-500">
@@ -528,7 +526,7 @@ export default function RoleMarketDetail() {
                     </a>
                   ))}
                 </div>
-                <p className="mt-5 rounded-3xl bg-amber-50 p-4 text-sm leading-7 text-amber-800">
+                <p className="mt-5 rounded-2xl bg-amber-50 p-4 text-sm leading-7 text-amber-800">
                   Treat this as a directional market profile. Real hiring
                   expectations still vary by company, region, and seniority.
                 </p>

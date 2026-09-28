@@ -97,7 +97,7 @@ function StatTile({
 }) {
   return (
     <SurfaceCard p={5}>
-      <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+      <Text fontSize="sm" fontWeight="700" color="ink.400">
         {label}
       </Text>
       <div
@@ -147,7 +147,7 @@ function WeeklyRatingRow({
 }) {
   return (
     <Stack spacing={3}>
-      <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+      <Text fontSize="sm" fontWeight="700" color="ink.400">
         {label}
       </Text>
       <HStack spacing={2} flexWrap="wrap">
@@ -357,9 +357,8 @@ export default function History() {
   return (
     <Stack spacing={6}>
       <PageHeader
-        eyebrow="Progress"
-        title="History"
-        description="See how often you studied, do a short weekly check-in, and get a plan for next week."
+        title="Progress"
+        description="How often you studied, how this week went, and what to change next week."
         actions={(
           <HStack spacing={3} flexWrap="wrap">
             <Badge colorScheme="blue" px={3} py={1.5} rounded="full" fontSize="0.72rem">
@@ -397,7 +396,7 @@ export default function History() {
         <Stack spacing={5}>
           <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={4}>
             <VStack align="flex-start" spacing={1}>
-              <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
+              <Text fontSize="sm" fontWeight="700" color="ink.400">
                 Last 90 days
               </Text>
               <Text fontSize="sm" color="ink.500" lineHeight="1.7">
@@ -432,30 +431,116 @@ export default function History() {
           )}
         />
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[0.95fr,1.05fr]">
-          <div className="space-y-4">
-            <SurfaceCard p={{ base: 5, md: 6 }}>
-              <Stack spacing={5}>
-                <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={4}>
-                  <VStack align="flex-start" spacing={1}>
-                    <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
-                      Weekly check-in
-                    </Text>
-                    <Text fontSize="sm" color="ink.500" lineHeight="1.7">
-                      Two minutes on how the week went for <Text as="span" fontWeight="700" color="ink.800">{goal.title}</Text>.
-                    </Text>
-                  </VStack>
-                  <Badge
-                    colorScheme={checkinState?.due ? 'orange' : 'green'}
-                    px={3}
-                    py={1.5}
-                    rounded="full"
-                    fontSize="0.72rem"
-                  >
-                    {checkinState?.due ? 'Due this week' : 'Checked in'}
-                  </Badge>
-                </HStack>
+        <div className="space-y-4">
+          <SurfaceCard p={{ base: 5, md: 6 }}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-base font-semibold text-slate-900">This week</p>
+                <p className="mt-0.5 text-sm text-slate-500">{formatDateRange(weeklyReport)}</p>
+              </div>
+              {weeklyProgressLabel ? (
+                <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-800">{weeklyProgressLabel}</span>
+              ) : null}
+            </div>
 
+            {reportLoading ? (
+              <HStack spacing={3} color="ink.500" mt={4}>
+                <Spinner size="sm" color="brand.500" thickness="3px" />
+                <Text fontSize="sm">Building your weekly report...</Text>
+              </HStack>
+            ) : reportLocked ? (
+              <div className="mt-4">
+                <EmptyState
+                  title="Weekly reports are a Pro feature"
+                  description="You can still save a weekly check-in below. Pro adds a weekly summary, weak areas and a plan for next week."
+                  accent="warning"
+                  action={(
+                    <Button as={RouterLink} to="/pricing" colorScheme="orange">
+                      Upgrade to {upgradePlan ?? 'Pro'}
+                    </Button>
+                  )}
+                />
+              </div>
+            ) : weeklyReport ? (
+              <div className="mt-4 space-y-5">
+                <p className="text-sm text-slate-600">
+                  <span className="font-semibold text-slate-900">{weeklyReport.stats.sessionsThisWeek} sessions</span>
+                  {' · '}
+                  <span className="font-semibold text-slate-900">{formatMinutes(weeklyReport.stats.studyMinutesThisWeek)}</span> studied
+                  {' · '}
+                  {weeklyReport.planHealth.completedNodes}/{weeklyReport.planHealth.totalNodes} concepts done
+                  {weeklyReport.planHealth.weeklyTargetMinutes
+                    ? ` · target ${formatMinutes(weeklyReport.planHealth.weeklyTargetMinutes)}/week`
+                    : ''}
+                </p>
+                <div className="grid gap-5 md:grid-cols-2">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">What went well</p>
+                    <ul className="mt-2 space-y-1.5 text-sm text-slate-600">
+                      {weeklyReport.highlights.length > 0
+                        ? weeklyReport.highlights.map((item) => <li key={item}>{item}</li>)
+                        : <li>Nothing logged yet this week.</li>}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">Weak spots</p>
+                    <ul className="mt-2 space-y-1.5 text-sm text-slate-600">
+                      {weeklyReport.weakAreas.length > 0
+                        ? weeklyReport.weakAreas.map((item) => <li key={item}>{item}</li>)
+                        : <li>Nothing stood out this week.</li>}
+                    </ul>
+                  </div>
+                </div>
+
+                {recoveryPlan ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-slate-900">Next week</p>
+                      <span className="text-xs font-semibold text-slate-500">
+                        {({ steady: 'On track', catch_up: 'Catch up', reduce_scope: 'Trim scope' } as Record<string, string>)[recoveryPlan.status] ?? 'Restart gently'}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-700">{recoveryPlan.headline}</p>
+                    <ul className="mt-3 space-y-1.5 text-sm text-slate-600">
+                      {recoveryPlan.actions.map((item) => <li key={item}>{item}</li>)}
+                    </ul>
+                    {(recoveryPlan.quickFixes ?? []).length > 0 && (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {(recoveryPlan.quickFixes ?? []).map((fix) => (
+                          <button
+                            key={fix.action}
+                            type="button"
+                            onClick={() => applyFix(fix)}
+                            disabled={applyingFix !== null}
+                            className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                          >
+                            {applyingFix === fix.action ? 'Updating…' : fix.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <Text fontSize="sm" color="ink.500" mt={4}>
+                No report yet. Finish a session and check back.
+              </Text>
+            )}
+          </SurfaceCard>
+
+          <SurfaceCard p={{ base: 5, md: 6 }}>
+            <details open={Boolean(checkinState?.due)}>
+              <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2">
+                <span>
+                  <span className="block text-base font-semibold text-slate-900">Weekly check-in</span>
+                  <span className="block text-sm text-slate-500">Two minutes on how the week went. It shapes next week.</span>
+                </span>
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${checkinState?.due ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800'}`}>
+                  {checkinState?.due ? 'Due this week' : 'Done · edit'}
+                </span>
+              </summary>
+              <Stack spacing={5} mt={5}>
                 <WeeklyRatingRow
                   label="How confident do you feel about the goal right now?"
                   value={confidence}
@@ -470,7 +555,7 @@ export default function History() {
 
                 <Stack spacing={4}>
                   <label className="space-y-2 block">
-                    <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                    <span className="text-xs font-semibold text-slate-400">
                       Wins this week
                     </span>
                     <Textarea
@@ -486,7 +571,7 @@ export default function History() {
                   </label>
 
                   <label className="space-y-2 block">
-                    <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                    <span className="text-xs font-semibold text-slate-400">
                       Blockers or friction
                     </span>
                     <Textarea
@@ -502,7 +587,7 @@ export default function History() {
                   </label>
 
                   <label className="space-y-2 block">
-                    <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                    <span className="text-xs font-semibold text-slate-400">
                       Notes
                     </span>
                     <Textarea
@@ -531,204 +616,8 @@ export default function History() {
                   Save weekly check-in
                 </Button>
               </Stack>
-            </SurfaceCard>
-
-            {recoveryPlan ? (
-              <SurfaceCard p={{ base: 5, md: 6 }}>
-                <Stack spacing={5}>
-                  <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={4}>
-                    <VStack align="flex-start" spacing={1}>
-                      <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
-                        Recovery plan
-                      </Text>
-                      <Text fontSize="sm" color="ink.700" lineHeight="1.7">
-                        {recoveryPlan.headline}
-                      </Text>
-                    </VStack>
-                    <Badge
-                      colorScheme={
-                        recoveryPlan.status === 'steady'
-                          ? 'green'
-                          : recoveryPlan.status === 'catch_up'
-                            ? 'blue'
-                            : recoveryPlan.status === 'reduce_scope'
-                              ? 'orange'
-                              : 'red'
-                      }
-                      px={3}
-                      py={1.5}
-                      rounded="full"
-                      fontSize="0.72rem"
-                    >
-                      {recoveryPlan.status.replace('_', ' ')}
-                    </Badge>
-                  </HStack>
-
-                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                    <SurfaceCard p={4} bg="blackAlpha.50">
-                      <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
-                        Focus areas
-                      </Text>
-                      <div className="mt-3 space-y-2 text-sm text-slate-600">
-                        {recoveryPlan.focusAreas.length > 0 ? (
-                          recoveryPlan.focusAreas.map((item) => <p key={item}>- {item}</p>)
-                        ) : (
-                          <p>Keep the next sessions centered on the most important unlocked node.</p>
-                        )}
-                      </div>
-                    </SurfaceCard>
-
-                    <SurfaceCard p={4} bg="blackAlpha.50">
-                      <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
-                        Action list
-                      </Text>
-                      <div className="mt-3 space-y-2 text-sm text-slate-600">
-                        {recoveryPlan.actions.map((item) => <p key={item}>- {item}</p>)}
-                      </div>
-                      {(recoveryPlan.quickFixes ?? []).length > 0 && (
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {(recoveryPlan.quickFixes ?? []).map((fix) => (
-                            <button
-                              key={fix.action}
-                              type="button"
-                              onClick={() => applyFix(fix)}
-                              disabled={applyingFix !== null}
-                              className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-                            >
-                              {applyingFix === fix.action ? 'Updating…' : fix.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </SurfaceCard>
-                  </SimpleGrid>
-                </Stack>
-              </SurfaceCard>
-            ) : null}
-          </div>
-
-          <div className="space-y-4">
-            <SurfaceCard p={{ base: 5, md: 6 }}>
-              <Stack spacing={5}>
-                <HStack justify="space-between" align={{ base: 'flex-start', md: 'center' }} flexDir={{ base: 'column', md: 'row' }} spacing={4}>
-                  <VStack align="flex-start" spacing={1}>
-                    <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
-                      Weekly report
-                    </Text>
-                    <Text fontSize="sm" color="ink.500" lineHeight="1.7">
-                      {formatDateRange(weeklyReport)}
-                    </Text>
-                  </VStack>
-                  {weeklyProgressLabel ? (
-                    <Badge colorScheme="blue" px={3} py={1.5} rounded="full" fontSize="0.72rem">
-                      {weeklyProgressLabel}
-                    </Badge>
-                  ) : null}
-                </HStack>
-
-                {reportLoading ? (
-                  <HStack spacing={3} color="ink.500">
-                    <Spinner size="sm" color="brand.500" thickness="3px" />
-                    <Text fontSize="sm">Building your weekly report...</Text>
-                  </HStack>
-                ) : reportLocked ? (
-                  <EmptyState
-                    title="Detailed weekly reports are a Pro feature"
-                    description="You can still save a weekly check-in on the left. Upgrade to unlock plan-health summaries, weekly weak areas, and a richer recovery loop."
-                    accent="warning"
-                    action={(
-                      <Button as={RouterLink} to="/pricing" colorScheme="orange">
-                        Upgrade to {upgradePlan ?? 'Pro'}
-                      </Button>
-                    )}
-                  />
-                ) : weeklyReport ? (
-                  <Stack spacing={4}>
-                    <SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
-                      <SurfaceCard p={4} bg="blackAlpha.50">
-                        <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
-                          Sessions
-                        </Text>
-                        <Text mt={2} fontSize="lg" fontWeight="700" color="ink.900">
-                          {weeklyReport.stats.sessionsThisWeek}
-                        </Text>
-                      </SurfaceCard>
-                      <SurfaceCard p={4} bg="blackAlpha.50">
-                        <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
-                          Study time
-                        </Text>
-                        <Text mt={2} fontSize="lg" fontWeight="700" color="ink.900">
-                          {formatMinutes(weeklyReport.stats.studyMinutesThisWeek)}
-                        </Text>
-                      </SurfaceCard>
-                      <SurfaceCard p={4} bg="blackAlpha.50">
-                        <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
-                          Risk level
-                        </Text>
-                        <Text mt={2} fontSize="lg" fontWeight="700" color="ink.900">
-                          {weeklyReport.planHealth.riskScore}/100
-                        </Text>
-                      </SurfaceCard>
-                    </SimpleGrid>
-
-                    <SurfaceCard p={4}>
-                      <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
-                        Highlights
-                      </Text>
-                      <div className="mt-3 space-y-2 text-sm text-slate-600">
-                        {weeklyReport.highlights.map((item) => <p key={item}>- {item}</p>)}
-                      </div>
-                    </SurfaceCard>
-
-                    <SurfaceCard p={4}>
-                      <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
-                        Weak areas
-                      </Text>
-                      <div className="mt-3 space-y-2 text-sm text-slate-600">
-                        {weeklyReport.weakAreas.length > 0 ? (
-                          weeklyReport.weakAreas.map((item) => <p key={item}>- {item}</p>)
-                        ) : (
-                          <p>No major weak areas surfaced this week. Keep protecting the rhythm.</p>
-                        )}
-                      </div>
-                    </SurfaceCard>
-
-                    <SurfaceCard p={4}>
-                      <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
-                        Plan health
-                      </Text>
-                      <SimpleGrid mt={3} columns={{ base: 1, md: 2 }} spacing={3}>
-                        <SurfaceCard p={4} bg="blackAlpha.50">
-                          <Text fontSize="xs" color="ink.500">Progress</Text>
-                          <Text mt={2} fontSize="sm" fontWeight="700" color="ink.900">
-                            {weeklyReport.planHealth.completionScore}% complete
-                          </Text>
-                          <Text mt={1} fontSize="xs" color="ink.500">
-                            {weeklyReport.planHealth.completedNodes}/{weeklyReport.planHealth.totalNodes} concepts done
-                          </Text>
-                        </SurfaceCard>
-                        <SurfaceCard p={4} bg="blackAlpha.50">
-                          <Text fontSize="xs" color="ink.500">Weekly target</Text>
-                          <Text mt={2} fontSize="sm" fontWeight="700" color="ink.900">
-                            {weeklyReport.planHealth.weeklyTargetMinutes
-                              ? `${formatMinutes(weeklyReport.planHealth.weeklyTargetMinutes)}/week`
-                              : 'Not set'}
-                          </Text>
-                          <Text mt={1} fontSize="xs" color="ink.500">
-                            {weeklyReport.planHealth.summary}
-                          </Text>
-                        </SurfaceCard>
-                      </SimpleGrid>
-                    </SurfaceCard>
-                  </Stack>
-                ) : (
-                  <Text fontSize="sm" color="ink.500">
-                    We could not build a weekly report yet.
-                  </Text>
-                )}
-              </Stack>
-            </SurfaceCard>
-          </div>
+            </details>
+          </SurfaceCard>
         </div>
       )}
     </Stack>

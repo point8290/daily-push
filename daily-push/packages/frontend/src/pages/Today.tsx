@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useEntitlements } from '../contexts/EntitlementsContext';
 import EmptyState from '../components/ui/EmptyState';
@@ -148,7 +148,7 @@ function EvaluationCard({ evaluation }: { evaluation: SessionArtifactEvaluation 
     }`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+          <p className="text-sm font-semibold text-slate-500">
             AI review
           </p>
           <p className="mt-1 text-sm font-semibold text-slate-800">
@@ -178,7 +178,7 @@ function EvaluationCard({ evaluation }: { evaluation: SessionArtifactEvaluation 
 
       <div className="grid gap-3 md:grid-cols-2">
         <div className="rounded-xl bg-white/70 px-3 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+          <p className="text-xs font-semibold text-slate-400">
             Working
           </p>
           <div className="mt-2 space-y-1 text-sm text-slate-700">
@@ -190,7 +190,7 @@ function EvaluationCard({ evaluation }: { evaluation: SessionArtifactEvaluation 
           </div>
         </div>
         <div className="rounded-xl bg-white/70 px-3 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+          <p className="text-xs font-semibold text-slate-400">
             Tighten
           </p>
           <div className="mt-2 space-y-1 text-sm text-slate-700">
@@ -204,7 +204,7 @@ function EvaluationCard({ evaluation }: { evaluation: SessionArtifactEvaluation 
       </div>
 
       <div className="rounded-xl border border-white/80 bg-white/70 px-3 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+        <p className="text-xs font-semibold text-slate-400">
           Retry prompt
         </p>
         <p className="mt-1 text-sm leading-relaxed text-slate-700">
@@ -216,6 +216,8 @@ function EvaluationCard({ evaluation }: { evaluation: SessionArtifactEvaluation 
 }
 
 export default function Today() {
+  const [searchParams] = useSearchParams();
+  const preferredNodeId = searchParams.get('node');
   const { user } = useAuth();
   const { currentPlan, entitlements } = useEntitlements();
 
@@ -290,7 +292,7 @@ export default function Today() {
   const load = async () => {
     setLoading(true);
     try {
-      const todayData = await getToday();
+      const todayData = await getToday(preferredNodeId ?? undefined);
       setData(todayData);
       if (todayData.goal?.id) {
         getGoalProgress(todayData.goal.id).then(setGapProgress).catch(() => setGapProgress(null));
@@ -671,7 +673,7 @@ export default function Today() {
 
         {nextGoals.length > 0 && (
           <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">What's next?</p>
+            <p className="text-sm font-semibold text-slate-400">What's next?</p>
             {nextGoals.map((suggestion) => (
               <Link
                 key={suggestion.profileId}
@@ -752,7 +754,7 @@ export default function Today() {
         )}
         {milestones.length > 0 && (
           <div className="space-y-1 rounded-xl border border-amber-300 bg-amber-50 px-5 py-4">
-            <p className="text-xs font-semibold uppercase tracking-widest text-amber-600">Milestone reached</p>
+            <p className="text-sm font-semibold text-amber-600">Milestone reached</p>
             {milestones.map((item) => (
               <p key={item} className="text-sm font-semibold text-amber-800">
                 {item}
@@ -777,7 +779,7 @@ export default function Today() {
         {artifactEvaluation && <EvaluationCard evaluation={artifactEvaluation} />}
 
         <Card>
-          <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+          <p className="text-sm font-semibold text-slate-400">
             Your deliverable
           </p>
           <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
@@ -787,7 +789,7 @@ export default function Today() {
 
         <Card className="space-y-5">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+            <p className="text-sm font-semibold text-slate-400">
               Confidence check
             </p>
             <p className="mt-1 text-sm text-slate-500">
@@ -827,7 +829,7 @@ export default function Today() {
           )}
 
           <div className="space-y-2">
-            <label className="block text-xs font-semibold uppercase tracking-widest text-slate-400">
+            <label className="block text-sm font-semibold text-slate-400">
               Reflection notes
             </label>
             <textarea
@@ -946,7 +948,7 @@ export default function Today() {
             <Card className="space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                  <p className="text-sm font-semibold text-slate-400">
                     Deliverable
                   </p>
                   <p className="mt-1 text-sm font-semibold text-slate-900">
@@ -966,7 +968,7 @@ export default function Today() {
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-xl border border-slate-100 p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                  <p className="text-xs font-semibold text-slate-400">
                     What to include
                   </p>
                   <div className="mt-2 space-y-1 text-sm text-slate-700">
@@ -974,7 +976,7 @@ export default function Today() {
                   </div>
                 </div>
                 <div className="rounded-xl border border-slate-100 p-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+                  <p className="text-xs font-semibold text-slate-400">
                     Good looks like
                   </p>
                   <div className="mt-2 space-y-1 text-sm text-slate-700">
@@ -985,7 +987,7 @@ export default function Today() {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-3">
-                  <label className="block text-xs font-semibold uppercase tracking-widest text-slate-400">
+                  <label className="block text-sm font-semibold text-slate-400">
                     Your artifact
                   </label>
                   <span className="text-[11px] text-slate-400">
@@ -1050,7 +1052,7 @@ export default function Today() {
                 <EvaluationCard evaluation={artifactEvaluation} />
               ) : (
                 <Card className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                  <p className="text-sm font-semibold text-slate-400">
                     Why this matters
                   </p>
                   <p className="text-sm leading-relaxed text-slate-600">
@@ -1074,7 +1076,7 @@ export default function Today() {
 
               {resources.length > 0 && (
                 <Card className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                  <p className="text-sm font-semibold text-slate-400">
                     Resources
                   </p>
                   {resources.slice(0, 4).map((resource, index) => (

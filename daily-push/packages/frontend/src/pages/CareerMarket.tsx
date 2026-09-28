@@ -305,7 +305,7 @@ export function CareerMarketHeader() {
             <p className="font-display text-lg font-semibold tracking-[-0.03em] text-slate-950">
               Daily Push
             </p>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+            <p className="text-xs font-bold text-slate-400">
               Career progress system
             </p>
           </div>
@@ -391,17 +391,17 @@ function RoleCard({
   const detailPath = `/career-market/roles/${role.slug}${selectedRegion ? `?region=${encodeURIComponent(selectedRegion)}` : ""}`;
 
   return (
-    <div className="rounded-3xl border border-white/70 bg-white/82 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+    <div className="rounded-2xl border border-white/70 bg-white/82 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+          <p className="text-xs font-semibold text-slate-400">
             {formatLabel(role.category)}
           </p>
-          <h3 className="mt-2 text-lg font-black tracking-[-0.04em] text-slate-950">
+          <h3 className="mt-2 text-lg font-semibold tracking-[-0.04em] text-slate-950">
             {role.title}
           </h3>
         </div>
-        <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-sky-700">
+        <span className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700">
           {aiImpactLabel(role.aiImpact)}
         </span>
       </div>
@@ -418,7 +418,7 @@ function RoleCard({
           </span>
         ))}
       </div>
-      <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
+      <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4 text-xs font-semibold text-slate-400">
         <span>Updated {formatDate(role.lastUpdated)}</span>
         <span className="h-1 w-1 rounded-full bg-slate-300" />
         <span>{confidenceLabel(role.confidence)}</span>
@@ -441,14 +441,14 @@ function RoleCard({
       <div className="mt-5 flex flex-col gap-2 border-t border-slate-100 pt-4 sm:flex-row">
         <Link
           to={detailPath}
-          className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700 transition hover:border-sky-300 hover:text-sky-700"
+          className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700"
         >
           Review role
         </Link>
         <Link
           to="/career-market/find-direction"
           onClick={() => onCheckFit(role)}
-          className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-slate-800"
+          className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-slate-800"
         >
           Check fit
         </Link>
@@ -479,17 +479,17 @@ function RecommendationSummaryCard({
       <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">
+            <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-semibold text-white">
               #{index + 1}
             </span>
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
               {formatLabel(recommendation.transitionDifficulty)} transition
             </span>
-            <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-black text-sky-700">
+            <span className="rounded-full bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
               {recommendationSignalLabel(recommendation)}
             </span>
           </div>
-          <h3 className="mt-4 text-2xl font-black tracking-[-0.05em] text-slate-950">
+          <h3 className="mt-4 text-2xl font-semibold tracking-[-0.05em] text-slate-950">
             <span data-testid={`role-recommendation-title-${index}`}>
               {recommendation.title}
             </span>
@@ -498,7 +498,7 @@ function RecommendationSummaryCard({
             {recommendation.fitReasons[0] ??
               "This role has a meaningful overlap with your current background."}
           </p>
-          <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
+          <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold text-slate-400">
             <span>{recommendationSignalNote(recommendation)}</span>
             <span className="hidden sm:inline">/</span>
             <span>
@@ -517,11 +517,11 @@ function RecommendationSummaryCard({
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="rounded-3xl bg-slate-950 px-5 py-4 text-center text-white">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/45">
+          <div className="rounded-2xl bg-slate-950 px-5 py-4 text-center text-white">
+            <p className="text-xs font-semibold text-white/45">
               Fit
             </p>
-            <p className="mt-1 text-4xl font-black tracking-[-0.08em]">
+            <p className="mt-1 text-4xl font-semibold tracking-tight">
               {recommendation.fitScore}
             </p>
           </div>
@@ -529,7 +529,7 @@ function RecommendationSummaryCard({
             type="button"
             onClick={onSave}
             disabled={saving}
-            className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving ? "Saving..." : saveLabel}
           </button>
@@ -1003,7 +1003,7 @@ export default function CareerMarket() {
         <section className="rounded-[2rem] border border-white/70 bg-white/78 p-5 shadow-sm backdrop-blur md:p-7">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="inline-flex rounded-full border border-sky-200 bg-white/75 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-sky-700 shadow-sm">
+              <div className="inline-flex rounded-full border border-sky-200 bg-white/75 px-3 py-1 text-sm font-semibold text-sky-700 shadow-sm">
                 {isFindDirectionPage ? "Find Direction" : "Role Discovery"}
               </div>
               <h1 className="mt-4 max-w-3xl font-display text-4xl font-semibold leading-[0.96] tracking-[-0.06em] text-slate-950 md:text-6xl">
@@ -1021,14 +1021,14 @@ export default function CareerMarket() {
             <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
               <Link
                 to={isFindDirectionPage ? "/career-market" : "/career-market/find-direction"}
-                className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-slate-800"
+                className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-slate-800"
               >
                 {isFindDirectionPage ? "Browse roles" : "Find direction"}
               </Link>
               {!isFindDirectionPage && (
                 <Link
                   to="/resume"
-                  className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white/90 px-5 py-3 text-sm font-black text-slate-700 transition hover:border-sky-300 hover:text-sky-700"
+                  className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white/90 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700"
                 >
                   Compare resume
                 </Link>
@@ -1040,10 +1040,10 @@ export default function CareerMarket() {
         <section className={!isFindDirectionPage ? "space-y-5" : "hidden"}>
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+              <p className="text-sm font-semibold text-slate-400">
                 Browse roles
               </p>
-              <h2 className="mt-2 text-3xl font-black tracking-[-0.06em] text-slate-950">
+              <h2 className="mt-2 text-3xl font-semibold tracking-[-0.06em] text-slate-950">
                 Roles to explore
               </h2>
             </div>
@@ -1053,7 +1053,7 @@ export default function CareerMarket() {
             </p>
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+            <span className="text-sm font-semibold text-slate-400">
               Region
             </span>
             {roleRegionFilters.map((filter) => (
@@ -1061,7 +1061,7 @@ export default function CareerMarket() {
                 key={filter.value || "global"}
                 type="button"
                 onClick={() => setRoleRegion(filter.value)}
-                className={`rounded-full px-3 py-2 text-xs font-black transition ${
+                className={`rounded-full px-3 py-2 text-xs font-semibold transition ${
                   roleRegion === filter.value
                     ? "bg-slate-950 text-white shadow-lg shadow-slate-900/10"
                     : "border border-slate-200 bg-white/80 text-slate-600 hover:border-sky-300 hover:text-sky-700"
@@ -1073,7 +1073,7 @@ export default function CareerMarket() {
           </div>
 
           {rolesError && (
-            <div className="mt-5 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">
+            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">
               {rolesError}
             </div>
           )}
@@ -1083,7 +1083,7 @@ export default function CareerMarket() {
               ? Array.from({ length: 6 }).map((_, index) => (
                   <div
                     key={index}
-                    className="h-56 animate-pulse rounded-3xl bg-white/70"
+                    className="h-56 animate-pulse rounded-2xl bg-white/70"
                   />
                 ))
               : roles.map((role) => (
@@ -1098,10 +1098,10 @@ export default function CareerMarket() {
           <SurfaceCard p={{ base: 5, md: 6 }} className="bg-white/86">
             <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                <p className="text-sm font-semibold text-slate-400">
                   Not sure which role fits?
                 </p>
-                <h3 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+                <h3 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-950">
                   Answer a few questions and get role suggestions.
                 </h3>
                 <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
@@ -1111,7 +1111,7 @@ export default function CareerMarket() {
               </div>
               <Link
                 to="/career-market/find-direction"
-                className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-slate-800"
+                className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-slate-800"
               >
                 Find direction
               </Link>
@@ -1128,10 +1128,10 @@ export default function CareerMarket() {
           }
         >
           <SurfaceCard p={{ base: 5, md: 6 }} className="lg:sticky lg:top-24">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">
+            <p className="text-sm font-semibold text-sky-700">
               Discover new roles
             </p>
-            <h2 className="mt-3 text-3xl font-black tracking-[-0.06em] text-slate-950">
+            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.06em] text-slate-950">
               Tell us where you are today.
             </h2>
             <p className="mt-3 text-sm leading-7 text-slate-600">
@@ -1140,8 +1140,8 @@ export default function CareerMarket() {
             </p>
 
             {user && marketRecommendationQuota && (
-              <div className="mt-4 rounded-3xl border border-slate-100 bg-slate-50 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+              <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-400">
                   Daily direction checks
                 </p>
                 <p className="mt-2 text-sm font-bold leading-7 text-slate-700">
@@ -1153,8 +1153,8 @@ export default function CareerMarket() {
             )}
 
             {selectedRole && (
-              <div className="mt-5 rounded-3xl border border-sky-100 bg-sky-50 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">
+              <div className="mt-5 rounded-2xl border border-sky-100 bg-sky-50 p-4">
+                <p className="text-sm font-semibold text-sky-700">
                   Saved role direction
                 </p>
                 <p className="mt-2 text-sm font-bold leading-7 text-slate-700">
@@ -1170,7 +1170,7 @@ export default function CareerMarket() {
                   key={example.label}
                   type="button"
                   onClick={() => applyExample(example.input)}
-                  className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-600 transition hover:border-sky-300 hover:text-sky-700"
+                  className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-sky-300 hover:text-sky-700"
                 >
                   {example.label}
                 </button>
@@ -1347,7 +1347,7 @@ export default function CareerMarket() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full rounded-2xl bg-slate-950 px-6 py-4 text-sm font-black text-white shadow-xl shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-2xl bg-slate-950 px-6 py-4 text-sm font-semibold text-white shadow-xl shadow-slate-900/15 transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting
                   ? "Checking direction..."
@@ -1367,12 +1367,12 @@ export default function CareerMarket() {
                   color="white"
                   borderColor="rgba(255,255,255,0.12)"
                 >
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-white/45">
+                  <p className="text-sm font-semibold text-white/45">
                     {recommendationResponse.recommendationMode === "target_fit"
                       ? "Selected role fit snapshot"
                       : "Your role direction snapshot"}
                   </p>
-                  <h2 className="mt-3 text-3xl font-black tracking-[-0.06em]">
+                  <h2 className="mt-3 text-3xl font-semibold tracking-[-0.06em]">
                     {recommendationResponse.recommendationMode === "target_fit"
                       ? "Start with this role fit, then compare adjacent paths."
                       : "Start with these target roles."}
@@ -1380,7 +1380,7 @@ export default function CareerMarket() {
                   <p className="mt-3 max-w-2xl text-sm leading-7 text-white/70">
                     {recommendationResponse.marketCaveat}
                   </p>
-                  <div className="mt-4 flex flex-wrap gap-2 text-xs font-black uppercase tracking-[0.14em] text-white/50">
+                  <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-white/50">
                     <span>
                       Updated{" "}
                       {formatDate(recommendationResponse.meta.generatedAt)}
@@ -1398,7 +1398,7 @@ export default function CareerMarket() {
                     )}
                   </div>
                   {recommendationResponse.quota && (
-                    <p className="mt-4 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-black text-white/70">
+                    <p className="mt-4 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/70">
                       {recommendationResponse.quota.limitValue === null
                         ? "Unlimited direction checks"
                         : `${recommendationResponse.quota.remaining ?? 0} checks left today`}
@@ -1424,7 +1424,7 @@ export default function CareerMarket() {
                               : "bg-slate-50 text-slate-600 hover:bg-slate-100"
                           }`}
                         >
-                          <span className="block text-sm font-black">
+                          <span className="block text-sm font-semibold">
                             {tab.label}
                           </span>
                           <span
@@ -1463,19 +1463,19 @@ export default function CareerMarket() {
 
                 {marketResultTab === "gaps" && (
                   <SurfaceCard p={{ base: 5, md: 6 }} className="bg-white/92">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-600">
+                    <p className="text-sm font-semibold text-amber-600">
                       Upgrade gaps
                     </p>
-                    <h3 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+                    <h3 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-950">
                       What could weaken your switch right now
                     </h3>
                     <div className="mt-5 grid gap-3">
                       {recommendationGaps.map((gap) => (
                         <div
                           key={`${gap.role}-${gap.text}`}
-                          className="rounded-3xl border border-amber-100 bg-amber-50 p-4"
+                          className="rounded-2xl border border-amber-100 bg-amber-50 p-4"
                         >
-                          <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-700">
+                          <p className="text-sm font-semibold text-amber-700">
                             {gap.role}
                           </p>
                           <p className="mt-2 text-sm font-bold leading-7 text-slate-700">
@@ -1489,19 +1489,19 @@ export default function CareerMarket() {
 
                 {marketResultTab === "proof" && (
                   <SurfaceCard p={{ base: 5, md: 6 }} className="bg-white/92">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-600">
+                    <p className="text-sm font-semibold text-emerald-600">
                       Proof to build
                     </p>
-                    <h3 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+                    <h3 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-950">
                       Evidence that makes the role believable
                     </h3>
                     <div className="mt-5 grid gap-3">
                       {recommendationProof.map((proof) => (
                         <div
                           key={`${proof.role}-${proof.text}`}
-                          className="rounded-3xl border border-emerald-100 bg-emerald-50 p-4"
+                          className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4"
                         >
-                          <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
+                          <p className="text-sm font-semibold text-emerald-700">
                             {proof.role}
                           </p>
                           <p className="mt-2 text-sm font-bold leading-7 text-slate-700">
@@ -1518,10 +1518,10 @@ export default function CareerMarket() {
                     <SurfaceCard p={{ base: 5, md: 6 }} className="bg-white/90">
                       <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
                         <div>
-                          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                          <p className="text-sm font-semibold text-slate-400">
                             Next step
                           </p>
-                          <h3 className="mt-2 text-2xl font-black tracking-[-0.05em] text-slate-950">
+                          <h3 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-950">
                             Turn this direction into a saved plan.
                           </h3>
                           <p className="mt-2 text-sm leading-7 text-slate-600">
@@ -1538,13 +1538,13 @@ export default function CareerMarket() {
                                 : "/login?mode=register&next=/career-market/find-direction"
                             }
                             onClick={handleSaveDirectionClick}
-                            className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5"
+                            className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5"
                           >
                             {user ? "Audit Your Resume" : "Create free account"}
                           </Link>
                           <Link
                             to="/resume"
-                            className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-700 transition hover:border-sky-300 hover:text-sky-700"
+                            className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-300 hover:text-sky-700"
                           >
                             Compare with a job
                           </Link>
@@ -1567,10 +1567,10 @@ export default function CareerMarket() {
                 p={{ base: 6, md: 8 }}
                 className="min-h-[520px] bg-white/82"
               >
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                <p className="text-sm font-semibold text-slate-400">
                   What you will get
                 </p>
-                <h2 className="mt-3 text-3xl font-black tracking-[-0.06em] text-slate-950">
+                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.06em] text-slate-950">
                   A career upgrade snapshot, not a generic chat answer.
                 </h2>
                 <div className="mt-7 grid gap-4">
@@ -1594,9 +1594,9 @@ export default function CareerMarket() {
                   ].map(([title, body]) => (
                     <div
                       key={title}
-                      className="rounded-3xl border border-slate-100 bg-slate-50 p-5"
+                      className="rounded-2xl border border-slate-100 bg-slate-50 p-5"
                     >
-                      <h3 className="text-lg font-black tracking-[-0.04em] text-slate-950">
+                      <h3 className="text-lg font-semibold tracking-[-0.04em] text-slate-950">
                         {title}
                       </h3>
                       <p className="mt-2 text-sm leading-7 text-slate-600">

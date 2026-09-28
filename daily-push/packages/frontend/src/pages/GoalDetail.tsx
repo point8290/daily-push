@@ -222,7 +222,7 @@ function FlowStep({
   return (
     <div className={`rounded-2xl border px-4 py-3 ${stateClass}`}>
       <div className="flex items-center gap-3">
-        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-black ${
+        <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
           state === 'current' ? 'bg-white/15 text-white' : 'bg-white text-slate-800'
         }`}>
           {state === 'done' ? 'OK' : index}
@@ -251,8 +251,8 @@ function MetricTile({
 }) {
   return (
     <div className="rounded-2xl border border-white/70 bg-white/75 px-4 py-3 shadow-sm">
-      <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{label}</p>
-      <p className="mt-2 text-lg font-black tracking-tight text-slate-900">{value}</p>
+      <p className="text-xs font-semibold text-slate-400">{label}</p>
+      <p className="mt-2 text-lg font-semibold tracking-tight text-slate-900">{value}</p>
       {detail ? <p className="mt-1 text-xs leading-relaxed text-slate-500">{detail}</p> : null}
     </div>
   );
@@ -278,13 +278,13 @@ function ActionCard({
   }[tone];
 
   return (
-    <div className={`rounded-3xl border p-5 shadow-sm ${toneClass}`}>
+    <div className={`rounded-2xl border p-5 shadow-sm ${toneClass}`}>
       <p className={`text-[11px] font-extrabold uppercase tracking-[0.18em] ${
         tone === 'dark' ? 'text-sky-200' : tone === 'warning' ? 'text-amber-600' : 'text-slate-400'
       }`}>
         {eyebrow}
       </p>
-      <p className={`mt-2 text-lg font-black tracking-tight ${
+      <p className={`mt-2 text-lg font-semibold tracking-tight ${
         tone === 'dark' ? 'text-white' : 'text-slate-900'
       }`}>
         {title}
@@ -817,7 +817,7 @@ export default function GoalDetail() {
         <SurfaceCard p={5} className="border-sky-100 bg-sky-50/80">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">
+              <p className="text-sm font-semibold text-sky-700">
                 Created from resume analysis
               </p>
               <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
@@ -826,7 +826,7 @@ export default function GoalDetail() {
             </div>
             <Link
               to="/resume"
-              className="inline-flex items-center justify-center rounded-full border border-sky-200 bg-white px-4 py-2 text-sm font-black text-sky-700 hover:border-sky-300"
+              className="inline-flex items-center justify-center rounded-full border border-sky-200 bg-white px-4 py-2 text-sm font-semibold text-sky-700 hover:border-sky-300"
             >
               Back to resume report
             </Link>
@@ -835,24 +835,16 @@ export default function GoalDetail() {
       )}
 
       {fromTargetRole && (
-        <SurfaceCard p={5} className="border-emerald-100 bg-emerald-50/80">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">
-                Plan for your role
-              </p>
-              <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
-                This plan prepares you for {goal.raw?.targetRoleTitle ?? 'your target role'}. Your readiness, proof and job applications for that role live on the role page.
-              </p>
-            </div>
-            <Link
-              to={goal.raw?.targetRoleId ? `/target-roles/${goal.raw.targetRoleId}` : '/career-market'}
-              className="inline-flex items-center justify-center rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-black text-emerald-700 hover:border-emerald-300"
-            >
-              Open role
-            </Link>
-          </div>
-        </SurfaceCard>
+        <p className="-mt-2 text-sm text-slate-600">
+          Plan for{' '}
+          <Link
+            to={goal.raw?.targetRoleId ? `/target-roles/${goal.raw.targetRoleId}` : '/career-market'}
+            className="font-semibold text-sky-700 hover:underline"
+          >
+            {goal.raw?.targetRoleTitle ?? 'your target role'} →
+          </Link>
+          <span className="text-slate-400"> · readiness, proof and applications live on the role page</span>
+        </p>
       )}
 
       {/* Next step: the one thing to do on this goal */}
@@ -944,6 +936,32 @@ export default function GoalDetail() {
       ══════════════════════════════════════════ */}
       {activeTab === 'overview' && (
         <div className="space-y-4">
+          {/* Skill gaps */}
+          {gapProgress && id && gapProgress.gaps.length > 0 && (
+            <GapBoard goalId={id} progress={gapProgress} onChanged={loadGapProgress} />
+          )}
+          {!gapProgress && gaps.length > 0 && (
+            <SurfaceCard p={5} className="space-y-3">
+              <p className="text-sm font-semibold text-slate-800">Skill gaps this plan closes</p>
+              <ul className="divide-y divide-slate-100">
+                {gaps.map((gap, i) => (
+                  <li key={i} className="py-2.5 first:pt-0 last:pb-0">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                      <span className="text-sm font-medium text-slate-800">{gap.skillArea}</span>
+                      <span className="text-xs text-slate-500">
+                        <span className="capitalize">{gap.currentLevel}</span> →{' '}
+                        <span className="font-semibold capitalize text-slate-700">{gap.requiredLevel}</span>
+                      </span>
+                    </div>
+                    {gap.priorityReason && (
+                      <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{gap.priorityReason}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </SurfaceCard>
+          )}
+
           {loadingPlanHealth && (
             <SurfaceCard p={5}>
               <div className="flex items-center gap-3 text-sm text-slate-400">
@@ -977,7 +995,9 @@ export default function GoalDetail() {
                 )}
               </div>
               <p className="text-sm leading-relaxed text-slate-600">{planHealth.summary}</p>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-4">
+              <details className="group">
+                <summary className="cursor-pointer text-xs font-semibold text-slate-500 hover:text-slate-800">Dates and pace</summary>
+              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-4">
                 <GoalFact label="Target date" value={formatShortDate(planHealth.targetDate)} />
                 <GoalFact label="Forecast finish" value={formatShortDate(planHealth.forecastedCompletionDate)} />
                 <GoalFact
@@ -999,17 +1019,19 @@ export default function GoalDetail() {
                   }
                 />
               </dl>
+              </details>
             </SurfaceCard>
           )}
 
           {/* Learning path */}
           {topics.length > 0 && (
-            <SurfaceCard p={5} className="space-y-4">
-              <div className="flex items-baseline justify-between">
-                <p className="text-sm font-semibold text-slate-800">Learning path</p>
-                <span className="text-xs text-slate-500">{topics.length} topics, in order</span>
-              </div>
-              <ol className="space-y-4">
+            <SurfaceCard p={5}>
+              <details>
+              <summary className="flex cursor-pointer items-baseline justify-between">
+                <span className="text-sm font-semibold text-slate-800">Learning path</span>
+                <span className="text-xs text-slate-500">{topics.length} topics, in order · show</span>
+              </summary>
+              <ol className="mt-4 space-y-4">
                 {goal.learningTopics
                   .map(t => t.structured)
                   .filter(Boolean)
@@ -1040,32 +1062,7 @@ export default function GoalDetail() {
                     );
                   })}
               </ol>
-            </SurfaceCard>
-          )}
-
-          {/* Skill gaps */}
-          {gapProgress && id && gapProgress.gaps.length > 0 && (
-            <GapBoard goalId={id} progress={gapProgress} onChanged={loadGapProgress} />
-          )}
-          {!gapProgress && gaps.length > 0 && (
-            <SurfaceCard p={5} className="space-y-3">
-              <p className="text-sm font-semibold text-slate-800">Skill gaps this plan closes</p>
-              <ul className="divide-y divide-slate-100">
-                {gaps.map((gap, i) => (
-                  <li key={i} className="py-2.5 first:pt-0 last:pb-0">
-                    <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                      <span className="text-sm font-medium text-slate-800">{gap.skillArea}</span>
-                      <span className="text-xs text-slate-500">
-                        <span className="capitalize">{gap.currentLevel}</span> →{' '}
-                        <span className="font-semibold capitalize text-slate-700">{gap.requiredLevel}</span>
-                      </span>
-                    </div>
-                    {gap.priorityReason && (
-                      <p className="mt-0.5 text-xs leading-relaxed text-slate-500">{gap.priorityReason}</p>
-                    )}
-                  </li>
-                ))}
-              </ul>
+              </details>
             </SurfaceCard>
           )}
 
@@ -1094,7 +1091,7 @@ export default function GoalDetail() {
           {/* Pipeline status (active decompose) */}
           {id && decomposing && (
             <SurfaceCard p={5}>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">
+              <p className="text-sm font-semibold text-slate-400 mb-4">
                 Building your study nodes
               </p>
               <PipelineStatus goalId={id} type="decompose" onComplete={onPipelineComplete} />
@@ -1107,7 +1104,7 @@ export default function GoalDetail() {
              goal.pipelineRun.status === 'partial' ||
              goal.pipelineRun.status === 'failed') && (
             <SurfaceCard p={5} className="border-amber-200">
-              <p className="text-xs font-semibold text-amber-600 uppercase tracking-widest mb-4">
+              <p className="text-sm font-semibold text-amber-600 mb-4">
                 Pipeline needs attention
               </p>
               <PipelineStatus goalId={id} type="decompose" onComplete={onPipelineComplete} />
@@ -1186,9 +1183,9 @@ export default function GoalDetail() {
           )}
 
           {/* What you told us */}
-          {goal.raw.input.trim() && (
+          {goal.raw.input.trim() && !goal.ownWords && (
             <details className="bg-slate-50 border border-slate-200 rounded-xl">
-              <summary className="px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-widest cursor-pointer">
+              <summary className="px-5 py-3 text-sm font-semibold text-slate-400 cursor-pointer">
                 What you told us
               </summary>
               <p className="px-5 pb-4 text-slate-600 text-sm leading-relaxed">{goal.raw.input}</p>
@@ -1271,7 +1268,7 @@ export default function GoalDetail() {
           {/* Pipeline status during decompose */}
           {id && decomposing && (
             <SurfaceCard p={5}>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">
+              <p className="text-sm font-semibold text-slate-400 mb-4">
                 Building your study nodes
               </p>
               <PipelineStatus goalId={id} type="decompose" onComplete={onPipelineComplete} />
@@ -1317,7 +1314,7 @@ export default function GoalDetail() {
           {nodes.length > 0 && (
             <SurfaceCard p={5} className="space-y-5">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Concept nodes</p>
+                <p className="text-sm font-semibold text-slate-400">Concept nodes</p>
                 <span className="text-xs text-slate-400">{nodes.length} nodes / {nodes.filter(n => n.status === 'done').length} done</span>
               </div>
 
@@ -1326,7 +1323,7 @@ export default function GoalDetail() {
                 if (!depthNodes || depthNodes.length === 0) return null;
                 return (
                   <div key={depth} className="space-y-2">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                    <p className="text-sm font-semibold text-slate-500">
                       {depthLabel[depth]} <span className="font-normal text-slate-400">({depthNodes.length})</span>
                     </p>
                     {depthNodes.map(node => (
@@ -1486,7 +1483,7 @@ export default function GoalDetail() {
 
                   return (
                     <SurfaceCard key={topicDoc._id} p={5} className="space-y-4">
-                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
+                      <p className="text-sm font-semibold text-slate-500">
                         {topicDoc.structured?.title ?? 'Topic'}
                       </p>
 

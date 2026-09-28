@@ -56,10 +56,10 @@ interface ConceptNode {
 
 const DEPTH_ORDER = ['surface', 'foundational', 'intermediate', 'advanced'] as const;
 
-const NODE_W = 210;
-const NODE_H = 72;
-const H_GAP = 48;
-const V_GAP = 100;
+const NODE_W = 240;
+const NODE_H = 76;
+const H_GAP = 40;
+const V_GAP = 70;
 
 const depthLabel: Record<string, string> = {
   surface: 'Surface',
@@ -93,23 +93,32 @@ function nodeColor(node: ConceptNode): { bg: string; border: string; text: strin
   }
 }
 
+const ROW_MAX = 4;
+
 function computeLayout(nodes: ConceptNode[]): Map<string, { x: number; y: number }> {
   const byDepth: Record<string, ConceptNode[]> = {};
   for (const n of nodes) {
     (byDepth[n.depth_level] ??= []).push(n);
   }
 
+  // Wrap each depth band into rows of ROW_MAX so the map stays narrow enough
+  // to read at a normal zoom level.
   const positions = new globalThis.Map<string, { x: number; y: number }>();
-  DEPTH_ORDER.forEach((depth, di) => {
+  let rowIndex = 0;
+  DEPTH_ORDER.forEach((depth) => {
     const group = (byDepth[depth] ?? []).sort((a, b) => a.position - b.position);
-    const totalW = group.length * (NODE_W + H_GAP) - H_GAP;
-    const startX = -totalW / 2;
-    group.forEach((node, ni) => {
-      positions.set(node.id, {
-        x: startX + ni * (NODE_W + H_GAP),
-        y: di * (NODE_H + V_GAP),
+    for (let i = 0; i < group.length; i += ROW_MAX) {
+      const row = group.slice(i, i + ROW_MAX);
+      const totalW = row.length * (NODE_W + H_GAP) - H_GAP;
+      const startX = -totalW / 2;
+      row.forEach((node, ni) => {
+        positions.set(node.id, {
+          x: startX + ni * (NODE_W + H_GAP),
+          y: rowIndex * (NODE_H + V_GAP),
+        });
       });
-    });
+      rowIndex += 1;
+    }
   });
   return positions;
 }
@@ -132,20 +141,20 @@ function MapNode({ data }: NodeProps) {
     >
       <Handle type="target" position={Position.Top} className="!bg-slate-300 !border-0 !w-2 !h-2" />
 
-      <p className="text-xs font-semibold leading-snug line-clamp-2" style={{ color: c.text }}>
+      <p className="text-sm font-semibold leading-snug line-clamp-2" style={{ color: c.text }}>
         {nodeInfo.title}
       </p>
 
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-        <span className="text-[10px] font-medium opacity-70">
+        <span className="text-xs font-medium opacity-70">
           {depthLabel[nodeInfo.depth_level]}
         </span>
-        <span className="text-[10px] opacity-40">.</span>
-        <span className="text-[10px] opacity-70">{nodeInfo.estimated_mins}m</span>
+        <span className="text-xs opacity-40">.</span>
+        <span className="text-xs opacity-70">{nodeInfo.estimated_mins}m</span>
         {nodeInfo.longevity ? (
           <>
-            <span className="text-[10px] opacity-40">.</span>
-            <span className={`rounded px-1 text-[10px] font-medium ${longevityColor[nodeInfo.longevity]}`}>
+            <span className="text-xs opacity-40">.</span>
+            <span className={`rounded px-1 text-xs font-medium ${longevityColor[nodeInfo.longevity]}`}>
               {nodeInfo.longevity}
             </span>
           </>
@@ -224,14 +233,14 @@ function SidePanel({ node, onClose }: { node: ConceptNode; onClose: () => void }
   const unlockCount = node.outgoing_edges.filter((e) => e.edgeType === 'hard_prerequisite').length;
 
   return (
-    <div className="absolute inset-y-4 right-4 z-10 w-[22rem]">
+    <div className="absolute inset-y-4 right-4 z-10 w-[min(22rem,calc(100%-2rem))]">
       <SurfaceCard h="full" overflow="hidden">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+          <span className="text-sm font-semibold text-slate-400">
             {depthLabel[node.depth_level]}
           </span>
           <button onClick={onClose} className="text-lg leading-none text-slate-400 transition-colors hover:text-slate-600">
-            x
+            ×
           </button>
         </div>
 
@@ -253,7 +262,7 @@ function SidePanel({ node, onClose }: { node: ConceptNode; onClose: () => void }
 
           {node.description ? (
             <div className="mt-5">
-              <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-slate-400">About</p>
+              <p className="mb-1 text-sm font-semibold text-slate-400">About</p>
               <p className="text-sm leading-relaxed text-slate-600">{node.description}</p>
             </div>
           ) : null}
@@ -277,13 +286,33 @@ function SidePanel({ node, onClose }: { node: ConceptNode; onClose: () => void }
             </div>
           </div>
 
+          {node.status === 'available' || node.status === 'in_progress' ? (
+            <RouterLink
+              to={`/today?node=${node.id}`}
+              className="mt-5 block rounded-xl bg-sky-600 px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-sky-700"
+            >
+              {node.status === 'in_progress' ? 'Continue this on Today' : 'Study this now'}
+            </RouterLink>
+          ) : node.status === 'review_due' ? (
+            <RouterLink
+              to="/today"
+              className="mt-5 block rounded-xl bg-amber-500 px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-amber-600"
+            >
+              Review it on Today
+            </RouterLink>
+          ) : node.status === 'locked' ? (
+            <p className="mt-5 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+              Unlocks after the concepts that lead into it are done.
+            </p>
+          ) : null}
+
           {unlockCount > 0 ? (
             <div className="mt-5 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-widest text-sky-700">
-                Unlock effect
+              <p className="text-sm font-semibold text-sky-700">
+                Unlocks next
               </p>
               <p className="mt-2 text-sm leading-relaxed text-sky-900">
-                Completing this node unlocks {unlockCount} downstream concept{unlockCount === 1 ? '' : 's'}.
+                Finishing this unlocks {unlockCount} downstream concept{unlockCount === 1 ? '' : 's'}.
               </p>
             </div>
           ) : null}
@@ -329,7 +358,10 @@ function MapInner({
   }, [rawNodes, depthFilter, setNodes, setEdges]);
 
   useEffect(() => {
-    if (nodes.length > 0) fitView({ padding: 0.15, duration: 400 });
+    if (nodes.length === 0) return;
+    // Fit the first few rows so labels stay readable; scroll or zoom out for the rest.
+    const top = [...nodes].sort((a, b) => a.position.y - b.position.y || a.position.x - b.position.x).slice(0, 12);
+    fitView({ nodes: top.map((n) => ({ id: n.id })), padding: 0.12, maxZoom: 1, duration: 400 });
   }, [nodes.length, fitView]);
 
   const onFilterChange = useCallback((depth: string | null) => {
@@ -359,8 +391,8 @@ function MapInner({
           <Stack spacing={5}>
             <HStack justify="space-between" align={{ base: 'flex-start', xl: 'center' }} flexDir={{ base: 'column', xl: 'row' }} spacing={4}>
               <VStack align="flex-start" spacing={1}>
-                <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
-                  Goal graph
+                <Text fontSize="sm" fontWeight="700" color="ink.400">
+                  Your plan
                 </Text>
                 <Text fontSize="2xl" fontWeight="700" color="ink.900" letterSpacing="-0.04em" lineHeight="1.05">
                   {goalTitle}
@@ -397,7 +429,7 @@ function MapInner({
                 </Select>
               ) : (
                 <Text fontSize="sm" color="ink.500">
-                  Showing the map for your main goal.
+                  Showing the map for your main plan.
                 </Text>
               )}
 
@@ -454,26 +486,21 @@ function MapInner({
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 nodeTypes={nodeTypes}
-                fitView
-                fitViewOptions={{ padding: 0.15 }}
                 minZoom={0.2}
                 maxZoom={2}
                 onPaneClick={() => setSelectedNode(null)}
               >
                 <Background color="#d9e2ef" gap={20} />
-                <Controls />
+                <Controls position="bottom-right" showInteractive={false} />
               </ReactFlow>
 
               {selectedNode ? (
                 <SidePanel node={selectedNode} onClose={() => setSelectedNode(null)} />
               ) : null}
 
-              <Box position="absolute" bottom={4} left={4} zIndex={10}>
-                <SurfaceCard px={4} py={3}>
-                  <Stack spacing={3}>
-                    <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
-                      Legend
-                    </Text>
+              <Box position="absolute" bottom={3} left={3} zIndex={10} maxW="calc(100% - 5rem)">
+                <div className="rounded-xl border border-slate-200 bg-white/90 px-3 py-2 backdrop-blur">
+                  <Stack spacing={1.5}>
                     <div className="flex flex-wrap gap-x-3 gap-y-1.5">
                       {LEGEND.map((item) => (
                         <div key={item.label} className="flex items-center gap-1.5">
@@ -481,25 +508,13 @@ function MapInner({
                             className="h-3 w-3 shrink-0 rounded-sm border"
                             style={{ background: item.bg, borderColor: item.border }}
                           />
-                          <span className="text-[10px] text-slate-500">{item.label}</span>
+                          <span className="text-xs text-slate-500">{item.label}</span>
                         </div>
                       ))}
                     </div>
-                    <div className="flex gap-3 border-t border-slate-100 pt-2">
-                      <div className="flex items-center gap-1.5">
-                        <div className="h-0.5 w-6 bg-sky-400" />
-                        <span className="text-[10px] text-slate-400">Hard prerequisite</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <div
-                          className="h-0.5 w-6 bg-slate-300"
-                          style={{ borderTop: '1px dashed #cbd5e1', background: 'none' }}
-                        />
-                        <span className="text-[10px] text-slate-400">Soft prerequisite</span>
-                      </div>
-                    </div>
+                    <p className="text-xs text-slate-400">Arrows point from what you need first to what it unlocks.</p>
                   </Stack>
-                </SurfaceCard>
+                </div>
               </Box>
             </>
           )}

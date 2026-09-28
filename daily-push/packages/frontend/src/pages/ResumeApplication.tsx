@@ -240,7 +240,7 @@ export default function ResumeApplication() {
           title="Application not found"
           description={error || 'This saved resume analysis is not available.'}
           actions={(
-            <Link to="/resume" className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white">
+            <Link to="/resume" className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white">
               Back to resume
             </Link>
           )}
@@ -262,16 +262,16 @@ export default function ResumeApplication() {
         description="Your resume checked against one job post. Track where the application is, and send the missing skills into your plan."
         actions={(
           <>
-            <Link to="/resume" className="rounded-full border border-black/10 px-4 py-2 text-sm font-black text-slate-700 hover:border-sky-200 hover:text-sky-700">
+            <Link to="/resume" className="rounded-full border border-black/10 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-sky-200 hover:text-sky-700">
               New fit check
             </Link>
             {application.linkedGoalId ? (
-              <Link to={`/goals/${application.linkedGoalId}?source=resume`} className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white">
+              <Link to={`/goals/${application.linkedGoalId}?source=resume`} className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white">
                 Open plan
               </Link>
             ) : null}
             {application.targetRoleId ? (
-              <Link to={`/target-roles/${application.targetRoleId}`} className="rounded-full border border-black/10 px-4 py-2 text-sm font-black text-slate-700 hover:border-sky-200 hover:text-sky-700">
+              <Link to={`/target-roles/${application.targetRoleId}`} className="rounded-full border border-black/10 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-sky-200 hover:text-sky-700">
                 Open Target Role
               </Link>
             ) : null}
@@ -340,10 +340,10 @@ export default function ResumeApplication() {
         <SurfaceCard p={5} className="border-sky-100 bg-sky-50/80">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">
+              <p className="text-sm font-semibold text-sky-700">
                 Linked Target Role
               </p>
-              <h2 className="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-950">
+              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950">
                 {application.targetRoleTitle ?? application.targetRole ?? 'Target Role'}
               </h2>
               <p className="mt-2 text-sm leading-7 text-slate-600">
@@ -352,7 +352,7 @@ export default function ResumeApplication() {
             </div>
             <Link
               to={`/target-roles/${application.targetRoleId}`}
-              className="inline-flex rounded-full bg-white px-4 py-2 text-sm font-black text-sky-700 shadow-sm"
+              className="inline-flex rounded-full bg-white px-4 py-2 text-sm font-semibold text-sky-700 shadow-sm"
             >
               View role workspace
             </Link>
@@ -366,7 +366,7 @@ export default function ResumeApplication() {
             {statusItems.map(([label, ready]) => (
               <span
                 key={label}
-                className={`rounded-full px-3 py-1 text-xs font-black ${ready ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${ready ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
               >
                 {ready ? 'Ready' : 'Next'}: {label}
               </span>
@@ -378,14 +378,14 @@ export default function ResumeApplication() {
                 type="button"
                 onClick={handleGenerateTailoredResume}
                 disabled={!!busy}
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-black text-slate-700 hover:border-sky-300 hover:text-sky-700 disabled:opacity-60"
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-700 disabled:opacity-60"
               >
                 {tailoredResume ? 'Regenerate resume' : 'Generate tailored resume'}
               </button>
             ) : (
               <Link
                 to="/pricing?source=resume"
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-black text-slate-700 hover:border-sky-300 hover:text-sky-700"
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-700"
               >
                 Upgrade to Pro
               </Link>
@@ -394,7 +394,7 @@ export default function ResumeApplication() {
               type="button"
               onClick={handleCreateGoal}
               disabled={!!busy}
-              className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
+              className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
             >
               {application.linkedGoalId ? 'Open career goal' : 'Create career goal'}
             </button>
@@ -403,14 +403,14 @@ export default function ResumeApplication() {
                 type="button"
                 onClick={handleCreateSprint}
                 disabled={!!busy}
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-black text-slate-700 hover:border-sky-300 hover:text-sky-700 disabled:opacity-60"
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-700 disabled:opacity-60"
               >
                 {application.linkedSprintCreatedAt ? 'Open sprint plan' : 'Turn gaps into sprint'}
               </button>
             ) : (
               <Link
                 to="/pricing?source=resume"
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-black text-slate-700 hover:border-sky-300 hover:text-sky-700"
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-700"
               >
                 Start Sprint plan
               </Link>
@@ -426,7 +426,7 @@ export default function ResumeApplication() {
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
+              className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${
                 activeTab === tab ? 'bg-slate-950 text-white shadow-lg shadow-slate-900/10' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
@@ -441,10 +441,10 @@ export default function ResumeApplication() {
           <SurfaceCard p={{ base: 5, md: 6 }} className="bg-white/95">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                <p className="text-sm font-semibold text-slate-400">
                   Full resume report
                 </p>
-                <h2 className="mt-2 text-3xl font-black tracking-[-0.05em] text-slate-950">
+                <h2 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-slate-950">
                   {gapReport.targetRole ?? application.targetRole ?? 'Target role'} readiness
                 </h2>
                 <p className="mt-3 max-w-3xl text-sm leading-8 text-slate-600">
@@ -452,10 +452,10 @@ export default function ResumeApplication() {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${readinessTone(gapReport.readinessLabel)}`}>
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${readinessTone(gapReport.readinessLabel)}`}>
                   {gapReport.readinessLabel}
                 </span>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-600">
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
                   {gapReport.confidence}% confidence
                 </span>
               </div>
@@ -463,10 +463,10 @@ export default function ResumeApplication() {
 
             <div className="mt-6 grid gap-4 md:grid-cols-3">
               {gapReport.requirementCoverage.map((item) => (
-                <div key={`${item.requirement}-${item.status}`} className="rounded-3xl border border-slate-100 bg-slate-50 p-4">
+                <div key={`${item.requirement}-${item.status}`} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-black text-slate-900">{item.requirement}</p>
-                    <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase text-slate-500">
+                    <p className="text-sm font-semibold text-slate-900">{item.requirement}</p>
+                    <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-500">
                       {item.status}
                     </span>
                   </div>
@@ -483,7 +483,7 @@ export default function ResumeApplication() {
 
           <div className="grid gap-6 lg:grid-cols-3">
             <SurfaceCard p={5} className="bg-white/90">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-600">Strengths</p>
+              <p className="text-sm font-semibold text-emerald-600">Strengths</p>
               <div className="mt-4 space-y-2">
                 {gapReport.strengths.map((item) => (
                   <p key={item} className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">{item}</p>
@@ -491,18 +491,18 @@ export default function ResumeApplication() {
               </div>
             </SurfaceCard>
             <SurfaceCard p={5} className="bg-white/90">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-600">Gaps to close</p>
+              <p className="text-sm font-semibold text-orange-600">Gaps to close</p>
               <div className="mt-4 space-y-2">
                 {gapReport.missingSkills.map((item) => (
                   <div key={item.name} className="rounded-2xl bg-orange-50 px-4 py-3">
-                    <p className="text-sm font-black text-orange-900">{item.name}</p>
+                    <p className="text-sm font-semibold text-orange-900">{item.name}</p>
                     <p className="mt-1 text-xs leading-relaxed text-orange-800">{item.reason}</p>
                   </div>
                 ))}
               </div>
             </SurfaceCard>
             <SurfaceCard p={5} className="bg-white/90">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Interview risks</p>
+              <p className="text-sm font-semibold text-slate-400">Interview risks</p>
               <div className="mt-4 space-y-2">
                 {gapReport.interviewRisks.map((item) => (
                   <p key={item} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">{item}</p>
@@ -519,10 +519,10 @@ export default function ResumeApplication() {
             <div>
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                  <p className="text-sm font-semibold text-slate-400">
                     Tailored resume draft
                   </p>
-                  <h2 className="mt-2 text-3xl font-black tracking-[-0.05em] text-slate-950">
+                  <h2 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-slate-950">
                     {tailoredResume.headline}
                   </h2>
                   <p className="mt-3 max-w-3xl text-sm leading-8 text-slate-600">
@@ -532,7 +532,7 @@ export default function ResumeApplication() {
                 <button
                   type="button"
                   onClick={handleCopyResume}
-                  className="rounded-full bg-slate-950 px-4 py-2 text-sm font-black text-white"
+                  className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
                 >
                   Copy resume draft
                 </button>
@@ -541,7 +541,7 @@ export default function ResumeApplication() {
               <div className="mt-6 grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">
                 <div className="space-y-5">
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">ATS keywords</p>
+                    <p className="text-sm font-semibold text-sky-700">ATS keywords</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {tailoredResume.atsKeywords.map((keyword) => (
                         <span key={keyword} className="rounded-full bg-sky-50 px-3 py-1 text-xs font-bold text-sky-700">{keyword}</span>
@@ -549,7 +549,7 @@ export default function ResumeApplication() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Do not fake these</p>
+                    <p className="text-sm font-semibold text-slate-400">Do not fake these</p>
                     <div className="mt-3 space-y-2">
                       {tailoredResume.missingEvidenceWarnings.map((warning) => (
                         <p key={warning} className="rounded-2xl bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-800">{warning}</p>
@@ -560,7 +560,7 @@ export default function ResumeApplication() {
 
                 <div className="space-y-4">
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Experience bullets</p>
+                    <p className="text-sm font-semibold text-slate-400">Experience bullets</p>
                     <div className="mt-3 space-y-2">
                       {tailoredResume.experienceBullets.map((bullet) => (
                         <p key={bullet} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm leading-7 text-slate-700">- {bullet}</p>
@@ -568,7 +568,7 @@ export default function ResumeApplication() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">Project bullets</p>
+                    <p className="text-sm font-semibold text-slate-400">Project bullets</p>
                     <div className="mt-3 space-y-2">
                       {tailoredResume.projectBullets.map((bullet) => (
                         <p key={bullet} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm leading-7 text-slate-700">- {bullet}</p>
@@ -580,10 +580,10 @@ export default function ResumeApplication() {
             </div>
           ) : (
             <div className="text-center">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+              <p className="text-sm font-semibold text-slate-400">
                 Tailored resume
               </p>
-              <h2 className="mt-2 text-3xl font-black tracking-[-0.05em] text-slate-950">
+              <h2 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-slate-950">
                 Generate a resume draft for this job.
               </h2>
               <p className="mx-auto mt-3 max-w-2xl text-sm leading-8 text-slate-600">
@@ -594,14 +594,14 @@ export default function ResumeApplication() {
                   type="button"
                   onClick={handleGenerateTailoredResume}
                   disabled={!!busy}
-                  className="mt-5 rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-xl shadow-slate-900/15 disabled:opacity-60"
+                  className="mt-5 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-xl shadow-slate-900/15 disabled:opacity-60"
                 >
                   Generate tailored resume
                 </button>
               ) : (
                 <Link
                   to="/pricing?source=resume"
-                  className="mt-5 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-xl shadow-slate-900/15"
+                  className="mt-5 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-xl shadow-slate-900/15"
                 >
                   Upgrade to Pro
                 </Link>
@@ -614,10 +614,10 @@ export default function ResumeApplication() {
       {activeTab === 'next' && (
         <div className="grid gap-6 lg:grid-cols-2">
           <SurfaceCard p={6} className="bg-white/95">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+            <p className="text-sm font-semibold text-slate-400">
               Career goal
             </p>
-            <h2 className="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-950">
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950">
               Turn this report into a plan.
             </h2>
             <p className="mt-3 text-sm leading-8 text-slate-600">
@@ -627,17 +627,17 @@ export default function ResumeApplication() {
               type="button"
               onClick={handleCreateGoal}
               disabled={!!busy}
-              className="mt-5 rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white disabled:opacity-60"
+              className="mt-5 rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
             >
               {application.linkedGoalId ? 'Open career goal' : 'Create career goal'}
             </button>
           </SurfaceCard>
 
           <SurfaceCard p={6} className="bg-white/95">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-orange-600">
+            <p className="text-sm font-semibold text-orange-600">
               Gap-closing sprint
             </p>
-            <h2 className="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-950">
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950">
               Convert gaps into a 2-8 week push.
             </h2>
             <p className="mt-3 text-sm leading-8 text-slate-600">
@@ -648,14 +648,14 @@ export default function ResumeApplication() {
                 type="button"
                 onClick={handleCreateSprint}
                 disabled={!!busy}
-                className="mt-5 rounded-full border border-slate-200 px-5 py-3 text-sm font-black text-slate-700 hover:border-sky-300 hover:text-sky-700 disabled:opacity-60"
+                className="mt-5 rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-700 disabled:opacity-60"
               >
                 {application.linkedSprintCreatedAt ? 'Open sprint plan' : 'Turn gaps into sprint'}
               </button>
             ) : (
               <Link
                 to="/pricing?source=resume"
-                className="mt-5 inline-flex rounded-full border border-slate-200 px-5 py-3 text-sm font-black text-slate-700 hover:border-sky-300 hover:text-sky-700"
+                className="mt-5 inline-flex rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-700"
               >
                 Start Sprint plan
               </Link>
@@ -664,10 +664,10 @@ export default function ResumeApplication() {
 
           {gapReport?.portfolioSuggestion ? (
             <SurfaceCard p={6} className="bg-sky-50/80 lg:col-span-2">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">
+              <p className="text-sm font-semibold text-sky-700">
                 Proof builder preview
               </p>
-              <h3 className="mt-2 text-xl font-black tracking-[-0.04em] text-slate-950">
+              <h3 className="mt-2 text-xl font-semibold tracking-[-0.04em] text-slate-950">
                 {gapReport.portfolioSuggestion}
               </h3>
               {gapReport.sprintEdits.length > 0 ? (
@@ -684,23 +684,23 @@ export default function ResumeApplication() {
 
       {activeTab === 'documents' && (
         <SurfaceCard p={{ base: 5, md: 6 }} className="bg-white/95">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+          <p className="text-sm font-semibold text-slate-400">
             Source documents
           </p>
-          <h2 className="mt-2 text-3xl font-black tracking-[-0.05em] text-slate-950">
+          <h2 className="mt-2 text-3xl font-semibold tracking-[-0.05em] text-slate-950">
             Resume and job description saved.
           </h2>
           <p className="mt-3 max-w-3xl text-sm leading-8 text-slate-600">
             We do not show raw document text here because it is not useful for reviewing the report. Start a revised fit check if you want to compare an updated resume or a different job description.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
-            <Link to="/resume" className="rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white">
+            <Link to="/resume" className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white">
               Start revised fit check
             </Link>
             <button
               type="button"
               onClick={() => setActiveTab('report')}
-              className="rounded-full border border-slate-200 px-5 py-3 text-sm font-black text-slate-700 hover:border-sky-300 hover:text-sky-700"
+              className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-700"
             >
               Back to report
             </button>

@@ -9,7 +9,6 @@ interface PageHeaderProps {
 }
 
 export default function PageHeader({
-  eyebrow,
   title,
   description,
   actions,
@@ -22,19 +21,8 @@ export default function PageHeader({
       gap={4}
     >
       <Box maxW="3xl">
-        {eyebrow && (
-          <Text
-            fontSize="xs"
-            fontWeight="800"
-            letterSpacing="0.18em"
-            textTransform="uppercase"
-            color="brand.700"
-          >
-            {eyebrow}
-          </Text>
-        )}
         <Heading
-          mt={eyebrow ? 2 : 0}
+          mt={0}
           size="xl"
           color="ink.900"
           letterSpacing="-0.04em"

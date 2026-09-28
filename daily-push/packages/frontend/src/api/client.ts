@@ -912,7 +912,8 @@ export const fillResourceGaps = (goalId: string) =>
   api.post(`/goals/${goalId}/resources/fill-gaps`).then((r) => r.data);
 
 // Today
-export const getToday = () => api.get("/today").then((r) => r.data);
+export const getToday = (nodeId?: string) =>
+  api.get("/today", { params: nodeId ? { nodeId } : undefined }).then((r) => r.data);
 
 // Sessions
 export interface SessionRubricDimension {
