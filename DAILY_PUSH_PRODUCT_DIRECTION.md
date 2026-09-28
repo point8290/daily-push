@@ -149,7 +149,7 @@ Work in order. Each phase is shippable. Routes and tables stay until a later pha
 |---|---|---|
 | 1 | Language and shell | `done` |
 | 2 | Four surfaces over current APIs | `done` |
-| 3 | Today states the loop | `not_started` |
+| 3 | Today states the loop | `done` |
 | 4 | Artifact, claim, and voice line | `not_started` |
 | 5 | Remove deprecated doors | `not_started` |
 
@@ -249,6 +249,14 @@ New:
 - Presentation fields only, filled from the session task (`taskType`, prompt) and the direction title. No new model call.
 
 Exit: finishing a session tells the engineer what was added to Proof and what Voice can now say. The link may still be implicit until Phase 4.
+
+Shipped:
+
+- Idle Today names the direction, the next concept, why it is next, the artifact the task will ask for, and that it shows up on Proof, then Voice. The preview uses the same task-type rules as the session task, with no new model call. After a session finishes, the summary uses the real task type and prompt, then links to Proof and Voice.
+- Review due is one item: keep the concept sharp.
+- Milestone celebration, suggested-next-goal cards, and news stay off Today.
+- The weekly check-in asks what became visible and whether the pace still fits. Recovery actions still adjust scope. Headlines and action lines talk about pace.
+- Progress shows the calendar, completed concepts, and proof added this week (finished sessions). The weekly plan box keeps the same actions without a crisis headline.
 
 ### Phase 4 — Artifact, claim, and voice line
 

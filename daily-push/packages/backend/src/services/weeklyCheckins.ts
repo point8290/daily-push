@@ -356,12 +356,12 @@ function buildRecoveryPlan(params: {
       catchUpMinutes > planHealth.weeklyTargetMinutes * 0.75);
 
   const actions = uniqueStrings([
-    blocker ? `Resolve the blocker: ${blocker}.` : null,
+    blocker ? `Set the pace around this: ${blocker}.` : null,
     quietLately
-      ? 'Do one short session in the next 24 hours to get going again.'
+      ? 'One short session in the next day sets the pace again.'
       : null,
     catchUpMinutes && catchUpMinutes > 0
-      ? `You are ${catchUpMinutes} minute${catchUpMinutes === 1 ? '' : 's'} behind for this point in the week: about ${Math.max(1, Math.ceil(catchUpMinutes / 30))} half-hour session${Math.ceil(catchUpMinutes / 30) === 1 ? '' : 's'}.`
+      ? `About ${catchUpMinutes} minute${catchUpMinutes === 1 ? '' : 's'} of study still fit this point in the week: about ${Math.max(1, Math.ceil(catchUpMinutes / 30))} half-hour session${Math.ceil(catchUpMinutes / 30) === 1 ? '' : 's'}.`
       : null,
     planHealth.failedTopics > 0
       ? 'Some topics failed to break into concepts. Retry them from the plan page.'
@@ -381,12 +381,12 @@ function buildRecoveryPlan(params: {
 
   const headline =
     status === 'steady'
-      ? 'On track this week. Keep the same rhythm.'
+      ? 'The pace fits this week. Keep the same rhythm.'
       : status === 'catch_up'
-        ? 'A little behind this week. A couple of extra short sessions will catch you up.'
+        ? 'The pace is a little light this week. A couple of extra short sessions bring it back in line.'
         : status === 'reduce_scope'
-          ? 'Behind enough that the plan should change: fewer hours or a later deadline.'
-          : 'No study in the last week. Start again with one short session, then adjust the plan.';
+          ? 'This pace asks for a smaller week: fewer hours, or a later deadline.'
+          : 'No sessions in the last week. One short session sets the pace again, then the plan can adjust.';
 
   return {
     status,

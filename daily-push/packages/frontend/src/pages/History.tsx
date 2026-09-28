@@ -400,6 +400,7 @@ export default function History() {
               <div className="mt-4 space-y-5">
                 <p className="text-sm text-slate-600">
                   <span className="font-semibold text-slate-900">{weeklyReport.stats.sessionsThisWeek} session{weeklyReport.stats.sessionsThisWeek === 1 ? '' : 's'}</span>
+                  {' '}added proof this week
                   {' · '}
                   <span className="font-semibold text-slate-900">{formatMinutes(weeklyReport.stats.studyMinutesThisWeek)}</span> studied
                   {' · '}
@@ -418,7 +419,7 @@ export default function History() {
                     </ul>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-800">Weak spots</p>
+                    <p className="text-sm font-semibold text-slate-800">Still sharpening</p>
                     <ul className="mt-2 space-y-1.5 text-sm text-slate-600">
                       {weeklyReport.weakAreas.length > 0
                         ? weeklyReport.weakAreas.map((item) => <li key={item}>{item}</li>)
@@ -475,8 +476,8 @@ export default function History() {
                 </p>
                 <p className="mt-0.5 text-sm text-slate-500">
                   {checkinState?.latestCheckin && !checkinState.due
-                    ? `Sure about the goal ${checkinState.latestCheckin.confidence}/5 · momentum ${checkinState.latestCheckin.momentum}/5${checkinState.latestCheckin.blockers[0] ? ` · blocker: ${checkinState.latestCheckin.blockers[0]}` : ''}`
-                    : 'Two minutes on how the week went. It shapes next week’s plan.'}
+                    ? `Direction ${checkinState.latestCheckin.confidence}/5 · pace ${checkinState.latestCheckin.momentum}/5${checkinState.latestCheckin.blockers[0] ? ` · pace note: ${checkinState.latestCheckin.blockers[0]}` : ''}`
+                    : 'What became visible, and whether the pace still fits.'}
                 </p>
               </div>
               <button
