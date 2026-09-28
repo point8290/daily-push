@@ -11,7 +11,8 @@ It is the source of truth for implementation state. Update it as phases complete
 User describes a goal in free text → system infers what they need to learn → builds a prerequisite
 graph of concept nodes → delivers one focused session per day → tracks retention via spaced repetition.
 
-Full plan: `DAILY_PUSH_REIMAGINATION.md`
+Active product direction (path, proof, voice): `DAILY_PUSH_PRODUCT_DIRECTION.md`
+Historical architecture plan: `DAILY_PUSH_REIMAGINATION.md`
 
 ---
 
