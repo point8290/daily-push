@@ -140,6 +140,8 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlanDefinition> = {
       "Resume narrative and tailored drafts",
       "Saved applications for specific roles",
       "Direction comparisons as you choose where to build",
+      "Interview practice",
+      "Export of the proof and voice record",
     ],
     entitlements: {
       "goals.active.max": {
@@ -208,22 +210,22 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlanDefinition> = {
         resetPeriod: null,
       },
       "premium_sprints.enabled": {
-        enabled: false,
+        enabled: true,
         limitValue: null,
         resetPeriod: null,
       },
       "gap_reports.monthly": {
-        enabled: false,
-        limitValue: 0,
+        enabled: true,
+        limitValue: 10,
         resetPeriod: "monthly",
       },
       "mock_interviews.monthly": {
-        enabled: false,
-        limitValue: 0,
+        enabled: true,
+        limitValue: 8,
         resetPeriod: "monthly",
       },
       "artifacts.export.enabled": {
-        enabled: false,
+        enabled: true,
         limitValue: null,
         resetPeriod: null,
       },
@@ -353,6 +355,11 @@ export function getBillingPlanDefinition(
 
 export function isBillingPlanKey(value: string): value is BillingPlanKey {
   return value in BILLING_PLANS;
+}
+
+/** Sprint stays a stored subscription key. The paid plan people see and use is Pro. */
+export function effectiveBillingPlanKey(planKey: BillingPlanKey): BillingPlanKey {
+  return planKey === "sprint" ? "pro" : planKey;
 }
 
 export function getUpgradePlanForFeature(

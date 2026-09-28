@@ -595,7 +595,7 @@ export default function Today() {
           accent="warning"
           action={(
             <Link
-              to="/goals/new"
+              to="/directions"
               className="inline-block rounded-xl bg-[var(--brand-primary)] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-primary-hov)]"
             >
               Choose a direction

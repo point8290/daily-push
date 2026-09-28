@@ -81,7 +81,7 @@ export default function RoleMarketPilotFeedback({
       <SurfaceCard p={compact ? 4 : 5} className="border-emerald-100 bg-emerald-50/90">
         <p className="text-sm font-black text-emerald-800">Thanks. This helps shape the pilot.</p>
         <p className="mt-1 text-sm leading-6 text-emerald-800/75">
-          We will use this to improve role direction, proof planning, and Sprint conversion.
+          We will use this to improve role direction, proof, and voice.
         </p>
       </SurfaceCard>
     );
@@ -98,7 +98,7 @@ export default function RoleMarketPilotFeedback({
             Did this make your next move clearer?
           </h3>
           <p className="mt-2 max-w-2xl text-sm leading-7 text-slate-600">
-            One quick signal helps us improve role direction, proof tasks, and the paid Sprint path.
+            One quick signal helps us improve role direction, proof, and voice.
           </p>
         </div>
         <div className="flex gap-2">

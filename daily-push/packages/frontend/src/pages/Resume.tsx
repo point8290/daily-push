@@ -18,7 +18,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useEntitlements } from "../contexts/EntitlementsContext";
 import DocumentDropzone from "../components/ui/DocumentDropzone";
 import SurfaceCard from "../components/ui/SurfaceCard";
-import { hasProResumeAccess, hasSprintAccess } from "../utils/planAccess";
+import { hasProResumeAccess } from "../utils/planAccess";
 import { readDocumentFile, type DocumentKind } from "../utils/documentText";
 
 type InputMode = "upload" | "paste";
@@ -188,7 +188,7 @@ export default function Resume({ targetRoleId }: { targetRoleId?: string | null 
   const normalizedJdText = useMemo(() => normalizeText(jdText), [jdText]);
   const canPreview = !!normalizedResumeText && !!normalizedJdText && !busy;
   const canGenerateTailoredResume = hasProResumeAccess(currentPlan?.planKey);
-  const canCreateSprint = hasSprintAccess(currentPlan?.planKey);
+  const canCreateSprint = hasProResumeAccess(currentPlan?.planKey);
   const hasSavedAnalysis = !!activeApplication?.gapReport;
   const showResumeWorkspace =
     !!snapshot || !!activeApplication || applications.length > 0;
@@ -223,7 +223,7 @@ export default function Resume({ targetRoleId }: { targetRoleId?: string | null 
         ["Full report", !!activeApplication.gapReport],
         ["Tailored resume", !!activeApplication.tailoredResume],
         ["Goal", !!activeApplication.linkedGoalId],
-        ["Sprint", !!activeApplication.linkedSprintCreatedAt],
+        ["Path", !!activeApplication.linkedSprintCreatedAt],
       ] as const)
     : [];
   const scrollToSavedAnalysis = () => {
@@ -764,14 +764,14 @@ export default function Resume({ targetRoleId }: { targetRoleId?: string | null 
                     disabled={!!busy}
                     className="rounded-full border border-white/20 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10 disabled:opacity-60"
                   >
-                    Build gap-closing sprint
+                    Draft the path
                   </button>
                 ) : activeApplication ? (
                   <Link
                     to="/pricing?source=resume"
                     className="rounded-full border border-white/20 px-5 py-3 text-sm font-semibold text-white hover:bg-white/10"
                   >
-                    Start Sprint plan
+                    See the paid plan
                   </Link>
                 ) : (
                   <button
@@ -897,9 +897,9 @@ export default function Resume({ targetRoleId }: { targetRoleId?: string | null 
                   </SnapshotActionCard>
 
                   <SnapshotActionCard
-                    badge="Sprint"
-                    title="Gap-closing sprint plan"
-                    description="Turn the weakest requirements into a focused 2-8 week plan with proof-building tasks."
+                    badge="Path"
+                    title="Path from this report"
+                    description="Turn the weakest requirements into a focused 2-8 week path with proof-building tasks."
                   >
                     {!user || !activeApplication ? (
                       <button
@@ -917,20 +917,20 @@ export default function Resume({ targetRoleId }: { targetRoleId?: string | null 
                         disabled={!!busy}
                         className="rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                       >
-                        Build sprint
+                        Draft the path
                       </button>
                     ) : (
                       <Link
                         to="/pricing?source=resume"
                         className="inline-flex rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-700"
                       >
-                        Start Sprint plan
+                        See the paid plan
                       </Link>
                     )}
                   </SnapshotActionCard>
 
                   <SnapshotActionCard
-                    badge="Sprint"
+                    badge="Proof"
                     title="Proof builder"
                     description="Get project ideas and practice focus areas based on the missing evidence in the report."
                   >
@@ -957,7 +957,7 @@ export default function Resume({ targetRoleId }: { targetRoleId?: string | null 
                         to="/pricing?source=resume"
                         className="inline-flex rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-700"
                       >
-                        Unlock Sprint
+                        See the paid plan
                       </Link>
                     )}
                   </SnapshotActionCard>
@@ -1187,7 +1187,7 @@ export default function Resume({ targetRoleId }: { targetRoleId?: string | null 
                           {application.targetRoleTitle
                             ? `Linked to ${application.targetRoleTitle}`
                             : application.linkedSprintCreatedAt
-                              ? "Sprint created"
+                              ? "Path started"
                               : application.linkedGoalId
                                 ? "Goal created"
                                 : "Resume analysis"}

@@ -123,7 +123,7 @@ export default function Pricing() {
       )}
 
       <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={6}>
-        {plans.filter((plan) => plan.key !== 'sprint' || currentPlan?.planKey === 'sprint').map((plan) => {
+        {plans.filter((plan) => plan.key !== 'sprint').map((plan) => {
           const price =
             billingInterval === 'month'
               ? formatPrice(plan.monthlyPriceCents, 'month')

@@ -157,8 +157,8 @@ export default function Goals() {
         title="Goals"
         description="The career outcomes you are working toward. Today builds your daily session from your main goal."
         actions={(
-          <Button as={Link} to="/goals/new" width={{ base: 'full', lg: 'auto' }}>
-            New goal
+          <Button as={Link} to="/directions" width={{ base: 'full', lg: 'auto' }}>
+            Start another direction
           </Button>
         )}
       />
@@ -204,8 +204,8 @@ export default function Goals() {
           title="No goals yet"
           description="Start with one focused outcome and let Daily Push shape the roadmap, the daily sessions, and the proof of progress around it."
           action={(
-            <Button as={Link} to="/goals/new">
-              Set your first goal
+            <Button as={Link} to="/directions">
+              Choose a direction
             </Button>
           )}
         />

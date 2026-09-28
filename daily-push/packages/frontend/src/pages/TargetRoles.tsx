@@ -84,7 +84,7 @@ export default function TargetRoles() {
             to="/career-market"
             className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5"
           >
-            Browse directions
+            {roles.length > 0 ? 'Start another direction' : 'Browse directions'}
           </Link>
         </div>
       </div>

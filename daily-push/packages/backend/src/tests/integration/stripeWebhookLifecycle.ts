@@ -275,7 +275,7 @@ async function run(): Promise<void> {
     );
 
     const activePlan = await getCurrentPlanState(userId);
-    assert.equal(activePlan.planKey, 'sprint');
+    assert.equal(activePlan.planKey, 'pro');
 
     const { rows: activeSubscriptionRows } = await pool.query<{
       plan_key: string;

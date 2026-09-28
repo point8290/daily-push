@@ -21,6 +21,7 @@ import {
   Navigate,
   useLocation,
   useNavigate,
+  useParams,
 } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { EntitlementsProvider } from './contexts/EntitlementsContext';
@@ -28,17 +29,14 @@ import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Today from './pages/Today';
 import Goals from './pages/Goals';
-import GoalSetup from './pages/GoalSetup';
 import GoalDetail from './pages/GoalDetail';
 import Map from './pages/Map';
 import History from './pages/History';
-import News from './pages/News';
 import Resume from './pages/Resume';
 import ResumeApplication from './pages/ResumeApplication';
 import CareerMarket from './pages/CareerMarket';
 import RoleMarketDetail from './pages/RoleMarketDetail';
 import TargetRoles from './pages/TargetRoles';
-import TargetRoleWorkspace from './pages/TargetRoleWorkspace';
 import Settings from './pages/Settings';
 import Pricing from './pages/Pricing';
 import MockInterview from './pages/MockInterview';
@@ -70,7 +68,7 @@ const primaryNavItems: NavItem[] = [
 const accountNavItems: NavItem[] = [
   { to: '/history', label: 'Progress' },
   { to: '/directions', label: 'Directions', matches: ['/target-roles'] },
-  { to: '/goals', label: 'All plans', end: true },
+  { to: '/goals', label: 'Goals', end: true },
   { to: '/mock', label: 'Interview practice' },
 ];
 
@@ -290,6 +288,11 @@ function AppContentFrame({ children }: { children: ReactNode }) {
   );
 }
 
+function LegacyRoleRedirect() {
+  const { id } = useParams();
+  return <Navigate to={id ? `/proof?role=${id}` : '/directions'} replace />;
+}
+
 function ProtectedLayout({ children }: { children?: ReactNode }) {
   const { user, loading } = useAuth();
   const location = useLocation();
@@ -352,13 +355,13 @@ function MainContent() {
         <Route path="/career-market/find-direction" element={<CareerMarket />} />
         <Route path="/career-market/roles/:roleId" element={<RoleMarketDetail />} />
         <Route path="/goals" element={<Goals />} />
-        <Route path="/goals/new" element={<GoalSetup />} />
+        <Route path="/goals/new" element={<Navigate to="/directions" replace />} />
         <Route path="/goals/:id" element={<GoalDetail />} />
         <Route path="/target-roles" element={<TargetRoles />} />
-        <Route path="/target-roles/:id" element={<TargetRoleWorkspace />} />
+        <Route path="/target-roles/:id" element={<LegacyRoleRedirect />} />
         <Route path="/resume" element={<Resume />} />
         <Route path="/resume/applications/:applicationId" element={<ResumeApplication />} />
-        <Route path="/news" element={<News />} />
+        <Route path="/news" element={<Navigate to="/today" replace />} />
         <Route path="/history" element={<History />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/metrics" element={<ProductMetrics />} />

@@ -12,7 +12,6 @@ import settingsRouter from './settings';
 import eventsRouter from './events';
 import meRouter from './me';
 import billingRouter from './billing';
-import newsRouter from './news';
 import reportsRouter from './reports';
 import resumeRouter from './resume';
 import marketRouter from './market';
@@ -38,7 +37,6 @@ router.use('/settings', settingsRouter);
 router.use('/events', eventsRouter);
 router.use('/me', meRouter);
 router.use('/billing', billingRouter);
-router.use('/news', newsRouter);
 router.use('/demo', demoRouter);
 
 export default router;

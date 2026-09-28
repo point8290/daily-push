@@ -151,7 +151,7 @@ Work in order. Each phase is shippable. Routes and tables stay until a later pha
 | 2 | Four surfaces over current APIs | `done` |
 | 3 | Today states the loop | `done` |
 | 4 | Artifact, claim, and voice line | `done` |
-| 5 | Remove deprecated doors | `not_started` |
+| 5 | Remove deprecated doors | `done` |
 
 ### Phase 1 — Language and shell
 
@@ -307,6 +307,14 @@ Keep:
 - Entitlement keys during the billing fold, even if the pricing page shows two plans.
 
 Exit: the reference walk is the only learner journey. Old URLs redirect. Pricing shows Free and one paid plan.
+
+Shipped:
+
+- `/news` redirects to Today. The news router is unmounted. The news service remains for the demo seed. No news table was dropped.
+- `/goals/new` redirects to the direction library. Choosing a direction still opens Path to confirm. Suggest-next is unmounted. The library action is “Start another direction.”
+- `/target-roles/:id` redirects to Proof for that role. The six-tab workspace stays available inside Path, Proof, and Voice.
+- Pro now includes interview practice, proof export, gap reports, and the path schedule that used to sit on Sprint. A stored `sprint` subscription still renews under that key and is shown and entitled as Pro. New checkout of Sprint becomes Pro. Pricing lists Free and Pro.
+- Learner-facing Sprint and upgrade-plan labels on the resume, interview, and path screens now say path, proof, or the paid plan. `goal_sprints` and upgrade-plan rows stay the schedule.
 
 ## Billing through the phases
 

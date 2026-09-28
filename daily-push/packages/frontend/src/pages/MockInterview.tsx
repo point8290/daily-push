@@ -493,7 +493,7 @@ export default function MockInterview() {
               </div>
               {currentPlan && !mockEnabled ? (
                 <Button as={RouterLink} to="/pricing" size="sm" variant="outline">
-                  Needs Sprint plan
+                  See the paid plan
                 </Button>
               ) : (
                 <button

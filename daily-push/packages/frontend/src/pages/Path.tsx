@@ -87,7 +87,7 @@ export default function Path() {
                 Browse directions
               </Link>
               <Link
-                to="/goals/new"
+                to="/directions"
                 className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700"
               >
                 Name it yourself

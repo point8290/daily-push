@@ -492,7 +492,7 @@ export default function GoalDetail({ goalId }: { goalId?: string } = {}) {
       const health = await rebaselineGoalSprint(id);
       setPlanHealth(health);
       toast({
-        title: 'Sprint forecast updated',
+        title: 'Path forecast updated',
         status: 'success',
         duration: 2500,
         isClosable: true,
@@ -500,7 +500,7 @@ export default function GoalDetail({ goalId }: { goalId?: string } = {}) {
       });
     } catch {
       toast({
-        title: 'Failed to refresh sprint forecast',
+        title: 'Could not refresh the path forecast',
         status: 'error',
         duration: 3000,
         isClosable: true,
@@ -765,7 +765,7 @@ export default function GoalDetail({ goalId }: { goalId?: string } = {}) {
   const darkButton = `${actionButtonClass} bg-slate-900 text-white hover:bg-slate-800`;
   const nextActionButton =
     nextAction.kind === 'setup' ? (
-      <Link to="/goals/new" className={darkButton}>{nextAction.label}</Link>
+      <Link to="/directions" className={darkButton}>{nextAction.label}</Link>
     ) : nextAction.kind === 'confirm' ? (
       <button onClick={handleConfirm} disabled={confirming} className={darkButton}>{nextAction.label}</button>
     ) : nextAction.kind === 'building' ? (
@@ -841,7 +841,7 @@ export default function GoalDetail({ goalId }: { goalId?: string } = {}) {
         <p className="-mt-2 text-sm text-slate-600">
           Plan for{' '}
           <Link
-            to={goal.raw?.targetRoleId ? `/target-roles/${goal.raw.targetRoleId}` : '/career-market'}
+            to={goal.raw?.targetRoleId ? `/proof?role=${goal.raw.targetRoleId}` : '/career-market'}
             className="font-semibold text-sky-700 hover:underline"
           >
             {goal.raw?.targetRoleTitle ?? 'your target role'} →
