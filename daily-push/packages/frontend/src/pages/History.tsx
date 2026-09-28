@@ -654,7 +654,7 @@ export default function History() {
 
                     <SurfaceCard p={4}>
                       <Text fontSize="xs" fontWeight="800" letterSpacing="0.14em" textTransform="uppercase" color="ink.400">
-                        Sprint health
+                        Plan health
                       </Text>
                       <SimpleGrid mt={3} columns={{ base: 1, md: 2 }} spacing={3}>
                         <SurfaceCard p={4} bg="blackAlpha.50">
@@ -663,11 +663,11 @@ export default function History() {
                             {weeklyReport.planHealth.completionScore}% complete
                           </Text>
                           <Text mt={1} fontSize="xs" color="ink.500">
-                            {weeklyReport.planHealth.completedNodes}/{weeklyReport.planHealth.totalNodes} nodes done
+                            {weeklyReport.planHealth.completedNodes}/{weeklyReport.planHealth.totalNodes} concepts done
                           </Text>
                         </SurfaceCard>
                         <SurfaceCard p={4} bg="blackAlpha.50">
-                          <Text fontSize="xs" color="ink.500">Weekly rhythm</Text>
+                          <Text fontSize="xs" color="ink.500">Weekly target</Text>
                           <Text mt={2} fontSize="sm" fontWeight="700" color="ink.900">
                             {weeklyReport.planHealth.weeklyTargetMinutes
                               ? `${formatMinutes(weeklyReport.planHealth.weeklyTargetMinutes)}/week`

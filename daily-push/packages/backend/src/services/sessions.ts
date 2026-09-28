@@ -2,6 +2,7 @@ import { pool } from '../db/postgres';
 import { getDb } from '../db/mongo';
 import { ObjectId } from 'mongodb';
 import { runUnlockLogic } from './decomposition';
+import { getGoalPlanHealth } from './sprintPlanner';
 
 // ─────────────────────────────────────────────
 // SR interval ladder: days between reviews
@@ -516,9 +517,14 @@ export async function getTodayData(userId: string): Promise<TodayData> {
   const remainingNodes = totalNodes - doneNodes;
   // Prefer the plan-health forecast (the same date the goal page shows) so
   // Today and the goal page never disagree. Fall back to a rough estimate.
-  const forecast = goal.sprint?.forecastedCompletionDate
-    ? new Date(goal.sprint.forecastedCompletionDate)
+  // The stored sprint date can be stale, so compute it live the same way
+  // the goal page does.
+  const liveHealth = goal.sprint
+    ? await getGoalPlanHealth(userId, goalId).catch(() => null)
     : null;
+  const forecastIso =
+    liveHealth?.forecastedCompletionDate ?? goal.sprint?.forecastedCompletionDate ?? null;
+  const forecast = forecastIso ? new Date(forecastIso) : null;
   const forecastWeeks =
     forecast && !Number.isNaN(forecast.getTime())
       ? Math.max(1, Math.ceil((forecast.getTime() - Date.now()) / (7 * 24 * 60 * 60 * 1000)))
