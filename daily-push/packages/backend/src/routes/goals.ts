@@ -20,7 +20,6 @@ import {
   getGoalNodes,
   DecomposeTrackerHooks,
 } from "../services/decomposition";
-import { suggestNextGoals } from "../services/similarity";
 import { getResumeApplication, linkResumeApplicationGoal } from "../services/jobGapAnalysis";
 import { syncGoalGaps } from "../services/gapProgress";
 import { config } from "../config";
@@ -1497,22 +1496,6 @@ router.delete(
 
       res.json({ ok: true });
     } catch (err) { next(err); }
-  },
-);
-
-// GET /api/goals/:id/suggest-next — suggest next goals after completing this one
-router.get(
-  "/:id/suggest-next",
-  requireAuth,
-  async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { userId } = req as AuthRequest;
-      const goalId = String(req.params.id);
-      const suggestions = await suggestNextGoals(userId, goalId);
-      res.json(suggestions);
-    } catch (err) {
-      next(err);
-    }
   },
 );
 

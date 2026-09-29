@@ -128,7 +128,7 @@ export default function WeeklyCheckinModal({
       isOpen={isOpen}
       onClose={onClose}
       title={editing ? 'Edit this week’s check-in' : 'Weekly check-in'}
-      description={`Two minutes on how the week went${goalTitle ? ` for ${goalTitle}` : ''}. Blockers you list shape next week’s plan.`}
+      description={`What became visible this week${goalTitle ? ` on ${goalTitle}` : ''}, and whether the pace still fits.`}
       closeOnOverlayClick={false}
       footer={(
         <>
@@ -152,21 +152,21 @@ export default function WeeklyCheckinModal({
     >
       <div className="space-y-5">
         <div className="grid gap-5 sm:grid-cols-2">
-          <RatingRow label="How sure are you about the goal?" hint={['Not sure', 'Very sure']} value={confidence} onChange={setConfidence} />
-          <RatingRow label="How is your momentum?" hint={['Stuck', 'Flying']} value={momentum} onChange={setMomentum} />
+          <RatingRow label="How sure are you about this direction?" hint={['Not sure', 'Very sure']} value={confidence} onChange={setConfidence} />
+          <RatingRow label="Does the pace still fit?" hint={['Too light', 'Fits']} value={momentum} onChange={setMomentum} />
         </div>
         <label className="block space-y-1.5">
-          <span className="text-sm font-semibold text-slate-800">Wins</span>
+          <span className="text-sm font-semibold text-slate-800">What became visible</span>
           <textarea
             value={wins}
             onChange={(e) => setWins(e.target.value)}
             rows={3}
-            placeholder="One per line. e.g. finished the caching concept"
+            placeholder="One per line. e.g. I can explain the caching trade-off"
             className={fieldCls}
           />
         </label>
         <label className="block space-y-1.5">
-          <span className="text-sm font-semibold text-slate-800">What got in the way</span>
+          <span className="text-sm font-semibold text-slate-800">What the pace should account for</span>
           <textarea
             value={blockers}
             onChange={(e) => setBlockers(e.target.value)}

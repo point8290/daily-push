@@ -369,7 +369,7 @@ export default function GoalSetup() {
               Your career plan is ready
             </Heading>
             <Text fontSize="sm" color="ink.500">
-              Redirecting you to the goal workspace...
+              Redirecting you to confirm the path...
             </Text>
           </Stack>
         </Center>
@@ -393,7 +393,7 @@ export default function GoalSetup() {
             onComplete={(run) => {
               if (run.status === 'failed' || run.status === 'partial') return;
               setStep('done');
-              setTimeout(() => navigate(`/goals/${currentGoalId}`), 1200);
+              setTimeout(() => navigate(`/path?goal=${currentGoalId}`), 1200);
             }}
           />
         </SurfaceCard>

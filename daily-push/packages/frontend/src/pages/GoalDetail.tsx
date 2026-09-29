@@ -110,12 +110,12 @@ interface ConceptNode {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const urgencyLabel: Record<string, string> = {
-  exploring: 'Just exploring', planning: 'Actively planning',
-  urgent: 'Urgent', crisis: 'In crisis mode',
+  exploring: 'Exploring', planning: 'Planning',
+  urgent: 'Time-sensitive', crisis: 'Time-sensitive',
 };
 const driverLabel: Record<string, string> = {
-  growth: 'Growth', avoidance: 'Avoiding risk', social: 'Social proof',
-  validation: 'Self-validation', financial: 'Financial', curiosity: 'Curiosity',
+  growth: 'Growth', avoidance: 'Steadier ground', social: 'Reputation',
+  validation: 'Craft', financial: 'Financial', curiosity: 'Curiosity',
 };
 const longevityColor: Record<string, string> = {
   high: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -123,7 +123,7 @@ const longevityColor: Record<string, string> = {
   low: 'bg-red-50 text-red-600 border-red-200',
 };
 const aiLabel: Record<string, string> = {
-  amplified: 'AI amplifies', replaced: 'AI replaces', unaffected: 'AI-neutral',
+  amplified: 'Judgment-heavy', replaced: 'AI-assisted', unaffected: 'Foundational',
 };
 const nodeStatusStyle: Record<string, string> = {
   locked:      'bg-slate-50 border-slate-200 text-slate-400',
@@ -302,8 +302,9 @@ function ActionCard({
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function GoalDetail() {
-  const { id } = useParams<{ id: string }>();
+export default function GoalDetail({ goalId }: { goalId?: string } = {}) {
+  const params = useParams<{ id: string }>();
+  const id = goalId ?? params.id;
   const navigate = useNavigate();
   const location = useLocation();
   const { entitlements } = useEntitlements();
@@ -491,7 +492,7 @@ export default function GoalDetail() {
       const health = await rebaselineGoalSprint(id);
       setPlanHealth(health);
       toast({
-        title: 'Sprint forecast updated',
+        title: 'Path forecast updated',
         status: 'success',
         duration: 2500,
         isClosable: true,
@@ -499,7 +500,7 @@ export default function GoalDetail() {
       });
     } catch {
       toast({
-        title: 'Failed to refresh sprint forecast',
+        title: 'Could not refresh the path forecast',
         status: 'error',
         duration: 3000,
         isClosable: true,
@@ -764,7 +765,7 @@ export default function GoalDetail() {
   const darkButton = `${actionButtonClass} bg-slate-900 text-white hover:bg-slate-800`;
   const nextActionButton =
     nextAction.kind === 'setup' ? (
-      <Link to="/goals/new" className={darkButton}>{nextAction.label}</Link>
+      <Link to="/directions" className={darkButton}>{nextAction.label}</Link>
     ) : nextAction.kind === 'confirm' ? (
       <button onClick={handleConfirm} disabled={confirming} className={darkButton}>{nextAction.label}</button>
     ) : nextAction.kind === 'building' ? (
@@ -795,7 +796,7 @@ export default function GoalDetail() {
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="Plan"
+        eyebrow="Path"
         title={s.title || 'Goal setup'}
         description={
           goal.ownWords
@@ -806,10 +807,10 @@ export default function GoalDetail() {
           <div className="flex items-center gap-2">
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusChip.cls}`}>{statusChip.label}</span>
             <Link
-              to="/goals"
+              to="/directions"
               className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:border-sky-200 hover:text-sky-700"
             >
-              All plans
+              Directions
             </Link>
           </div>
         )}
@@ -840,7 +841,7 @@ export default function GoalDetail() {
         <p className="-mt-2 text-sm text-slate-600">
           Plan for{' '}
           <Link
-            to={goal.raw?.targetRoleId ? `/target-roles/${goal.raw.targetRoleId}` : '/career-market'}
+            to={goal.raw?.targetRoleId ? `/proof?role=${goal.raw.targetRoleId}` : '/career-market'}
             className="font-semibold text-sky-700 hover:underline"
           >
             {goal.raw?.targetRoleTitle ?? 'your target role'} →
@@ -923,7 +924,7 @@ export default function GoalDetail() {
             </button>
           ))}
           <Link
-            to="/map"
+            to={goalId ? '#path-map' : '/map'}
             className="-mb-px border-b-2 border-transparent px-4 py-2.5 text-sm font-semibold text-slate-500 hover:text-slate-800"
           >
             Map

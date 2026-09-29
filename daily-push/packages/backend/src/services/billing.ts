@@ -354,7 +354,7 @@ async function upsertStripeSubscription(params: {
 }
 
 export function getPlanCatalog() {
-  return listBillingPlans().map((plan) => ({
+  return listBillingPlans().filter((plan) => plan.key !== 'sprint').map((plan) => ({
     key: plan.key,
     name: plan.name,
     description: plan.description,
@@ -502,6 +502,7 @@ export async function createCheckoutSession(
     (error as Error & { statusCode: number }).statusCode = 400;
     throw error;
   }
+  const planKey = input.planKey === 'sprint' ? 'pro' : input.planKey;
 
   const intervalKey = (input.intervalKey ?? 'month') as BillingIntervalKey;
   if (!['month', 'year', 'lifetime'].includes(intervalKey)) {
@@ -513,8 +514,8 @@ export async function createCheckoutSession(
   const customer = await ensureBillingCustomer(userId, input.email ?? null);
   const checkoutUrl =
     config.billing.provider === 'manual'
-      ? `${config.app.frontendUrl}/settings?checkout=success&plan=${input.planKey}`
-      : `${config.app.frontendUrl}/pricing?checkout=pending&plan=${input.planKey}`;
+      ? `${config.app.frontendUrl}/settings?checkout=success&plan=${planKey}`
+      : `${config.app.frontendUrl}/pricing?checkout=pending&plan=${planKey}`;
   let providerSessionId: string | null =
     config.billing.provider === 'stripe' ? null : `manual_checkout_${randomUUID()}`;
   let responseUrl = checkoutUrl;
@@ -529,7 +530,7 @@ export async function createCheckoutSession(
     const session = await createStripeCheckoutSession({
       customerId: customer.provider_customer_id,
       userId,
-      planKey: input.planKey,
+      planKey,
       intervalKey,
       successUrl: `${config.app.frontendUrl}/settings?checkout=success&provider=stripe&session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${config.app.frontendUrl}/pricing?checkout=cancelled${input.source ? `&source=${encodeURIComponent(input.source)}` : ''}`,
@@ -550,11 +551,11 @@ export async function createCheckoutSession(
       customer.id,
       config.billing.provider,
       providerSessionId,
-      input.planKey,
+      planKey,
       intervalKey,
       responseUrl,
       JSON.stringify({
-        requestedPlanKey: input.planKey,
+        requestedPlanKey: planKey,
         requestedIntervalKey: intervalKey,
         source: input.source ?? null,
       }),
@@ -564,7 +565,7 @@ export async function createCheckoutSession(
   const checkoutSessionId = rows[0].id;
 
   if (config.billing.provider === 'manual') {
-    await activateManualSubscription(userId, customer.id, input.planKey, intervalKey);
+    await activateManualSubscription(userId, customer.id, planKey, intervalKey);
     await pool.query(
       `UPDATE billing_checkout_sessions
           SET status = 'completed',
@@ -580,7 +581,7 @@ export async function createCheckoutSession(
     provider: config.billing.provider,
     url: responseUrl,
     mode: config.billing.provider === 'manual' ? 'manual' : 'external',
-    planKey: input.planKey,
+    planKey,
     intervalKey,
     autoActivated: config.billing.provider === 'manual',
     currentPlan: await getCurrentPlanState(userId),

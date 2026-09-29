@@ -9,6 +9,16 @@ import { publishGoalArtifactsAsEvidence } from './candidateEvidence';
 import { getLatestRoleReadinessReport } from './roleReadiness';
 import { getTargetRole } from './targetRoles';
 
+export interface ArtifactCitation {
+  artifactId: string;
+  sessionId: string;
+  claimId: string | null;
+  nodeTitle: string;
+  taskType: string;
+  excerpt: string;
+  voiceLine: string;
+}
+
 interface EvidenceStatsRow {
   claim_count: number;
   artifact_count: number;
@@ -139,6 +149,87 @@ export async function getTargetRoleProofEvidenceStatus(
   };
   assertValidProofEvidenceStatusResponse(response);
   return response;
+}
+
+function voiceLineForTask(taskType: string, title: string): string {
+  switch (taskType) {
+    case 'design':
+      return `Voice can cite the trade-off you chose for ${title}.`;
+    case 'code':
+      return `Voice can point at the sketch you wrote for ${title}.`;
+    case 'apply':
+      return `Voice can describe a real use of ${title}.`;
+    case 'review':
+      return `Voice can say you can still explain ${title}.`;
+    default:
+      return `Voice can use your explanation of ${title}.`;
+  }
+}
+
+function excerptOf(content: string): string {
+  const compact = content.replace(/\s+/g, ' ').trim();
+  if (compact.length <= 180) return compact;
+  return `${compact.slice(0, 177).trimEnd()}…`;
+}
+
+export function citationVoiceLine(taskType: string, title: string, content: string): string {
+  return `${voiceLineForTask(taskType, title)} It points at this session note: “${excerptOf(content)}”.`;
+}
+
+export async function listTargetRoleArtifactCitations(
+  userId: string,
+  targetRoleId: string,
+): Promise<ArtifactCitation[]> {
+  const targetRole = await getTargetRole(userId, targetRoleId);
+  if (!targetRole?.linkedGoalId) return [];
+
+  const { rows } = await pool.query<{
+    artifact_id: string;
+    session_id: string;
+    task_type: string;
+    content: string;
+    node_title: string;
+    claim_id: string | null;
+    updated_at: string;
+  }>(
+    `SELECT artifact_id, session_id, task_type, content, node_title, claim_id, updated_at
+       FROM (
+         SELECT DISTINCT ON (sa.id)
+                sa.id::text AS artifact_id,
+                sa.session_id::text AS session_id,
+                sa.task_type,
+                sa.content,
+                cn.title AS node_title,
+                cec.claim_key AS claim_id,
+                sa.updated_at
+           FROM session_artifacts sa
+           INNER JOIN concept_nodes cn
+              ON cn.id = sa.node_id
+           LEFT JOIN candidate_evidence_claims cec
+             ON cec.user_id = sa.user_id
+            AND cec.source_type = 'sprint_artifact'
+            AND cec.source_id = sa.id::text
+          WHERE sa.user_id = $1
+            AND cn.goal_id = $2
+            AND sa.content IS NOT NULL
+            AND LENGTH(TRIM(sa.content)) >= 25
+            AND sa.status IN ('submitted', 'evaluated')
+          ORDER BY sa.id, cec.updated_at DESC NULLS LAST
+       ) cited
+      ORDER BY updated_at DESC
+      LIMIT 6`,
+    [userId, targetRole.linkedGoalId],
+  );
+
+  return rows.map((row) => ({
+    artifactId: row.artifact_id,
+    sessionId: row.session_id,
+    claimId: row.claim_id,
+    nodeTitle: row.node_title,
+    taskType: row.task_type,
+    excerpt: excerptOf(row.content),
+    voiceLine: citationVoiceLine(row.task_type, row.node_title, row.content),
+  }));
 }
 
 export async function publishTargetRoleProofEvidence(

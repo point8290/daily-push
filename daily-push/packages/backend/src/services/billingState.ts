@@ -1,6 +1,6 @@
 import { pool } from '../db/postgres';
 import type { BillingIntervalKey, BillingPlanKey } from './billingPlans';
-import { getBillingPlanDefinition } from './billingPlans';
+import { effectiveBillingPlanKey, getBillingPlanDefinition } from './billingPlans';
 
 export type SubscriptionStatus =
   | 'trialing'
@@ -94,12 +94,12 @@ export async function getActiveSubscription(
 
 export async function resolveCurrentPlanKey(userId: string): Promise<BillingPlanKey> {
   const activeSubscription = await getActiveSubscription(userId);
-  return activeSubscription?.plan_key ?? defaultPlanKey();
+  return effectiveBillingPlanKey(activeSubscription?.plan_key ?? defaultPlanKey());
 }
 
 export async function getCurrentPlanState(userId: string): Promise<CurrentPlanState> {
   const subscription = await getActiveSubscription(userId);
-  const planKey = subscription?.plan_key ?? defaultPlanKey();
+  const planKey = effectiveBillingPlanKey(subscription?.plan_key ?? defaultPlanKey());
 
   return {
     planKey,

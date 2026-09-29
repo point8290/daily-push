@@ -255,9 +255,9 @@ export default function Settings() {
                   Plan and billing
                 </Text>
                 <Text fontSize="sm" color="ink.500" lineHeight="1.7">
-                  {currentPlan?.planKey === 'sprint'
-                    ? 'You are on the top plan, so every feature is unlocked.'
-                    : 'Upgrade for more AI feedback, resume reports, and interview practice.'}
+                  {currentPlan?.planKey === 'sprint' || currentPlan?.planKey === 'pro'
+                    ? 'You have the full record: more directions, proof, and voice.'
+                    : 'The free record holds one direction. Pro adds the full proof record and voice.'}
                 </Text>
               </VStack>
               <Button
@@ -281,19 +281,6 @@ export default function Settings() {
                   isDisabled={billingBusy !== null}
                 >
                   Upgrade to Pro
-                </Button>
-              ) : null}
-              {currentPlan?.planKey !== 'sprint' ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  borderColor="blackAlpha.200"
-                  color="ink.700"
-                  onClick={() => handleUpgrade('sprint')}
-                  isLoading={billingBusy === 'sprint'}
-                  isDisabled={billingBusy !== null}
-                >
-                  Unlock Sprint
                 </Button>
               ) : null}
               <Button
@@ -408,7 +395,7 @@ export default function Settings() {
                 <VStack align="flex-start" spacing={0.5}>
                   <Text fontSize="sm" fontWeight="600" color="ink.800">Weekly summary email</Text>
                   <Text fontSize="xs" color="ink.500">
-                    Send sprint health, recovery notes, and progress highlights.
+                    A weekly note on what became visible and how the pace is holding.
                   </Text>
                 </VStack>
                 <Switch

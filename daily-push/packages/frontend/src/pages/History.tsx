@@ -293,7 +293,7 @@ export default function History() {
     <Stack spacing={6}>
       <PageHeader
         title="Progress"
-        description="How often you studied, how this week went, and what to change next week."
+        description="How often you studied, what became visible this week, and whether the pace still fits."
         actions={(
           <HStack spacing={3} flexWrap="wrap">
             <Badge colorScheme="blue" px={3} py={1.5} rounded="full" fontSize="0.72rem">
@@ -400,6 +400,7 @@ export default function History() {
               <div className="mt-4 space-y-5">
                 <p className="text-sm text-slate-600">
                   <span className="font-semibold text-slate-900">{weeklyReport.stats.sessionsThisWeek} session{weeklyReport.stats.sessionsThisWeek === 1 ? '' : 's'}</span>
+                  {' '}added proof this week
                   {' · '}
                   <span className="font-semibold text-slate-900">{formatMinutes(weeklyReport.stats.studyMinutesThisWeek)}</span> studied
                   {' · '}
@@ -418,7 +419,7 @@ export default function History() {
                     </ul>
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-800">Weak spots</p>
+                    <p className="text-sm font-semibold text-slate-800">Still sharpening</p>
                     <ul className="mt-2 space-y-1.5 text-sm text-slate-600">
                       {weeklyReport.weakAreas.length > 0
                         ? weeklyReport.weakAreas.map((item) => <li key={item}>{item}</li>)
@@ -432,7 +433,7 @@ export default function History() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm font-semibold text-slate-900">Next week</p>
                       <span className="text-xs font-semibold text-slate-500">
-                        {({ steady: 'On track', catch_up: 'Catch up', reduce_scope: 'Trim scope' } as Record<string, string>)[recoveryPlan.status] ?? 'Restart gently'}
+                        {({ steady: 'On track', catch_up: 'Pick up the pace', reduce_scope: 'Narrow the path' } as Record<string, string>)[recoveryPlan.status] ?? 'Adjust the pace'}
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-slate-700">{recoveryPlan.headline}</p>
@@ -475,8 +476,8 @@ export default function History() {
                 </p>
                 <p className="mt-0.5 text-sm text-slate-500">
                   {checkinState?.latestCheckin && !checkinState.due
-                    ? `Sure about the goal ${checkinState.latestCheckin.confidence}/5 · momentum ${checkinState.latestCheckin.momentum}/5${checkinState.latestCheckin.blockers[0] ? ` · blocker: ${checkinState.latestCheckin.blockers[0]}` : ''}`
-                    : 'Two minutes on how the week went. It shapes next week’s plan.'}
+                    ? `Direction ${checkinState.latestCheckin.confidence}/5 · pace ${checkinState.latestCheckin.momentum}/5${checkinState.latestCheckin.blockers[0] ? ` · pace note: ${checkinState.latestCheckin.blockers[0]}` : ''}`
+                    : 'What became visible, and whether the pace still fits.'}
                 </p>
               </div>
               <button

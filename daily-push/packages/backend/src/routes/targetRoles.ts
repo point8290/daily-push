@@ -31,6 +31,7 @@ import {
 } from '../services/targetRoleDecomposition';
 import {
   getTargetRoleProofEvidenceStatus,
+  listTargetRoleArtifactCitations,
   publishTargetRoleProofEvidence,
 } from '../services/proofEvidence';
 import { getTargetRoleMarketChange } from '../services/targetRoleMarketChange';
@@ -709,6 +710,20 @@ router.get(
       const { userId } = req as AuthRequest;
       const targetRoleId = assertUuid(String(req.params.id));
       res.json(await getTargetRoleProofEvidenceStatus(userId, targetRoleId));
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+router.get(
+  '/:id/artifact-citations',
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { userId } = req as AuthRequest;
+      const targetRoleId = assertUuid(String(req.params.id));
+      res.json(await listTargetRoleArtifactCitations(userId, targetRoleId));
     } catch (error) {
       next(error);
     }

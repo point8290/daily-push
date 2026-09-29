@@ -764,6 +764,19 @@ export const startTargetRoleUpgradeSprint = (
   api
     .post(`/target-roles/${id}/upgrade-plans/${upgradePlanId}/start-sprint`)
     .then((r) => r.data as StartUpgradePlanSprintResponse);
+export interface ArtifactCitation {
+  artifactId: string;
+  sessionId: string;
+  claimId: string | null;
+  nodeTitle: string;
+  taskType: string;
+  excerpt: string;
+  voiceLine: string;
+}
+export const getTargetRoleArtifactCitations = (id: string) =>
+  api
+    .get(`/target-roles/${id}/artifact-citations`)
+    .then((r) => r.data as ArtifactCitation[]);
 export const getTargetRoleProofEvidenceStatus = (id: string) =>
   api
     .get(`/target-roles/${id}/proof-evidence`)

@@ -13,9 +13,6 @@ import {
   Heading,
   Input,
   Stack,
-  Tab,
-  TabList,
-  Tabs,
   Text,
 } from "@chakra-ui/react";
 import { login, register } from "../api/client";
@@ -111,21 +108,21 @@ export default function Login() {
                 textTransform="uppercase"
                 color="brand.700"
               >
-                Career progress system
+                Daily clarity
               </Text>
               <Heading
                 mt={4}
                 className="font-display"
                 fontSize={{ base: "4xl", md: "5xl" }}
-                lineHeight="0.96"
-                letterSpacing="-0.05em"
+                lineHeight="1.08"
+                letterSpacing="-0.03em"
                 color="ink.900"
               >
                 {isResumeFlow
                   ? "Save your resume audit report and keep improving."
                   : isRoleDiscoveryFlow
-                    ? "Save your role direction and turn it into a plan."
-                    : "Turn ambitious career goals into steady progress."}
+                    ? "Save this direction and confirm the path."
+                    : "Practice one missing skill for your role, every day."}
               </Heading>
               <Text
                 mt={5}
@@ -138,7 +135,7 @@ export default function Login() {
                   ? "Your snapshot will continue after signup, so you can save the full report, tailor the resume, and decide whether to turn the gaps into a plan."
                   : isRoleDiscoveryFlow
                     ? "Keep your target role direction, compare it with real jobs, and build the proof that makes the move believable."
-                    : "Daily Push turns your career goal into a study map and one focused session a day, with AI feedback on what you wrote."}
+                    : "You name the role you are building toward. Daily Push orders the concepts between your current skills and that role. Each day you study the next concept and write a short note. The note is kept as proof of the skill, then rewritten as a resume bullet and an interview answer."}
               </Text>
 
               <Stack
@@ -154,14 +151,14 @@ export default function Login() {
                     textTransform="uppercase"
                     color="brand.700"
                   >
-                    {isResumeFlow ? "Resume-first" : "Career-focused"}
+                    {isResumeFlow ? "Resume-first" : "One session"}
                   </Text>
                   <Text mt={2} fontSize="sm" lineHeight="1.7" color="ink.600">
                     {isResumeFlow
                       ? "Pick up exactly where you left off after checking your resume against the job description."
                       : isRoleDiscoveryFlow
                         ? "Start from the role direction that fits, not from a random list of topics."
-                        : "Every session targets a skill gap for the role you want."}
+                        : "Open the next concept, see why it comes before the others, and write the note for that session. Then you stop."}
                   </Text>
                 </SurfaceCard>
                 <SurfaceCard flex="1" px={5} py={5}>
@@ -172,14 +169,14 @@ export default function Login() {
                     textTransform="uppercase"
                     color="accent.700"
                   >
-                    {isResumeFlow ? "Next steps" : "Execution-first"}
+                    {isResumeFlow ? "Next steps" : "What you keep"}
                   </Text>
                   <Text mt={2} fontSize="sm" lineHeight="1.7" color="ink.600">
                     {isResumeFlow
                       ? "Save the report, generate a tailored draft, or build a gap-closing sprint when you are ready."
                       : isRoleDiscoveryFlow
                         ? "Move from direction to resume checks, proof tasks, and focused upgrade sprints."
-                        : "Finish each session with a short write-up, a score, and a clear next step."}
+                        : "The note stays attached to the skill. The same note becomes the resume bullet and the interview answer."}
                   </Text>
                 </SurfaceCard>
               </Stack>
@@ -215,18 +212,52 @@ export default function Login() {
               </Text>
             </Box>
 
-            <Tabs
+            <Box
               mt={6}
-              index={mode === "login" ? 0 : 1}
-              onChange={(index) => setMode(index === 0 ? "login" : "register")}
-              variant="softRounded"
-              isFitted
+              role="tablist"
+              aria-label="Account"
+              display="grid"
+              gridTemplateColumns="1fr 1fr"
+              gap="4px"
+              p="4px"
+              bg="ink.100"
+              borderRadius="xl"
             >
-              <TabList>
-                <Tab>Sign in</Tab>
-                <Tab>Create account</Tab>
-              </TabList>
-            </Tabs>
+              {([
+                ["login", "Sign in"],
+                ["register", "Create account"],
+              ] as const).map(([value, label]) => {
+                const selected = mode === value;
+                return (
+                  <Button
+                    key={value}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setMode(value)}
+                    variant="ghost"
+                    w="full"
+                    h="40px"
+                    minH="40px"
+                    px={4}
+                    borderRadius="16px"
+                    fontSize="sm"
+                    fontWeight="700"
+                    lineHeight="1"
+                    color={selected ? "ink.900" : "ink.500"}
+                    bg={selected ? "white" : "transparent"}
+                    boxShadow={selected ? "sm" : "none"}
+                    _hover={{
+                      bg: selected ? "white" : "whiteAlpha.700",
+                      color: "ink.900",
+                    }}
+                    _active={{ bg: selected ? "white" : "ink.200" }}
+                  >
+                    {label}
+                  </Button>
+                );
+              })}
+            </Box>
 
             {HAS_DEMO && (
               <Box mt={6} p={4} rounded="xl" bg="blue.50" border="1px solid" borderColor="blue.100">

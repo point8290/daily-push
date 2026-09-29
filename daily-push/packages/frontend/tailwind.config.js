@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        display: ["Lora", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["Manrope", "Segoe UI", "sans-serif"],
         mono: [
           "JetBrains Mono",
           "ui-monospace",

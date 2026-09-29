@@ -21,8 +21,8 @@ function formatDate(value: string): string {
 
 function nextActionLabel(role: TargetRole): string {
   if (role.latestAssessmentId) return "Review readiness";
-  if (role.linkedSprintId) return "Open sprint";
-  if (role.linkedGoalId) return "Review goal";
+  if (role.linkedSprintId) return "Open path";
+  if (role.linkedGoalId) return "Review path";
   return "Generate readiness";
 }
 
@@ -47,7 +47,7 @@ export default function TargetRoles() {
           setError(
             status === 404
               ? "Target Roles are not enabled yet in this environment."
-              : "Could not load your Target Roles right now.",
+              : "Could not load your directions right now.",
           );
         }
       })
@@ -64,23 +64,29 @@ export default function TargetRoles() {
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm font-semibold text-slate-400">
-            Target Roles
+            Library
           </p>
           <h1 className="mt-2 font-display text-5xl font-semibold leading-none tracking-[-0.06em] text-slate-950">
-            Roles you are preparing for.
+            Directions
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-            A target role is the job you are aiming for. For each one you can
-            check how ready you are, track applications to specific companies,
-            and start a plan to close the gaps.
+            Each direction has one path, one proof record, and one way of talking about the work.
           </p>
         </div>
-        <Link
-          to="/career-market"
-          className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5"
-        >
-          Explore new roles
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            to="/goals"
+            className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700"
+          >
+            All plans
+          </Link>
+          <Link
+            to="/career-market"
+            className="inline-flex items-center justify-center rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5"
+          >
+            {roles.length > 0 ? 'Start another direction' : 'Browse directions'}
+          </Link>
+        </div>
       </div>
 
       {error && (
@@ -103,21 +109,19 @@ export default function TargetRoles() {
           <div className="grid gap-6 lg:grid-cols-[1fr_0.8fr] lg:items-center">
             <div>
               <p className="text-sm font-semibold text-sky-700">
-                No target role yet
+                No direction yet
               </p>
               <h2 className="mt-3 text-3xl font-semibold tracking-[-0.06em] text-slate-950">
-                Pick the role you want next.
+                Choose the work you want to be known for.
               </h2>
               <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-                Browse roles or answer a few questions to get suggestions. Save
-                one here and you will see how ready you are for it and what to
-                work on.
+                Browse directions or name one yourself. Saving one opens the path you confirm before Today schedules a session.
               </p>
               <Link
                 to="/career-market/find-direction"
                 className="mt-6 inline-flex rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-900/15 transition hover:-translate-y-0.5"
               >
-                Find a target role
+                Browse directions
               </Link>
             </div>
             <div className="rounded-[32px] bg-slate-950 p-6 text-white">
@@ -126,9 +130,9 @@ export default function TargetRoles() {
               </p>
               <div className="mt-5 space-y-3">
                 {[
-                  "Target role: the job you want",
-                  "Application: one company and job post",
-                  "Plan: weekly work that closes your gaps",
+                  "Direction: the work you are building toward",
+                  "Path: the order you confirm",
+                  "Proof and voice: what you can show and say",
                 ].map((item) => (
                   <div
                     key={item}
@@ -146,7 +150,7 @@ export default function TargetRoles() {
           {roles.map((role) => (
             <Link
               key={role.id}
-              to={`/target-roles/${role.id}`}
+              to={role.linkedGoalId ? `/path?goal=${role.linkedGoalId}&role=${role.id}` : `/path?role=${role.id}`}
               className="block rounded-[32px] border border-white/70 bg-white/88 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
             >
               <div className="flex items-start justify-between gap-3">
@@ -181,7 +185,7 @@ export default function TargetRoles() {
                 </div>
               </div>
               <p className="mt-5 text-sm font-semibold text-sky-700">
-                Open workspace
+                Open path
               </p>
             </Link>
           ))}

@@ -29,19 +29,17 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlanDefinition> = {
     key: "free",
     name: "Free",
     description:
-      "Start one goal, sample the AI coach, and prove the workflow fits you.",
+      "One direction, the daily session, and a short proof record.",
     monthlyPriceCents: null,
     yearlyPriceCents: null,
     highlight: false,
     ctaLabel: "Current baseline",
     features: [
-      "1 active goal",
-      "10 AI understanding checks each month",
-      "Core daily plan and map",
-      "5 Role Discovery direction checks each day",
-      "1 saved target role with 1 readiness report each month",
-      "Public resume audit snapshot",
-      "1 saved resume application and 1 full resume report each month",
+      "One active direction",
+      "Daily session and the path",
+      "A short proof record",
+      "Direction suggestions to choose where to build",
+      "A first resume read and one saved application",
     ],
     entitlements: {
       "goals.active.max": { enabled: true, limitValue: 1, resetPeriod: null },
@@ -131,19 +129,19 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlanDefinition> = {
     key: "pro",
     name: "Pro",
     description:
-      "For engineers who want deeper feedback, richer reports, and fewer limits.",
+      "The full record: more directions, proof you can show, and language that matches it.",
     monthlyPriceCents: 1500,
     yearlyPriceCents: 14400,
     highlight: true,
     ctaLabel: "Upgrade to Pro",
     features: [
-      "Unlimited active goals",
-      "150 AI understanding checks each month",
-      "Premium resource recovery tools",
-      "Unlimited Role Discovery direction checks and 10 saved target roles",
-      "25 readiness reports, role comparisons, and reassessments each month",
-      "Full resume gap reports, tailored resume drafts, and saved applications",
-      "Copy/export-ready application assets",
+      "More than one direction",
+      "Full proof record and weekly progress",
+      "Resume narrative and tailored drafts",
+      "Saved applications for specific roles",
+      "Direction comparisons as you choose where to build",
+      "Interview practice",
+      "Export of the proof and voice record",
     ],
     entitlements: {
       "goals.active.max": {
@@ -212,22 +210,22 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlanDefinition> = {
         resetPeriod: null,
       },
       "premium_sprints.enabled": {
-        enabled: false,
+        enabled: true,
         limitValue: null,
         resetPeriod: null,
       },
       "gap_reports.monthly": {
-        enabled: false,
-        limitValue: 0,
+        enabled: true,
+        limitValue: 10,
         resetPeriod: "monthly",
       },
       "mock_interviews.monthly": {
-        enabled: false,
-        limitValue: 0,
+        enabled: true,
+        limitValue: 8,
         resetPeriod: "monthly",
       },
       "artifacts.export.enabled": {
-        enabled: false,
+        enabled: true,
         limitValue: null,
         resetPeriod: null,
       },
@@ -237,17 +235,15 @@ export const BILLING_PLANS: Record<BillingPlanKey, BillingPlanDefinition> = {
     key: "sprint",
     name: "Sprint",
     description:
-      "For turning resume gaps into a focused weekly plan with proof, interview practice, and accountability.",
+      "Kept for current subscribers. Includes the full record plus interview practice and export.",
     monthlyPriceCents: 4900,
     yearlyPriceCents: 47040,
     highlight: false,
     ctaLabel: "Start a Sprint",
     features: [
-      "Unlimited active goals",
-      "400 AI understanding checks each month",
-      "Everything in Pro for resume reports and tailored drafts",
-      "Unlimited target roles, market checks, role comparisons, and reassessments",
-      "Gap-closing sprints, proof builder, mock interviews, and artifact exports",
+      "Everything in Pro",
+      "Interview practice",
+      "Export of the proof and voice record",
     ],
     entitlements: {
       "goals.active.max": {
@@ -359,6 +355,11 @@ export function getBillingPlanDefinition(
 
 export function isBillingPlanKey(value: string): value is BillingPlanKey {
   return value in BILLING_PLANS;
+}
+
+/** Sprint stays a stored subscription key. The paid plan people see and use is Pro. */
+export function effectiveBillingPlanKey(planKey: BillingPlanKey): BillingPlanKey {
+  return planKey === "sprint" ? "pro" : planKey;
 }
 
 export function getUpgradePlanForFeature(

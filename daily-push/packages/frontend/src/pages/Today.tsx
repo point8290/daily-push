@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useActiveDirection } from '../contexts/DirectionContext';
 import { useEntitlements } from '../contexts/EntitlementsContext';
 import EmptyState from '../components/ui/EmptyState';
 import AppModal from '../components/ui/AppModal';
@@ -13,7 +13,6 @@ import {
   getGoalProgress,
   getGoalWeeklyCheckin,
   getNodeResources,
-  getSuggestedNextGoals,
   getSessionTask,
   getToday,
   getWeeklyReport,
@@ -45,6 +44,45 @@ const taskTypeLabel: Record<SessionTask['taskType'], string> = {
   apply: 'Apply',
   review: 'Review',
 };
+
+function previewTaskType(node: NodeInfo, review: boolean): SessionTask['taskType'] {
+  if (review) return 'review';
+  const signal = `${node.title} ${node.description ?? ''}`.toLowerCase();
+  if (/(design|architecture|system|scal|throughput|latency|api contract)/.test(signal)) return 'design';
+  if (/(algorithm|implement|code|component|function|query|hook|schema|endpoint)/.test(signal)) return 'code';
+  if (node.depth_level === 'intermediate' || node.depth_level === 'advanced') return 'apply';
+  return 'explain';
+}
+
+function artifactLine(taskType: SessionTask['taskType'], title: string): string {
+  switch (taskType) {
+    case 'design':
+      return `A design note on ${title}.`;
+    case 'code':
+      return `A short implementation sketch of ${title}.`;
+    case 'apply':
+      return `A note on how you would use ${title}.`;
+    case 'review':
+      return `A recall note that keeps ${title} sharp.`;
+    default:
+      return `A short explanation of ${title}.`;
+  }
+}
+
+function voiceLine(taskType: SessionTask['taskType'], title: string): string {
+  switch (taskType) {
+    case 'design':
+      return `Voice can cite the trade-off you chose for ${title}.`;
+    case 'code':
+      return `Voice can point at the sketch you wrote for ${title}.`;
+    case 'apply':
+      return `Voice can describe a real use of ${title}.`;
+    case 'review':
+      return `Voice can say you can still explain ${title}.`;
+    default:
+      return `Voice can use your explanation of ${title}.`;
+  }
+}
 
 function urlDomain(url: string): string {
   try { return new URL(url).hostname.replace('www.', ''); }
@@ -220,7 +258,7 @@ function EvaluationCard({ evaluation }: { evaluation: SessionArtifactEvaluation 
 export default function Today() {
   const [searchParams] = useSearchParams();
   const preferredNodeId = searchParams.get('node');
-  const { user } = useAuth();
+  const direction = useActiveDirection();
   const { currentPlan, entitlements } = useEntitlements();
 
   const [data, setData] = useState<TodayData | null>(null);
@@ -254,15 +292,6 @@ export default function Today() {
   const [movingToRating, setMovingToRating] = useState(false);
   const [notes, setNotes] = useState('');
   const [checkinOpen, setCheckinOpen] = useState(false);
-
-  const [nextGoals, setNextGoals] = useState<Array<{
-    profileId: string;
-    title: string;
-    archetype: string;
-    estimatedWeeks: { min: number; max: number };
-    topSkills: string[];
-    reason: string;
-  }>>([]);
 
   const { mins, secs, pct } = useTimer(timebox, stage === 'in_session' || stage === 'rating');
   const weeklyReportsEnabled = entitlements.find(
@@ -513,19 +542,6 @@ export default function Today() {
       setGapChanges(result.gapChanges ?? []);
       setRequeued(Boolean(result.requeued));
       setStage('done');
-
-      if (result.newMilestones?.includes('100% complete') && data?.goal?.id) {
-        getSuggestedNextGoals(data.goal.id).then(setNextGoals).catch(() => {});
-      }
-
-      // Give people time to read what changed in their plan.
-      const hasNews = (result.gapChanges?.length ?? 0) > 0 || result.requeued;
-      setTimeout(async () => {
-        resetSessionState();
-        setGapChanges([]);
-        setRequeued(false);
-        await load();
-      }, hasNews ? 5000 : 2500);
     } catch {
       setError('Failed to save session. Try again.');
       setSubmitting(false);
@@ -545,20 +561,20 @@ export default function Today() {
       return (
         <div className="space-y-6">
           <PageHeader
-            eyebrow="Plan review"
-            title="Your goal is waiting for review"
-            description="Review the plan we created from your resume gaps, then confirm it when it matches what you want to pursue."
+            eyebrow="Path review"
+            title="Your path is waiting for review"
+            description="Confirm the path when it matches the direction you want to build."
           />
           <EmptyState
             title={data.pendingGoal.title}
-            description="This goal is not active yet, so Daily Push will not schedule daily sessions until you review and confirm the plan."
+            description="This direction is not active yet. Today schedules a session after you confirm the path."
             accent="brand"
             action={(
               <Link
-                to={`/goals/${data.pendingGoal.id}`}
+                to={`/path?goal=${data.pendingGoal.id}`}
                 className="inline-block rounded-xl bg-[var(--brand-primary)] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-primary-hov)]"
               >
-                Review goal plan
+                Review path
               </Link>
             )}
           />
@@ -571,18 +587,18 @@ export default function Today() {
         <PageHeader
           eyebrow="Daily focus"
           title="Today"
-          description="Start with one active goal and Daily Push will turn it into a focused study rhythm."
+          description="Choose a direction, confirm the path, and Today will hold one session."
         />
         <EmptyState
-          title="No active goal yet"
-          description="Set a goal and confirm the plan to unlock your first daily session."
+          title="No active direction yet"
+          description="Name where you want leverage. Confirming the path unlocks the first session."
           accent="warning"
           action={(
             <Link
-              to="/goals/new"
+              to="/directions"
               className="inline-block rounded-xl bg-[var(--brand-primary)] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-primary-hov)]"
             >
-              Set your goal
+              Choose a direction
             </Link>
           )}
         />
@@ -596,18 +612,18 @@ export default function Today() {
         <PageHeader
           eyebrow="Daily focus"
           title="Today"
-          description="Your goal exists, but the concept graph still needs to be built before we can schedule the next study session."
+          description="The direction is saved. The path still needs its concept graph before Today can schedule a session."
         />
         <EmptyState
-          title="Your study nodes are not built yet"
-          description="Open the goal workspace, finish decomposition, and come back once the first concepts are available."
+          title="The path is not built yet"
+          description="Open the path, finish the concept graph, and come back when the first session is ready."
           accent="brand"
           action={(
             <Link
-              to={`/goals/${data.goal.id}`}
+              to={`/path?goal=${data.goal.id}`}
               className="inline-block rounded-xl bg-[var(--brand-primary)] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-primary-hov)]"
             >
-              Go to goal
+              Open path
             </Link>
           )}
         />
@@ -626,145 +642,44 @@ export default function Today() {
     weeklyReport?.recoveryPlan ?? weeklyCheckin?.latestCheckin?.recoveryPlan ?? null;
   const weeklyCheckinDue = weeklyReport?.checkinDue ?? weeklyCheckin?.due ?? false;
 
-  if (stage === 'done' && milestones.includes('100% complete')) {
-    return (
-      <div className="mx-auto max-w-md space-y-6 py-8">
-        <PageHeader
-          eyebrow="Goal complete"
-          title="You finished the whole plan"
-          description="Every concept node in this learning path is complete. That is real momentum."
-        />
-
-        <SurfaceCard p={{ base: 6, md: 8 }}>
-          <div className="space-y-3 text-center">
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 shadow-lg">
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                className="h-10 w-10 text-white"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M8 21h8" />
-                <path d="M12 17v4" />
-                <path d="M7 4h10v3a5 5 0 0 1-10 0V4Z" />
-                <path d="M7 5H5a2 2 0 0 0 0 4h2" />
-                <path d="M17 5h2a2 2 0 0 1 0 4h-2" />
-              </svg>
-            </div>
-            <h1 className="font-display text-2xl text-slate-900" style={{ letterSpacing: '-0.02em' }}>
-              Goal complete!
-            </h1>
-            <p className="text-sm leading-relaxed text-slate-500">
-              You finished every node in your learning plan.
-              <br />
-              That took real commitment.
-            </p>
-          </div>
-        </SurfaceCard>
-
-        <div className="space-y-1 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
-          {milestones.map((item) => (
-            <p key={item} className="text-sm font-semibold text-amber-800">
-              {item}
-            </p>
-          ))}
-        </div>
-
-        {nextGoals.length > 0 && (
-          <div className="space-y-3">
-            <p className="text-sm font-semibold text-slate-400">What's next?</p>
-            {nextGoals.map((suggestion) => (
-              <Link
-                key={suggestion.profileId}
-                to={`/goals/new?prompt=${encodeURIComponent(suggestion.title)}`}
-                className="block rounded-xl border border-slate-200 bg-white p-4 shadow-[var(--shadow-xs)] transition-colors hover:border-sky-300"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">
-                      {suggestion.title}
-                    </p>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      {suggestion.reason}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {suggestion.topSkills.map((skill) => (
-                        <span
-                          key={skill}
-                          className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
-                        >
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <span className="shrink-0 font-mono text-xs text-slate-400">
-                    {suggestion.estimatedWeeks.min}-{suggestion.estimatedWeeks.max}w
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  if (stage === 'done') {
+  if (stage === 'done' && activeNode) {
+    const kind = task?.taskType ?? previewTaskType(activeNode, isReview);
+    const directionName = direction.roleTitle ?? direction.goalTitle ?? goal.title;
+    const pathComplete = milestones.includes('100% complete');
     return (
       <div className="mx-auto max-w-2xl space-y-6 py-8">
         <PageHeader
-          eyebrow="Session complete"
-          title={activeNode?.title ?? 'Session complete'}
-          description="Your work is saved. Keep the rhythm going and let the next concept open up."
+          eyebrow={pathComplete ? 'Path complete' : 'Session complete'}
+          title={activeNode.title}
+          description={
+            pathComplete
+              ? 'Every concept on this path is complete. This session is still on the record.'
+              : 'This session is on the record.'
+          }
         />
-
-        <SurfaceCard p={{ base: 6, md: 8 }} className="flex min-h-[40vh] flex-col items-center justify-center space-y-4 px-4 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-          <svg className="h-8 w-8 text-emerald-600" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        {requeued && (
-          <div className="max-w-md rounded-xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-800">
-            You rated this low, so it stays open. It comes back tomorrow, and what depends on it waits until then.
+        <SurfaceCard p={{ base: 6, md: 8 }}>
+          <div className="space-y-4 text-sm leading-7 text-slate-600">
+            <p>
+              <span className="font-semibold text-slate-900">{directionName}.</span>
+              {' '}Added to Proof: {artifactLine(kind, activeNode.title)}
+            </p>
+            {task?.prompt ? <p>{task.prompt}</p> : null}
+            <p>{voiceLine(kind, activeNode.title)}</p>
+            {requeued ? (
+              <p>You rated this low, so it stays on the path and comes back to keep the concept sharp.</p>
+            ) : null}
+            {unlockedTitles.length > 0 ? (
+              <p>Next on the path: {unlockedTitles.join(', ')}.</p>
+            ) : null}
           </div>
-        )}
-        {gapChanges.length > 0 && (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-800">
-            {gapChanges.map((change) => (
-              <p key={change.skillArea}>
-                <span className="font-semibold">{change.skillArea}</span>
-                {change.to === 'closed'
-                  ? ' is now closed'
-                  : change.to === 'proven'
-                    ? ' is closed and proven'
-                    : change.to === 'closing'
-                      ? ' is on its way (closing)'
-                      : ` is now ${change.to}`}
-              </p>
-            ))}
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link to="/proof" className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white">
+              Open proof
+            </Link>
+            <Link to="/voice" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700">
+              Open voice
+            </Link>
           </div>
-        )}
-        {unlockedTitles.length > 0 && (
-          <div className="rounded-xl border border-sky-200 bg-sky-50 px-5 py-3 text-sm font-medium text-sky-700">
-            Unlocked: {unlockedTitles.join(', ')}
-          </div>
-        )}
-        {milestones.length > 0 && (
-          <div className="space-y-1 rounded-xl border border-amber-300 bg-amber-50 px-5 py-4">
-            <p className="text-sm font-semibold text-amber-600">Milestone reached</p>
-            {milestones.map((item) => (
-              <p key={item} className="text-sm font-semibold text-amber-800">
-                {item}
-              </p>
-            ))}
-          </div>
-        )}
         </SurfaceCard>
       </div>
     );
@@ -1102,25 +1017,26 @@ export default function Today() {
     );
   }
 
-  const firstName = user?.name ? user.name.split(' ')[0].replace(/^./, (c) => c.toUpperCase()) : null;
   const mockEnabled = entitlements.find(
     (entry) => entry.featureKey === 'mock_interviews.monthly',
   )?.enabled;
   const weeksLeftLabel =
     goal.estimatedWeeksRemaining > 0 ? `~${goal.estimatedWeeksRemaining} weeks left` : 'Almost done';
+  const directionName = direction.roleTitle ?? direction.goalTitle ?? goal.title;
+  const previewKind = node ? previewTaskType(node, false) : 'explain';
 
   return (
     <div className="space-y-5">
       <PageHeader
+        eyebrow={directionName}
         title="Today"
         description={
           node
-            ? `${firstName ? `${firstName}, one` : 'One'} focused session is ready. Finish it with a short write-up you can get feedback on.`
-            : 'Nothing is unlocked right now. Finish a review or build more of your plan.'
+            ? `${node.title} is next. The write-up lands on Proof, and Voice can cite it.`
+            : 'Nothing is unlocked right now. A review keeps a finished concept sharp, or the path can open the next one.'
         }
       />
 
-      {/* 1. The one thing to do now */}
       {node ? (
         <Card className="space-y-4">
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
@@ -1133,12 +1049,24 @@ export default function Today() {
           </div>
 
           <div>
-            <h2 className="font-display text-[24px] text-slate-900" style={{ letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{directionName}</p>
+            <h2 className="mt-1 font-display text-[24px] text-slate-900" style={{ letterSpacing: '-0.01em', lineHeight: 1.2 }}>
               {node.title}
             </h2>
-            {node.description && (
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">{node.description}</p>
-            )}
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+              {node.description || 'This is the next unlocked concept on the path.'}
+            </p>
+          </div>
+
+          <div className="space-y-1 text-sm leading-6 text-slate-600">
+            <p>
+              <span className="font-semibold text-slate-900">Proof.</span>
+              {' '}{artifactLine(previewKind, node.title)}
+            </p>
+            <p>
+              <span className="font-semibold text-slate-900">Voice.</span>
+              {' '}{voiceLine(previewKind, node.title)}
+            </p>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -1166,11 +1094,11 @@ export default function Today() {
         </Card>
       ) : (
         <EmptyState
-          title={goal.doneNodes === goal.totalNodes ? 'Every concept is done' : 'Nothing unlocked right now'}
+          title={goal.doneNodes === goal.totalNodes ? 'Every concept on this path is done' : 'Nothing unlocked right now'}
           description={
             goal.doneNodes === goal.totalNodes
-              ? 'You completed every concept in this plan. Incredible work.'
-              : 'Complete a review or open your goal to build the next set of concepts.'
+              ? 'The path is complete. Proof holds the write-ups, and Voice can cite them.'
+              : 'A review keeps a finished concept sharp, or the path can open the next set of concepts.'
           }
           accent="brand"
         />
@@ -1179,8 +1107,9 @@ export default function Today() {
       {reviewNode && reviewNode.id !== node?.id && (
         <Card className="flex flex-col gap-3 border-orange-200 bg-orange-50 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-orange-700">Review due</p>
+            <p className="text-xs font-semibold text-orange-700">Keep this sharp</p>
             <p className="mt-0.5 truncate font-semibold text-slate-800">{reviewNode.title}</p>
+            <p className="mt-0.5 text-sm text-slate-600">One recall pass so the concept stays ready to explain.</p>
           </div>
           <button
             onClick={() => handleStartSession(reviewNode, true)}
@@ -1192,11 +1121,11 @@ export default function Today() {
       )}
 
       {/* 2. Where the goal stands */}
-      <Link to={`/goals/${goal.id}`} className="block rounded-[20px] transition-shadow hover:shadow-md">
+      <Link to={`/path?goal=${goal.id}`} className="block rounded-[20px] transition-shadow hover:shadow-md">
         <Card className="space-y-3">
           <div className="flex items-baseline justify-between gap-4">
             <p className="truncate text-sm font-semibold text-slate-800">{goal.title}</p>
-            <span className="shrink-0 text-xs font-medium text-sky-700">Open plan →</span>
+            <span className="shrink-0 text-xs font-medium text-sky-700">Open path →</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-100">
             <div
@@ -1232,8 +1161,8 @@ export default function Today() {
               {weeklyLoading
                 ? 'Loading your week…'
                 : weeklyCheckinDue
-                  ? 'Two minutes: what moved, what is stuck, what to change next week.'
-                  : weeklyRecoveryPlan?.headline ?? 'You are on rhythm this week.'}
+                  ? 'Two minutes: what became visible, and whether the pace still fits.'
+                  : weeklyRecoveryPlan?.headline ?? 'The pace is holding this week.'}
             </p>
           </div>
           {weeklyCheckinDue ? (

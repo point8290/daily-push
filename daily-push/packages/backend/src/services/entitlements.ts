@@ -2,6 +2,7 @@ import { pool } from '../db/postgres';
 import {
   type BillingPlanKey,
   type EntitlementResetPeriod,
+  effectiveBillingPlanKey,
   KNOWN_ENTITLEMENT_KEYS,
   getBillingPlanDefinition,
   getUpgradePlanForFeature,
@@ -122,7 +123,7 @@ export async function syncEntitlementsForUser(
   planKey?: BillingPlanKey,
   expiresAt?: string | null,
 ): Promise<void> {
-  const resolvedPlanKey = planKey ?? (await resolveCurrentPlanKey(userId));
+  const resolvedPlanKey = effectiveBillingPlanKey(planKey ?? (await resolveCurrentPlanKey(userId)));
   const plan = getBillingPlanDefinition(resolvedPlanKey);
   const activeSubscription = await getActiveSubscription(userId);
   const resolvedExpiry = expiresAt ?? activeSubscription?.current_period_end ?? null;

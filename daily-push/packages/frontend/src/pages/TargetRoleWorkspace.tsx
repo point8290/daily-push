@@ -13,6 +13,7 @@ import {
   getTargetRoleReadiness,
   getTargetRoleReadinessHistory,
   getTargetRoleDecompositionStatus,
+  getTargetRoleArtifactCitations,
   getTargetRoleEvidence,
   getTargetRoleProofEvidenceStatus,
   getTargetRoleApplications,
@@ -24,6 +25,7 @@ import {
   retryTargetRoleUpgradePlanDecomposition,
   startTargetRoleUpgradeSprint,
   trackEvent,
+  type ArtifactCitation,
   type CandidateEvidenceProfile,
   type GapToProofResponse,
   type ProofEvidenceStatusResponse,
@@ -37,6 +39,7 @@ import {
   type TargetRoleMarketChangeResponse,
   type UpgradePlan,
 } from '../api/client';
+import ArtifactCitations from '../components/ArtifactCitations';
 import RoleMarketPilotFeedback from '../components/RoleMarketPilotFeedback';
 import DocumentDropzone from '../components/ui/DocumentDropzone';
 import AppModal from '../components/ui/AppModal';
@@ -158,6 +161,15 @@ type RecommendedTargetRoleActionKey =
   | 'start_sprint'
   | 'continue_today'
   | 'compare_jd';
+
+export type RoleSurface = 'all' | 'proof' | 'expectations' | 'applications';
+
+const SURFACE_TABS: Record<RoleSurface, TargetRoleWorkspaceTab[]> = {
+  all: ['overview', 'evidence', 'readiness', 'action_plan', 'applications', 'market_signals'],
+  proof: ['evidence', 'readiness'],
+  expectations: ['market_signals'],
+  applications: ['applications'],
+};
 
 const targetRoleTabs: Array<{
   id: TargetRoleWorkspaceTab;
@@ -328,10 +340,18 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
   );
 }
 
-export default function TargetRoleWorkspace() {
-  const { id } = useParams();
+export default function TargetRoleWorkspace({
+  roleId,
+  surface = 'all',
+}: {
+  roleId?: string;
+  surface?: RoleSurface;
+} = {}) {
+  const params = useParams();
+  const id = roleId ?? params.id;
   const navigate = useNavigate();
-  const [activeTargetRoleTab, setActiveTargetRoleTab] = useState<TargetRoleWorkspaceTab>('overview');
+  const visibleTabs = targetRoleTabs.filter((tab) => SURFACE_TABS[surface].includes(tab.id));
+  const [activeTargetRoleTab, setActiveTargetRoleTab] = useState<TargetRoleWorkspaceTab>(visibleTabs[0]?.id ?? 'overview');
   const [targetRole, setTargetRole] = useState<TargetRole | null>(null);
   const [buildBusy, setBuildBusy] = useState(false);
   const [buildError, setBuildError] = useState('');
@@ -352,7 +372,7 @@ export default function TargetRoleWorkspace() {
     setBuildError('');
     try {
       await buildTargetRolePlan(targetRole.id);
-      navigate('/plan');
+      navigate(`/path?role=${targetRole.id}`);
     } catch (err: any) {
       setBuildError(
         err?.response?.data?.error ?? 'Could not build the plan right now. Try the steps one by one below.',
@@ -392,6 +412,7 @@ export default function TargetRoleWorkspace() {
   const [decompositionBusy, setDecompositionBusy] = useState(false);
   const [decompositionError, setDecompositionError] = useState('');
   const [proofEvidenceStatus, setProofEvidenceStatus] = useState<ProofEvidenceStatusResponse | null>(null);
+  const [artifactCitations, setArtifactCitations] = useState<ArtifactCitation[]>([]);
   const [linkedApplications, setLinkedApplications] = useState<ResumeApplicationWorkspace[]>([]);
   const [proofEvidenceBusy, setProofEvidenceBusy] = useState(false);
   const [proofEvidenceError, setProofEvidenceError] = useState('');
@@ -428,7 +449,7 @@ export default function TargetRoleWorkspace() {
     setLoading(true);
     getTargetRole(id)
       .then(async (role) => {
-        const [profile, evidence, readiness, history, marketChangeSummary, latestPlan, proofEvidence, applications] = await Promise.all([
+        const [profile, evidence, readiness, history, marketChangeSummary, latestPlan, proofEvidence, applications, citations] = await Promise.all([
           getMarketRole(role.roleProfileId, { region: role.candidateInput?.region ?? undefined }),
           getTargetRoleEvidence(role.id).catch(() => null),
           getTargetRoleReadiness(role.id).catch(() => null),
@@ -437,6 +458,7 @@ export default function TargetRoleWorkspace() {
           getLatestTargetRoleUpgradePlan(role.id).catch(() => null),
           getTargetRoleProofEvidenceStatus(role.id).catch(() => null),
           getTargetRoleApplications(role.id).catch(() => []),
+          getTargetRoleArtifactCitations(role.id).catch(() => []),
         ]);
         const plan = latestPlan?.upgradePlan ?? null;
         const decomposition = plan
@@ -452,6 +474,7 @@ export default function TargetRoleWorkspace() {
           setUpgradePlan(plan);
           setDecompositionStatus(decomposition);
           setProofEvidenceStatus(proofEvidence);
+          setArtifactCitations(citations);
           setLinkedApplications(applications);
           setError('');
         }
@@ -641,7 +664,7 @@ export default function TargetRoleWorkspace() {
       const message =
         typeof apiError === 'string'
           ? apiError
-          : apiError?.message ?? 'Could not create an upgrade plan right now.';
+          : apiError?.message ?? 'Could not draft the path right now.';
       setPlanError(message);
     } finally {
       setPlanBusy(false);
@@ -674,7 +697,7 @@ export default function TargetRoleWorkspace() {
             }
           : current,
       );
-      setSprintSuccess('Execution sprint is ready. Proof tasks are available today, and you can add a deeper topic breakdown from this workspace.');
+      setSprintSuccess('The path is ready. Proof tasks are available today, and you can add a deeper topic breakdown from this workspace.');
       setDecompositionStatus(await getTargetRoleDecompositionStatus(targetRole.id, upgradePlan.id).catch(() => null));
       setProofEvidenceStatus(await getTargetRoleProofEvidenceStatus(targetRole.id).catch(() => null));
     } catch (err: any) {
@@ -685,8 +708,8 @@ export default function TargetRoleWorkspace() {
           ? apiError
           : apiError?.message ?? (
               status === 402
-                ? 'Execution sprints are available on the Sprint plan.'
-                : 'Could not start the sprint right now.'
+                ? 'This schedule is part of the paid record.'
+                : 'Could not start the path right now.'
             );
       setSprintError(message);
     } finally {
@@ -729,7 +752,7 @@ export default function TargetRoleWorkspace() {
           ? apiError
           : apiError?.message ?? (
               status === 402
-                ? 'Deeper topic breakdowns are available on the Sprint plan.'
+                ? 'Deeper topic breakdowns are part of the paid record.'
                 : 'Could not start topic breakdown right now.'
             );
       setDecompositionError(message);
@@ -747,6 +770,7 @@ export default function TargetRoleWorkspace() {
       setProofEvidenceStatus(result);
       const evidence = await getTargetRoleEvidence(targetRole.id).catch(() => null);
       if (evidence) setEvidenceProfile(evidence);
+      setArtifactCitations(await getTargetRoleArtifactCitations(targetRole.id).catch(() => artifactCitations));
     } catch (err: any) {
       const apiError = err?.response?.data?.error;
       const message =
@@ -893,10 +917,12 @@ export default function TargetRoleWorkspace() {
 
   return (
     <div className="space-y-6">
+      {surface === 'all' ? (
+      <>
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="max-w-3xl">
-          <Link to="/target-roles" className="text-sm font-semibold text-slate-500 hover:text-sky-700">
-            ← All saved roles
+          <Link to={surface === 'all' ? '/directions' : '/path'} className="text-sm font-semibold text-slate-500 hover:text-sky-700">
+            {surface === 'all' ? '← Directions' : '← Path'}
           </Link>
           <h1 className="mt-2 text-3xl font-bold tracking-[-0.03em] text-slate-950 md:text-4xl">
             {targetRole.title}
@@ -985,7 +1011,7 @@ export default function TargetRoleWorkspace() {
 
           {planProgress && targetRole.linkedGoalId ? (
             <Link
-              to={`/goals/${targetRole.linkedGoalId}`}
+              to={`/path?goal=${targetRole.linkedGoalId}&role=${targetRole.id}`}
               className="block rounded-2xl border border-slate-200 p-4 transition-colors hover:border-sky-300"
             >
               <div className="flex items-end justify-between gap-3">
@@ -1010,14 +1036,17 @@ export default function TargetRoleWorkspace() {
           )}
         </div>
       </SurfaceCard>
+      </>
+      ) : null}
 
+      {visibleTabs.length > 1 ? (
       <div
         data-testid="target-role-tablist"
         role="tablist"
         aria-label="Role sections"
         className="flex gap-1 overflow-x-auto border-b border-slate-200"
       >
-        {targetRoleTabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const active = activeTargetRoleTab === tab.id;
           return (
             <button
@@ -1036,6 +1065,7 @@ export default function TargetRoleWorkspace() {
           );
         })}
       </div>
+      ) : null}
 
       {activeTargetRoleTab === 'overview' && (
         <section data-section="target-role-overview" className="grid gap-5 lg:grid-cols-3">
@@ -1159,6 +1189,7 @@ export default function TargetRoleWorkspace() {
             Add evidence
           </button>
         </div>
+        <ArtifactCitations citations={artifactCitations} />
         <AppModal
           isOpen={evidenceOpen}
           onClose={() => setEvidenceOpen(false)}
@@ -1263,7 +1294,7 @@ export default function TargetRoleWorkspace() {
           )}
           {proofEvidenceStatus?.linkedGoalId && (
             <Link
-              to={`/goals/${proofEvidenceStatus.linkedGoalId}?source=target-role`}
+              to={`/path?goal=${proofEvidenceStatus.linkedGoalId}&role=${targetRole.id}`}
               className="inline-flex rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5"
             >
               Review proof tasks
@@ -1716,7 +1747,7 @@ export default function TargetRoleWorkspace() {
                 disabled={planBusy}
                 className={targetRolePrimaryActionClass}
               >
-                {planBusy ? 'Creating plan...' : 'Create upgrade plan'}
+                {planBusy ? 'Creating path...' : 'Draft the path'}
               </button>
             </div>
             {planError && (
@@ -1780,13 +1811,13 @@ export default function TargetRoleWorkspace() {
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold text-slate-400">
-                  Upgrade plan
+                  Path
                 </p>
                 <h2 className="mt-2 text-3xl font-semibold tracking-[-0.06em] text-slate-950">
                   {upgradePlan.title}
                 </h2>
                 <p className="mt-2 max-w-3xl text-sm leading-7 text-slate-600">
-                  A focused plan for turning role gaps into visible proof. Review this before starting an execution sprint.
+                  A focused path for turning gaps into visible proof. Review it before you start.
                 </p>
               </div>
               <div className="flex flex-col items-start gap-2 sm:items-end">
@@ -1796,14 +1827,14 @@ export default function TargetRoleWorkspace() {
                   disabled={sprintBusy}
                   className={targetRolePrimaryActionClass}
                 >
-                  {sprintBusy ? 'Starting sprint...' : upgradePlan.linkedSprintId ? 'Continue sprint' : 'Start execution sprint'}
+                  {sprintBusy ? 'Starting path...' : upgradePlan.linkedSprintId ? 'Continue path' : 'Start this path'}
                 </button>
                 {upgradePlan.linkedGoalId && (
                   <Link
-                    to={`/goals/${upgradePlan.linkedGoalId}?source=target-role`}
+                    to={`/path?goal=${upgradePlan.linkedGoalId}&role=${targetRole.id}`}
                     className="text-sm font-semibold text-slate-500 hover:text-sky-700"
                   >
-                    View linked goal
+                    Open path
                   </Link>
                 )}
               </div>
@@ -1816,7 +1847,7 @@ export default function TargetRoleWorkspace() {
                   onClick={() => trackMarketUpgradeClick('sprint_error', 'sprint')}
                   className="underline"
                 >
-                  See Sprint plan
+                  See plans
                 </Link>
               </div>
             )}
@@ -1900,7 +1931,7 @@ export default function TargetRoleWorkspace() {
                   )}
                   {decompositionStatus?.goalId && (
                     <Link
-                      to={`/goals/${decompositionStatus.goalId}?source=target-role`}
+                      to={`/path?goal=${decompositionStatus.goalId}&role=${targetRole.id}`}
                       className={targetRoleSecondaryActionClass}
                     >
                       Open goal
@@ -1916,7 +1947,7 @@ export default function TargetRoleWorkspace() {
                     onClick={() => trackMarketUpgradeClick('topic_breakdown_error', 'sprint')}
                     className="underline"
                   >
-                    See Sprint plan
+                    See plans
                   </Link>
                 </div>
               )}
@@ -1998,7 +2029,7 @@ export default function TargetRoleWorkspace() {
                 </div>
                 <div className="rounded-[28px] bg-amber-50 p-5">
                   <p className="text-sm font-semibold text-amber-700">
-                    Risks to manage
+                    Scope to watch
                   </p>
                   <div className="mt-3 space-y-2">
                     {(upgradePlan.risks.length ? upgradePlan.risks : ['Keep the scope small enough to finish and document.']).slice(0, 5).map((item) => (
@@ -2068,6 +2099,15 @@ export default function TargetRoleWorkspace() {
 
       {activeTargetRoleTab === 'applications' && (
       <section data-section="target-role-applications" className="grid gap-5 lg:grid-cols-2">
+        <SurfaceCard p={5} className="bg-white/88 lg:col-span-2">
+          <p className="text-sm font-semibold text-slate-400">Resume and interview lines</p>
+          <ArtifactCitations citations={artifactCitations} />
+          {artifactCitations.length === 0 ? (
+            <p className="mt-3 text-sm leading-7 text-slate-500">
+              Finish a session on Today. The sentence you can say will cite that note.
+            </p>
+          ) : null}
+        </SurfaceCard>
         <SurfaceCard p={5} className="bg-white/88">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
@@ -2101,7 +2141,7 @@ export default function TargetRoleWorkspace() {
               >
                 <p className="text-sm font-semibold text-slate-950">{application.title}</p>
                 <p className="mt-1 text-xs font-bold text-slate-500">
-                  {application.targetCompany ?? application.targetRole ?? 'Company application'} - {application.linkedSprintCreatedAt ? 'Sprint created' : application.linkedGoalId ? 'Goal created' : 'Resume report saved'}
+                  {application.targetCompany ?? application.targetRole ?? 'Company application'} - {application.linkedSprintCreatedAt ? 'Path started' : application.linkedGoalId ? 'Path drafted' : 'Resume report saved'}
                 </p>
               </Link>
             ))}

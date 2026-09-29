@@ -17,7 +17,7 @@ import PageHeader from '../components/ui/PageHeader';
 import SurfaceCard from '../components/ui/SurfaceCard';
 import AppModal from '../components/ui/AppModal';
 import { useEntitlements } from '../contexts/EntitlementsContext';
-import { hasProResumeAccess, hasSprintAccess } from '../utils/planAccess';
+import { hasProResumeAccess } from '../utils/planAccess';
 
 type WorkspaceTab = 'report' | 'resume' | 'next' | 'documents';
 
@@ -145,7 +145,7 @@ export default function ResumeApplication() {
       ['Full report', !!application.gapReport],
       ['Tailored resume', !!application.tailoredResume],
       ['Goal', !!application.linkedGoalId],
-      ['Sprint', !!application.linkedSprintCreatedAt],
+      ['Path', !!application.linkedSprintCreatedAt],
     ] as const;
   }, [application]);
 
@@ -186,7 +186,7 @@ export default function ResumeApplication() {
   const handleCreateGoal = async () => {
     if (!application) return;
     if (application.linkedGoalId) {
-      navigate(`/goals/${application.linkedGoalId}?source=resume`);
+      navigate(`/path?goal=${application.linkedGoalId}`);
       return;
     }
     setBusy('goal');
@@ -195,7 +195,7 @@ export default function ResumeApplication() {
     try {
       const { goalId } = await createGoalFromResumeApplication(application.id);
       toast.closeAll();
-      navigate(`/goals/${goalId}?source=resume`);
+      navigate(`/path?goal=${goalId}`);
     } catch (err: any) {
       setError(err?.response?.data?.error ?? 'Could not create a career goal from this report.');
       setUpgradePlan(err?.response?.data?.upgradePlan ?? null);
@@ -207,7 +207,7 @@ export default function ResumeApplication() {
   const handleCreateSprint = async () => {
     if (!application) return;
     if (application.linkedGoalId && application.linkedSprintCreatedAt) {
-      navigate(`/goals/${application.linkedGoalId}?source=resume`);
+      navigate(`/path?goal=${application.linkedGoalId}`);
       return;
     }
     setBusy('sprint');
@@ -216,7 +216,7 @@ export default function ResumeApplication() {
     try {
       const { goalId } = await createSprintFromResumeApplication(application.id);
       toast.closeAll();
-      navigate(`/goals/${goalId}?source=resume`);
+      navigate(`/path?goal=${goalId}`);
     } catch (err: any) {
       setError(err?.response?.data?.error ?? 'Could not create the sprint from this report.');
       setUpgradePlan(err?.response?.data?.upgradePlan ?? null);
@@ -276,7 +276,7 @@ export default function ResumeApplication() {
   const gapReport = application.gapReport;
   const tailoredResume = application.tailoredResume;
   const canGenerateTailoredResume = hasProResumeAccess(currentPlan?.planKey);
-  const canCreateSprint = hasSprintAccess(currentPlan?.planKey);
+  const canCreateSprint = hasProResumeAccess(currentPlan?.planKey);
 
   return (
     <div className="space-y-6">
@@ -295,7 +295,7 @@ export default function ResumeApplication() {
               </Link>
             ) : null}
             {application.targetRoleId ? (
-              <Link to={`/target-roles/${application.targetRoleId}`} className="rounded-full border border-black/10 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-sky-200 hover:text-sky-700">
+              <Link to={`/proof?role=${application.targetRoleId}`} className="rounded-full border border-black/10 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-sky-200 hover:text-sky-700">
                 Open Target Role
               </Link>
             ) : null}
@@ -445,7 +445,7 @@ export default function ResumeApplication() {
               </p>
             </div>
             <Link
-              to={`/target-roles/${application.targetRoleId}`}
+              to={`/proof?role=${application.targetRoleId}`}
               className="inline-flex rounded-full bg-white px-4 py-2 text-sm font-semibold text-sky-700 shadow-sm"
             >
               View role workspace
@@ -499,14 +499,14 @@ export default function ResumeApplication() {
                 disabled={!!busy}
                 className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-700 disabled:opacity-60"
               >
-                {application.linkedSprintCreatedAt ? 'Open sprint plan' : 'Turn gaps into sprint'}
+                {application.linkedSprintCreatedAt ? 'Open path' : 'Turn gaps into a path'}
               </button>
             ) : (
               <Link
                 to="/pricing?source=resume"
                 className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-700"
               >
-                Start Sprint plan
+                See the paid plan
               </Link>
             )}
           </div>
@@ -729,13 +729,13 @@ export default function ResumeApplication() {
 
           <SurfaceCard p={6} className="bg-white/95">
             <p className="text-sm font-semibold text-orange-600">
-              Gap-closing sprint
+              Path from this report
             </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950">
               Convert gaps into a 2-8 week push.
             </h2>
             <p className="mt-3 text-sm leading-8 text-slate-600">
-              Sprint adds accountability, proof-building tasks, and interview readiness around the weakest parts of this report.
+              The path adds a schedule, proof-building tasks, and interview practice around the weakest parts of this report.
             </p>
             {canCreateSprint || application.linkedSprintCreatedAt ? (
               <button
@@ -744,14 +744,14 @@ export default function ResumeApplication() {
                 disabled={!!busy}
                 className="mt-5 rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-700 disabled:opacity-60"
               >
-                {application.linkedSprintCreatedAt ? 'Open sprint plan' : 'Turn gaps into sprint'}
+                {application.linkedSprintCreatedAt ? 'Open path' : 'Turn gaps into a path'}
               </button>
             ) : (
               <Link
                 to="/pricing?source=resume"
                 className="mt-5 inline-flex rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 hover:border-sky-300 hover:text-sky-700"
               >
-                Start Sprint plan
+                See the paid plan
               </Link>
             )}
           </SurfaceCard>

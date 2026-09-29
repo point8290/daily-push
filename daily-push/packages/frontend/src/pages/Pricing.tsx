@@ -72,19 +72,13 @@ export default function Pricing() {
     <Stack spacing={8}>
       <PageHeader
         eyebrow="Plans"
-        title={
-          isResumeSource
-            ? 'Plans for stronger job applications'
-            : isRoleDiscoverySource
-              ? 'Plans for sharper role preparation'
-              : 'Pricing built for serious career progression'
-        }
+        title="A free record, and a paid one"
         description={
           isResumeSource
-            ? 'Upgrade when you want full resume reports, tailored drafts, saved applications, and a sprint plan to close the gaps.'
+            ? 'Free covers one direction and a first resume read. Pro is the full proof record and the language that matches it.'
             : isRoleDiscoverySource
-              ? 'Upgrade when you want more Target Roles, readiness reports, role comparisons, and a sprint plan that turns market gaps into weekly proof.'
-              : 'Start free, then upgrade when you want deeper feedback, stronger resume support, and more accountability around the roles you are targeting.'
+              ? 'Free covers one direction. Pro keeps more than one path, the full proof record, and voice.'
+              : 'Free holds one direction, the daily session, and a short proof record. Pro is the full record: path, proof, and voice.'
         }
         actions={(
           <ButtonGroup isAttached variant="outline" size="sm">
@@ -128,8 +122,8 @@ export default function Pricing() {
         </SurfaceCard>
       )}
 
-      <SimpleGrid columns={{ base: 1, xl: 3 }} spacing={6}>
-        {plans.map((plan) => {
+      <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={6}>
+        {plans.filter((plan) => plan.key !== 'sprint').map((plan) => {
           const price =
             billingInterval === 'month'
               ? formatPrice(plan.monthlyPriceCents, 'month')
@@ -167,7 +161,7 @@ export default function Pricing() {
                     {price}
                   </Text>
                   <Text mt={1} fontSize="xs" textTransform="uppercase" letterSpacing="0.14em" color="ink.400">
-                    {plan.key === 'free' ? 'Start here' : plan.key === 'pro' ? 'More feedback, fewer limits' : 'Everything, plus interview practice'}
+                    {plan.key === 'free' ? 'One direction' : plan.key === 'pro' ? 'The full record' : 'Current subscriber plan'}
                   </Text>
                 </Box>
 

@@ -21,17 +21,17 @@ export function PlanRedirect() {
     getPrimaryGoal()
       .then((goal) => {
         if (cancelled) return;
-        setTarget(goal?._id ? `/goals/${String(goal._id)}` : '/goals/new');
+        setTarget(goal?._id ? `/path?goal=${String(goal._id)}` : '/directions');
       })
       .catch(() => {
-        if (!cancelled) setTarget('/goals/new');
+        if (!cancelled) setTarget('/directions');
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  if (!target) return <Loading label="Opening your plan…" />;
+  if (!target) return <Loading label="Opening your path…" />;
   return <Navigate to={target} replace />;
 }
 
@@ -58,13 +58,13 @@ export function RoleRedirect() {
         null;
       const active = roles.filter((role) => role.status !== 'archived');
       const id = fromGoal ?? active[0]?.id ?? null;
-      setTarget(id ? `/target-roles/${id}` : '/career-market/find-direction');
+      setTarget(id ? `/proof?role=${id}` : '/directions');
     })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  if (!target) return <Loading label="Opening your role…" />;
+  if (!target) return <Loading label="Opening your proof…" />;
   return <Navigate to={target} replace />;
 }
