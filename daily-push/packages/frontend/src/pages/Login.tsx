@@ -13,9 +13,6 @@ import {
   Heading,
   Input,
   Stack,
-  Tab,
-  TabList,
-  Tabs,
   Text,
 } from "@chakra-ui/react";
 import { login, register } from "../api/client";
@@ -215,18 +212,48 @@ export default function Login() {
               </Text>
             </Box>
 
-            <Tabs
+            <Box
               mt={6}
-              index={mode === "login" ? 0 : 1}
-              onChange={(index) => setMode(index === 0 ? "login" : "register")}
-              variant="softRounded"
-              isFitted
+              role="tablist"
+              aria-label="Account"
+              display="grid"
+              gridTemplateColumns="1fr 1fr"
+              gap={1}
+              p={1}
+              bg="ink.100"
+              borderRadius="xl"
             >
-              <TabList>
-                <Tab>Sign in</Tab>
-                <Tab>Create account</Tab>
-              </TabList>
-            </Tabs>
+              {([
+                ["login", "Sign in"],
+                ["register", "Create account"],
+              ] as const).map(([value, label]) => {
+                const selected = mode === value;
+                return (
+                  <Button
+                    key={value}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => setMode(value)}
+                    variant="ghost"
+                    h="11"
+                    borderRadius="lg"
+                    fontSize="sm"
+                    fontWeight="700"
+                    color={selected ? "ink.900" : "ink.500"}
+                    bg={selected ? "white" : "transparent"}
+                    boxShadow={selected ? "sm" : "none"}
+                    _hover={{
+                      bg: selected ? "white" : "whiteAlpha.700",
+                      color: "ink.900",
+                    }}
+                    _active={{ bg: selected ? "white" : "ink.200" }}
+                  >
+                    {label}
+                  </Button>
+                );
+              })}
+            </Box>
 
             {HAS_DEMO && (
               <Box mt={6} p={4} rounded="xl" bg="blue.50" border="1px solid" borderColor="blue.100">
