@@ -218,8 +218,8 @@ export default function Login() {
               aria-label="Account"
               display="grid"
               gridTemplateColumns="1fr 1fr"
-              gap={1}
-              p={1}
+              gap="4px"
+              p="4px"
               bg="ink.100"
               borderRadius="xl"
             >
@@ -236,10 +236,14 @@ export default function Login() {
                     aria-selected={selected}
                     onClick={() => setMode(value)}
                     variant="ghost"
-                    h="11"
-                    borderRadius="lg"
+                    w="full"
+                    h="40px"
+                    minH="40px"
+                    px={4}
+                    borderRadius="16px"
                     fontSize="sm"
                     fontWeight="700"
+                    lineHeight="1"
                     color={selected ? "ink.900" : "ink.500"}
                     bg={selected ? "white" : "transparent"}
                     boxShadow={selected ? "sm" : "none"}
