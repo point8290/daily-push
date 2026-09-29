@@ -122,7 +122,7 @@ export default function Login() {
                   ? "Save your resume audit report and keep improving."
                   : isRoleDiscoveryFlow
                     ? "Save this direction and confirm the path."
-                    : "A path, proof of the work, and language that matches it."}
+                    : "Practice one missing skill for your role, every day."}
               </Heading>
               <Text
                 mt={5}
@@ -135,7 +135,7 @@ export default function Login() {
                   ? "Your snapshot will continue after signup, so you can save the full report, tailor the resume, and decide whether to turn the gaps into a plan."
                   : isRoleDiscoveryFlow
                     ? "Keep your target role direction, compare it with real jobs, and build the proof that makes the move believable."
-                    : "Choose a direction, confirm the path, and keep one session a day. The proof and the words for it stay on the record."}
+                    : "You name the role you are building toward. Daily Push orders the concepts between your current skills and that role. Each day you study the next concept and write a short note. The note is kept as proof of the skill, then rewritten as a resume bullet and an interview answer."}
               </Text>
 
               <Stack
@@ -151,14 +151,14 @@ export default function Login() {
                     textTransform="uppercase"
                     color="brand.700"
                   >
-                    {isResumeFlow ? "Resume-first" : "Career-focused"}
+                    {isResumeFlow ? "Resume-first" : "One session"}
                   </Text>
                   <Text mt={2} fontSize="sm" lineHeight="1.7" color="ink.600">
                     {isResumeFlow
                       ? "Pick up exactly where you left off after checking your resume against the job description."
                       : isRoleDiscoveryFlow
                         ? "Start from the role direction that fits, not from a random list of topics."
-                        : "Every session targets a skill gap for the role you want."}
+                        : "Open the next concept, see why it comes before the others, and write the note for that session. Then you stop."}
                   </Text>
                 </SurfaceCard>
                 <SurfaceCard flex="1" px={5} py={5}>
@@ -169,14 +169,14 @@ export default function Login() {
                     textTransform="uppercase"
                     color="accent.700"
                   >
-                    {isResumeFlow ? "Next steps" : "Execution-first"}
+                    {isResumeFlow ? "Next steps" : "What you keep"}
                   </Text>
                   <Text mt={2} fontSize="sm" lineHeight="1.7" color="ink.600">
                     {isResumeFlow
                       ? "Save the report, generate a tailored draft, or build a gap-closing sprint when you are ready."
                       : isRoleDiscoveryFlow
                         ? "Move from direction to resume checks, proof tasks, and focused upgrade sprints."
-                        : "Finish each session with a short write-up, a score, and a clear next step."}
+                        : "The note stays attached to the skill. The same note becomes the resume bullet and the interview answer."}
                   </Text>
                 </SurfaceCard>
               </Stack>
