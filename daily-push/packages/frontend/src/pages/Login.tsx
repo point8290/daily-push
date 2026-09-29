@@ -117,8 +117,8 @@ export default function Login() {
                 mt={4}
                 className="font-display"
                 fontSize={{ base: "4xl", md: "5xl" }}
-                lineHeight="0.96"
-                letterSpacing="-0.05em"
+                lineHeight="1.08"
+                letterSpacing="-0.03em"
                 color="ink.900"
               >
                 {isResumeFlow
